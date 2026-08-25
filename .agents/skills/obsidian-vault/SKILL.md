@@ -11,7 +11,11 @@ Act as the calling agent. Dispatch one subagent with the input artifacts and the
 
 - One problem-profile Markdown file following [the problem profile contract](references/problem-profile.md).
 - One paper collection containing records following [the paper note contract](references/paper-note.md). The collection may contain one or more records; materialize one note per record.
-- Vault path, defaulting to `<workspace>/obsidian-vault`.
+- Vault path, defaulting to `<project-root>/obsidian-vault`.
+
+## Project resolution
+
+Treat the workspace as the tool's writable execution boundary, not necessarily the project containing the user's files. Resolve the project root from the supplied or named artifacts before choosing input or output paths. Search the current directory first; when the artifacts are absent, search accessible sibling project folders and select the repository containing the named collection and `.agents` skill data. Report the resolved project root. If more than one repository matches, ask the user which project to use.
 
 ## Subagent task
 
