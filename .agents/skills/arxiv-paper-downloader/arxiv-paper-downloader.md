@@ -1,5 +1,5 @@
 ---
-name: second-brain-paper-downloader
+name: arxiv-paper-downloader
 description: Use when the user provides a research-problem/domain description (as an .md file with YAML frontmatter containing a `path:` field) and wants relevant papers found and downloaded from arXiv into that project's papers/ folder. Searches arXiv via the arxiv MCP tools, screens results for relevance and recency, and saves up to 20 matching papers as markdown.
 tools: Read, Write, Bash, Glob, mcp__arxiv__search_papers, mcp__arxiv__get_abstract, mcp__arxiv__download_paper
 model: sonnet
