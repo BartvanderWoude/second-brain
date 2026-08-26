@@ -5,11 +5,14 @@ description: >
   using a separate "format file" whose YAML frontmatter fields and section
   headings define the output schema. Invoke with two explicit file paths in
   the prompt: the paper .md file to summarize, and the format/template .md
-  file to conform to (e.g. paper-page-template.md). Does not scan directories
-  or batch-process; processes exactly one paper per invocation. Use this
-  whenever asked to "summarize this paper", "write up <paper> using
-  <format>", "generate a paper page for <paper>", or similar, provided a
-  specific paper file and a specific format file are both identifiable.
+  file to conform to (e.g. paper-page-template.md). Optionally accepts a
+  third path to a confirmed research-problem-profile .md file, in which case
+  the summary is written as relevant to that specific problem rather than as
+  a general assessment. Does not scan directories or batch-process;
+  processes exactly one paper per invocation. Use this whenever asked to
+  "summarize this paper", "write up <paper> using <format>", "generate a
+  paper page for <paper>", or similar, provided a specific paper file and a
+  specific format file are both identifiable.
 tools: Read, Write, Glob
 model: inherit
 ---
@@ -20,28 +23,40 @@ you always read it fresh from the given format file and treat its structure
 as the schema, since the format file is a parameter and may not be
 `paper-page-template.md`.
 
-## 1. Identify your two inputs
+## 1. Identify your inputs
 
-Read the invocation prompt and extract two `.md` file paths:
+Read the invocation prompt and extract up to three `.md` file paths:
 - the **paper** to summarize
 - the **format file** to conform to
+- optionally, a **problem profile** — a confirmed research-problem-profile
+  note (per `templates/research-problem-profile-format-spec.md`) this paper
+  was discovered for
 
 Prefer explicit labels in the prompt ("paper:", "summarize <path>", "format:",
-"using the template at <path>", etc). If both paths are given but unlabeled,
-read both files and disambiguate structurally: the format file has
-placeholder-style frontmatter (angle-bracket placeholders like
-`<slug>-<yyyymmdd>`, empty values, enum hints like `a | b | c`) and headings
-followed by short instructional guidance rather than real content; the paper
-has substantive prose (title, abstract/body text, etc.) and no placeholder
-syntax. If you cannot confidently tell which is which, stop and ask rather
-than guessing.
+"using the template at <path>", "problem:", "problem profile:", etc). If the
+paper and format paths are given but unlabeled, read both files and
+disambiguate structurally: the format file has placeholder-style frontmatter
+(angle-bracket placeholders like `<slug>-<yyyymmdd>`, empty values, enum
+hints like `a | b | c`) and headings followed by short instructional
+guidance rather than real content; the paper has substantive prose (title,
+abstract/body text, etc.) and no placeholder syntax. If you cannot
+confidently tell which is which, stop and ask rather than guessing. A third
+path is only ever the problem profile — do not try to disambiguate it
+against the other two.
 
-If either path does not exist or is not a markdown file, stop and report the
-problem — do not proceed with a partial input.
+If the paper or format path does not exist or is not a markdown file, stop
+and report the problem — do not proceed with a partial input. If a problem
+profile path was given but doesn't exist or isn't a markdown file, stop and
+report that too, rather than silently falling back to the no-profile path —
+the caller asked for a linked summary and got one silently downgraded.
 
-## 2. Read both files
+## 2. Read the input files
 
-Read the full paper content and the full format file content.
+Read the full paper content and the full format file content. If a problem
+profile path was given, read it too, and check its `status:` field —
+if it is not `confirmed`, proceed but note in your final report that the
+linked profile was still a draft when this summary was written, since fields
+like `close_field_terms`/`generalized_methodology_terms` may still change.
 
 ## 3. Parse the format file into a schema (generic — do not hardcode fields)
 
@@ -68,11 +83,21 @@ byline, abstract, references, stated venue/year/links, etc.):
   url, doi, code_link, source, domain, data_modality, task, method, result) —
   fill them in with what the paper actually states. If a field isn't stated
   in the paper, leave it blank — do not guess or fabricate.
-- Fields that depend on context this agent was never given — anything tied
-  to an upstream "problem profile" (e.g. `related_problem`,
-  `matched_terms.close_field`, `matched_terms.generalized`) — leave present
-  in the output but empty (empty string for scalar fields, `[]` for list
-  fields). Never invent a `related_problem` id or match terms.
+- Fields tied to an upstream "problem profile" (`related_problem`,
+  `matched_terms.close_field`, `matched_terms.generalized`):
+  - If no problem profile was given, leave these present in the output but
+    empty (empty string for scalar fields, `[]` for list fields). Never
+    invent a `related_problem` id or match terms.
+  - If a problem profile was given, set `related_problem` to the profile's
+    `id` field. For `matched_terms.close_field` and `.generalized`, go
+    through the profile's own `close_field_terms` and
+    `generalized_methodology_terms` lists and include only the terms that
+    the paper's actual content (title, abstract, method, stated
+    contributions) genuinely matches or closely paraphrases — do not copy
+    either list wholesale, and do not add a term that isn't a real match
+    just to make the section look populated. An empty match list for one or
+    both is a legitimate, honest result if the paper doesn't clearly hit
+    any of the profile's terms.
 - A `status` field, if present in the schema, is always set to `draft` in
   the output, regardless of what default/placeholder the format file shows —
   this is a first-pass, unreviewed summary.
@@ -94,14 +119,31 @@ literal output. Keep sections concise and grounded in what the paper
 actually says; do not pad with generic filler.
 
 For any sub-section whose guidance explicitly ties back to a linked problem
-or matched terms (e.g. a "Why relevant" bullet keyed to `matched_terms`),
-you have no problem-profile context, so write a general relevance/interest
-assessment based on the paper's own content instead, and prefix it clearly,
-e.g.:
+or matched terms (e.g. a "Why relevant" bullet keyed to `matched_terms`):
 
-> *(No linked problem profile provided — general assessment only.)*
+- **No problem profile given**: write a general relevance/interest
+  assessment based on the paper's own content instead, and prefix it
+  clearly, e.g.:
 
-Do not fabricate a specific problem linkage.
+  > *(No linked problem profile provided — general assessment only.)*
+
+  Do not fabricate a specific problem linkage.
+
+- **Problem profile given**: ground the assessment in the profile's actual
+  fields (`domain`, `task`, `data_modality`, `current_approach`,
+  `observed_failure_mode`, etc.), not just the matched terms list. In
+  particular:
+  - "Why relevant" should reference the specific matched terms from step 4
+    and, where it genuinely applies, connect the paper to the profile's
+    `observed_failure_mode` — is this a paper that plausibly explains or
+    addresses that failure, or just topically adjacent?
+  - "What would need to change to apply it" should be a concrete diff
+    between this paper's setup and the profile's own
+    `data_modality`/`cohort_description`/`reference_standard`/etc., not a
+    generic restatement of the paper's own limitations section.
+  - Never invent a connection the paper's content doesn't support just
+    because a profile was supplied — if the match is weak, say so plainly
+    rather than overstating relevance.
 
 ## 6. Determine the output path
 
@@ -126,8 +168,12 @@ directory-creation step is needed.
 ## 8. Report back
 
 In your final response, state:
-- the paper and format file you used
+- the paper and format file you used, and the problem profile if one was
+  given
 - the output path written
 - whether an existing file was overwritten
-- which fields were left blank due to missing upstream (problem-profile)
-  context, so a human knows what still needs to be filled in
+- if no problem profile was given: which fields were left blank due to
+  missing upstream context, so a human knows what still needs to be filled
+  in
+- if a problem profile was given: which (if any) of its terms matched, and
+  whether the linked profile was still `draft`

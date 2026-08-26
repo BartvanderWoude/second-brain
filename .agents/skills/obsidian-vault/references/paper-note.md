@@ -16,6 +16,8 @@ venue:
 url:
 doi:
 code_link:
+pdf_local_path:
+code_local_path:
 paywalled: false
 related_problem: <problem-profile id>
 matched_terms:

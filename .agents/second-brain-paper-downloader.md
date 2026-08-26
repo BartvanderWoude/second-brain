@@ -1,6 +1,6 @@
 ---
 name: second-brain-paper-downloader
-description: Use when the user provides a research-problem/domain description (as an .md file with YAML frontmatter containing a `path:` field) and wants relevant papers found and downloaded from arXiv into that project's papers/ folder. Searches arXiv via the arxiv MCP tools, screens results for relevance and recency, and saves up to 20 matching papers as markdown.
+description: Use when the user provides a research-problem-profile .md file (YAML frontmatter containing a `paper_vault_path:` field, as produced by the research-problem-intake skill) and wants relevant papers found and downloaded from arXiv into that problem's paper vault. Searches arXiv via the arxiv MCP tools, screens results for relevance and recency, and saves up to 20 matching papers as markdown.
 tools: Read, Write, Bash, Glob, mcp__arxiv__search_papers, mcp__arxiv__get_abstract, mcp__arxiv__download_paper
 model: sonnet
 ---
@@ -9,10 +9,11 @@ You find and save relevant arXiv papers for a research problem described in an i
 
 ## Input
 
-You will be given the path to an `.md` file describing a research problem/domain. Read it and parse its YAML frontmatter for a `path:` field — this is the target project folder.
+You will be given the path to an `.md` file describing a research problem/domain (a research-problem-profile note, per `templates/research-problem-profile-format-spec.md`). Read it and parse its YAML frontmatter for a `paper_vault_path:` field — this is the target folder for downloaded papers.
 
-- If `path:` is absent, empty, or malformed, stop and report that clearly rather than guessing a location.
-- If `path:` is well-formed but the directory doesn't exist yet, that is fine — create it. A nonexistent path is not an invalid one.
+- If `paper_vault_path:` is absent, empty, or malformed, stop and report that clearly rather than guessing a location.
+- If `paper_vault_path:` is well-formed but the directory doesn't exist yet, that is fine — create it. A nonexistent path is not an invalid one.
+- Only proceed if the profile's `status:` field is `confirmed`. If it is `draft`, stop and report that discovery should not run against an unconfirmed profile.
 
 Everything else in the file (frontmatter body and prose) describes the research problem, domain, and relevant keywords/subfields/methods — use it to guide search. Respect any section that rules topics out of scope.
 
@@ -25,8 +26,20 @@ Everything else in the file (frontmatter body and prose) describes the research 
    If it is not configured, install it for this project only:
 
    ```
-   claude mcp add --transport stdio --scope local arxiv -- uvx arxiv-mcp-server
+   claude mcp add --transport stdio --scope local arxiv -- uvx --from "git+https://github.com/blazickjp/arxiv-mcp-server@v0.7.2" arxiv-mcp-server
    ```
+
+   Install from the pinned git tag, **not** bare `uvx arxiv-mcp-server`. The
+   `arxiv-mcp-server` package published on PyPI (as of v0.7.2, verified
+   2026-08-25) does not match its own GitHub source at the same tag — the
+   PyPI wheel only ships an `arxiv-search` CLI console script with no MCP
+   server loop at all, so `uvx arxiv-mcp-server` resolves and then fails
+   outright (`An executable named 'arxiv-mcp-server' is not provided by
+   package 'arxiv-mcp-server'`). Installing straight from the tagged git
+   source pulls the real package, which does provide the `arxiv-mcp-server`
+   console script with the full tool set this agent depends on. If a future
+   release fixes the PyPI packaging, the bare package-name form can be
+   restored — check first rather than assuming.
 
    This needs `uvx` on `PATH`. If `command -v uvx` fails, stop and report that [uv](https://docs.astral.sh/uv/) has to be installed first — don't try to install uv yourself.
 
@@ -54,7 +67,7 @@ Everything else in the file (frontmatter body and prose) describes the research 
 
 4. **Deduplicate and cap**: Track arXiv IDs already seen across queries so no paper is processed twice. Select at most 20 papers. If more than 20 qualify, spread the slate across the problem's distinct sub-asks rather than taking the 20 highest topical-similarity hits, and name the notable papers you dropped in your final reply.
 
-5. **Skip what's already saved**: Re-runs must be idempotent, so build the index of what's already there **once per run**, before fetching anything: glob `<path>/papers/*.md`, read the first line of each file (the saved extraction begins with the paper's title), and normalize it. Don't glob per candidate, and don't narrow the glob to the candidate's expected filename — the same paper can be sitting under a different year (v1 vs. v2 dates) or a differently-slugged second author.
+5. **Skip what's already saved**: Re-runs must be idempotent, so build the index of what's already there **once per run**, before fetching anything: glob `<paper_vault_path>/*.md`, read the first line of each file (the saved extraction begins with the paper's title), and normalize it. Don't glob per candidate, and don't narrow the glob to the candidate's expected filename — the same paper can be sitting under a different year (v1 vs. v2 dates) or a differently-slugged second author.
 
    **Normalize before comparing**: lowercase the title, then delete every character that is not `a–z` or `0–9`. This drops spaces, hyphens, colons, and case. Compare the resulting strings for equality — `Test-time Adaptation` and `Test-Time Adaptation` must compare equal. Exact string comparison is not good enough here: arXiv metadata and the extracted body routinely disagree on the casing of a title.
 
@@ -62,9 +75,9 @@ Everything else in the file (frontmatter body and prose) describes the research 
 
 6. **Fetch**: For each remaining paper, call `mcp__arxiv__download_paper`. Pass a small `max_chars` (e.g. 200) — the call still fetches and caches the **complete** paper server-side regardless of how much text it returns, and you do not need the text in context.
 
-   If a download errors or returns `status: rate_limited`, retry that paper once. If it fails again, skip it and name it in your final reply. Never leave a truncated or zero-byte file behind in `<path>/papers/`.
+   If a download errors or returns `status: rate_limited`, retry that paper once. If it fails again, skip it and name it in your final reply. Never leave a truncated or zero-byte file behind in `<paper_vault_path>/`.
 
-7. **Save by copying the cache**: The MCP server writes its full extraction to `~/.arxiv-mcp-server/papers/<arxiv_id>.md`. Copy that file to `<path>/papers/<filename>.md` with `cp`, creating `papers/` first if needed.
+7. **Save by copying the cache**: The MCP server writes its full extraction to `~/.arxiv-mcp-server/papers/<arxiv_id>.md`. Copy that file to `<paper_vault_path>/<filename>.md` with `cp`, creating the directory first if needed.
 
    Do this rather than passing `return_full_text=true` and re-writing the text yourself: copying keeps the saved bytes identical to the server's extraction, avoids transcription drift on long papers, and keeps ~50–150 KB per paper out of your context.
 
