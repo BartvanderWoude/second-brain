@@ -15,7 +15,7 @@ Act as the calling agent. Dispatch one subagent with the input artifacts and the
 
 ## Project resolution
 
-Treat the workspace as the tool's writable execution boundary, not necessarily the project containing the user's files. Resolve the project root from the supplied or named artifacts before choosing input or output paths. Search the current directory first; when the artifacts are absent, search accessible sibling project folders and select the repository containing the named collection and `.agents` skill data. Report the resolved project root. If more than one repository matches, ask the user which project to use.
+Treat the workspace as the tool's writable execution boundary, not necessarily the project containing the user's files. Resolve the project root from the supplied or named artifacts before choosing input or output paths. Search the current directory first; when the artifacts are absent, search accessible sibling project folders and select the repository containing the named collection and a `.claude-plugin/plugin.json` naming `second-brain-researcher`. Report the resolved project root. If more than one repository matches, ask the user which project to use.
 
 ## Subagent task
 

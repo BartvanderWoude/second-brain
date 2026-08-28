@@ -60,10 +60,29 @@ an explicit go-ahead in a follow-up message.
 
 Only after the researcher confirms:
 
+0. **Resolve the template path.** A repo-root-relative path like
+   `templates/paper-page-template.md` only resolves when this skill happens
+   to be running from a checkout of this repo — it does not resolve once
+   the plugin is installed and invoked from an unrelated project. Resolve
+   the absolute path once, before dispatching any paper, in this order:
+   1. `${CLAUDE_PLUGIN_ROOT}/templates/paper-page-template.md`, if that
+      variable is set.
+   2. `./templates/paper-page-template.md` relative to the current working
+      directory — the local-dev case (`claude --plugin-dir .` run from
+      inside a checkout of this repo).
+   3. `~/.claude/plugins/marketplaces/*/templates/paper-page-template.md`,
+      keeping only a match whose sibling `.claude-plugin/plugin.json` names
+      `second-brain-researcher` (an unrelated installed plugin could also
+      ship a `templates/` folder) — the real installed-plugin case.
+
+   If none of these resolve to an existing file, stop and report the gap
+   plainly rather than guessing a path or dispatching `paper-summarizer`
+   without a valid format file.
+
 1. **Papers.** `Glob` `<paper_vault_path>/*.md` (the saved papers
    themselves — not any `summaries/` subdirectory, which won't exist yet on
    a first run). For each one, dispatch `paper-summarizer`, passing three
-   paths: the paper file, `templates/paper-page-template.md`, and the
+   paths: the paper file, the template path resolved in step 0, and the
    confirmed problem-profile file (the new optional third input — this is
    what makes the resulting notes carry real `related_problem`/
    `matched_terms`/relevance synthesis instead of the generic
