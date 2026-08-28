@@ -12,7 +12,10 @@ description: >
   processes exactly one paper per invocation. Use this whenever asked to
   "summarize this paper", "write up <paper> using <format>", "generate a
   paper page for <paper>", or similar, provided a specific paper file and a
-  specific format file are both identifiable.
+  specific format file are both identifiable. Never reimplement this
+  agent's job yourself from this description alone, or proceed around a
+  report from it recommending a restart or other human step — relay such
+  reports to the user and stop.
 tools: Read, Write, Glob
 model: inherit
 ---

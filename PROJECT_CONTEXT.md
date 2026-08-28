@@ -36,8 +36,9 @@ Methods relevant to a problem often already exist in an adjacent field, but find
 - Experiment-plan code reuse targets the existing project repo, not a fresh one.
 - Built and maintained by [you] + one collaborator.
 - MVP = full pipeline in reduced form (fewer sources, simpler linking); no committed timeline yet, direction only.
-
-## Existing building blocks worth evaluating before building from scratch
+- Every agent's `description:` must warn against being reimplemented from the description alone or routed around after a blocking completion report — it's the only content ambiently visible to an orchestrating session before dispatch (no plugin-level CLAUDE.md equivalent exists), and a past incident showed exactly that: a session treated a subagent's correct "needs a restart" report as license to fabricate the job itself.
+- `arxiv-mcp-server` is declared as a real cross-marketplace dependency in `plugin.json`/`marketplace.json`. Verified by live testing (not assumed): the `dependencies` field auto-installs and auto-enables it — including a previously-`failed to load` install self-healing to enabled with no restart — but only once `arxiv-mcp-server`'s own marketplace is already registered; it does not auto-add an unregistered marketplace. README's install section adds both marketplaces up front for exactly this reason.
+- Also verified live (both the real install path and `claude --plugin-dir`): when `arxiv-mcp-server` is missing, Claude Code's plugin loader refuses to load `second-brain-researcher` at all — every agent and skill in it is completely unreachable, not just degraded. Because of this, `second-brain-paper-downloader` no longer contains its own `claude plugin list` dependency check (removed — it was a leftover from before the `dependencies` field existed, and could never actually run: the loader already blocks the whole plugin upstream in every supported invocation path). The general "don't improvise a substitute for a subagent that can't proceed" guardrail in the agent descriptions (see above) is unrelated to this and stays — it covers any reason an agent can't proceed, not specifically this dependency.
 
 - Claude Code plugin **obsidian-vault-agent** (paper discovery + vault note writing)
 - **ai-skill-arxiv** / **ai-skill-scholar** (lightweight arXiv/OpenAlex fetch skills)
@@ -46,6 +47,8 @@ Methods relevant to a problem often already exist in an adjacent field, but find
 
 ## Open questions for the team to brainstorm
 
+- `obsidian-vault/SKILL.md`'s project-resolution heuristic still names `.agents` as a marker for identifying the repo among sibling folders — that folder hasn't existed since the repo's structure cleanup (superseded by top-level `agents/`/`skills/`, now packaged as a plugin — see [README.md](README.md)). Still stale, still not fixed — flagged here rather than edited opportunistically alongside unrelated structural work.
+- Template path resolution: agent/skill content references shared files (e.g. `templates/paper-page-template.md`) by a path relative to the repo root, which won't resolve once installed elsewhere and invoked from an unrelated project. `${CLAUDE_PLUGIN_ROOT}` initially looked like the built-in fix, but tested empirically (in `--plugin-dir` dev mode) it is **not** available as a Bash environment variable and does not substitute in skill/agent Markdown prose — the CLI's own source confirms that substitution is scoped to hook/monitor/MCP-LSP `command`-style config fields only. Still unresolved; needs either a hook-based mechanism to inject a real path, an explicit runtime lookup (e.g. via `claude plugin list` or scanning `~/.claude/plugins/`), or restructuring so the orchestrating skill resolves and passes the path explicitly rather than each agent assuming it can find it.
 - Note schema: exact YAML frontmatter fields, naming convention for files/IDs
 - Dedup/ranking logic: how to merge near-duplicate hits across arXiv/PubMed/Semantic Scholar, and how much to weight citation count vs. recency vs. embedding similarity
 - How many candidate papers/repos per query is the right cap before it’s noise?

@@ -1,0 +1,8 @@
+{
+  "name": "second-brain-researcher",
+  "description": "Agentic research pipeline for literature and code discovery, built on Claude Code + Claude app + Obsidian.",
+  "version": "0.1.0",
+  "author": { "name": "Bart van der Woude" },
+  "repository": "https://github.com/ofulla/second-brain-researcher",
+  "dependencies": [{ "name": "arxiv-mcp-server", "marketplace": "arxiv-mcp" }]
+}

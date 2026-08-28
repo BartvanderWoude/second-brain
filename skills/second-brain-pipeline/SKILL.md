@@ -22,7 +22,7 @@ job is getting the handoffs right and holding the checkpoint pause.
 
 ## Stage 1–2: problem intake
 
-Delegate to the `research-problem-intake` skill (`skills/research-problem-intake_SKILL.md`)
+Delegate to the `research-problem-intake` skill (`skills/research-problem-intake/SKILL.md`)
 and run its Q&A until it writes a `status: confirmed` problem-profile `.md`
 file. If the researcher already has a confirmed profile file in hand (they
 name/attach one, or one already exists in this session), read it directly
