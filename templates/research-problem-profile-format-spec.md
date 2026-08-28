@@ -37,8 +37,8 @@ One `.md` file per problem, YAML frontmatter + free-text body. Delivered as a pl
 | `generalized_methodology_terms` | list[string] | yes | Abstracted terms for pass 2 (cross-field transfer search) | **Paper-search group — this is a primary input** |
 | `cross_project_linking` | bool | yes | Whether this note should link to other active projects | Obsidian group |
 | `related_projects` | list[string] | no | IDs of other problem-profile notes to check against | Obsidian group |
-| `paper_vault_path` | string | no | Local path for this problem's downloaded PDFs, e.g. `~/second-brain/paper_vault/<id>/`. Blank if the intake skill didn't have filesystem access when it ran. | **Paper-search group — where to save PDFs** |
-| `code_vault_path` | string | no | Local path for this problem's cloned repos, e.g. `~/second-brain/code_vault/<id>/`. Blank if the intake skill didn't have filesystem access when it ran. | **Paper-search group — where to clone repos** |
+| `paper_vault_path` | string | no | Local path for this problem's downloaded PDFs, e.g. `<project-root>/second-brain/paper_vault/<id>/`. Blank if the intake skill didn't have filesystem access when it ran. | **Paper-search group — where to save PDFs** |
+| `code_vault_path` | string | no | Local path for this problem's cloned repos, e.g. `<project-root>/second-brain/code_vault/<id>/`. Blank if the intake skill didn't have filesystem access when it ran. | **Paper-search group — where to clone repos** |
 
 ## Body
 
@@ -46,7 +46,7 @@ Free-text paragraph(s) restating the problem in plain language, underneath the f
 
 ## Local directory structure
 
-Intake also ensures three shared local directories exist (Claude Code sessions only — skipped silently from Claude app), at a placeholder default root of `~/second-brain/`:
+Intake also ensures three shared local directories exist (Claude Code sessions only — skipped silently from Claude app), at a placeholder default root of `<project-root>/second-brain/` — a folder created at the root of the current project, not the user's home directory:
 
 ```
 <root>/
@@ -57,7 +57,7 @@ Intake also ensures three shared local directories exist (Claude Code sessions o
 
 Intake only creates the folders — it never writes into `obsidian_vault/`, and it only creates the empty per-problem subfolders under `paper_vault/`/`code_vault/`, not their contents. If `paper_vault_path`/`code_vault_path` are blank in a given note, the paper-search group should create the folder itself before writing rather than assuming it exists.
 
-The root path itself is not yet a settled team convention — treat `~/second-brain/` as a placeholder until agreed otherwise.
+The root path itself is not yet a settled team convention — treat `<project-root>/second-brain/` as a placeholder until agreed otherwise.
 
 ## Notes for the paper-search group
 

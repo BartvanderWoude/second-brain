@@ -11,7 +11,7 @@ Act as the calling agent. Dispatch one subagent with the input artifacts and the
 
 - One problem-profile Markdown file following [the problem profile contract](references/problem-profile.md).
 - One paper collection containing records following [the paper note contract](references/paper-note.md). The collection may contain one or more records; materialize one note per record.
-- Vault path. The research-problem-intake skill creates the vault at `<root>/obsidian_vault/` (underscore), a sibling of `paper_vault/` and `code_vault/`, where `<root>` defaults to `~/second-brain/` — derive this from the problem profile's own `paper_vault_path`/`code_vault_path` field (their shared parent directory) rather than assuming a fixed default. If no vault path can be derived and none was supplied explicitly, ask rather than guessing a location.
+- Vault path. The research-problem-intake skill creates the vault at `<root>/obsidian_vault/` (underscore), a sibling of `paper_vault/` and `code_vault/`, where `<root>` defaults to `<project-root>/second-brain/` — a folder inside the current project, not the user's home directory — but you should derive this from the problem profile's own `paper_vault_path`/`code_vault_path` field (their shared parent directory) rather than assuming a fixed default. If no vault path can be derived and none was supplied explicitly, ask rather than guessing a location.
 
 ## Project resolution
 
