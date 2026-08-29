@@ -18,6 +18,7 @@ related_problem: <id of the problem-profile note this was discovered for — mus
 matched_terms:
   close_field: []
   generalized: []
+keywords: []
 domain:
 data_modality:
 task:
@@ -27,6 +28,8 @@ related_notes: []
 ---
 
 `pdf_local_path` and `code_local_path` point inside the linked problem's `paper_vault_path`/`code_vault_path` (from the problem-profile note) — save downloads/clones there, not somewhere ad hoc, so the two vaults stay organized per problem. Leave either blank if that vault path wasn't available when this note was created.
+
+`keywords` are the subtopics *this paper* actually covers, as lowercase kebab-case slugs (e.g. `contrastive-pretraining`). Where the paper covers a concept the linked problem profile already names in its `keywords_of_interest`, reuse that slug **verbatim** — that exact-string reuse is what lets a topic note find its papers. Keywords beyond the profile's list are expected and wanted: they describe the paper itself, not its relation to this problem, so a later project searching a different topic can still pick this paper up. Distinct from `matched_terms`, which records which of the profile's *search queries* surfaced it. Populated even when no problem profile is linked.
 
 ## Problem addressed
 
