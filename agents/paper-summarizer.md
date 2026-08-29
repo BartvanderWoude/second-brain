@@ -123,6 +123,10 @@ byline, abstract, references, stated venue/year/links, etc.):
   - Never add a keyword the paper doesn't actually cover, and never copy the
     profile's list wholesale to look populated. Same honesty rule as
     `matched_terms`.
+  - Write the list in **block style** — one `  - slug` per line — never flow
+    style (`keywords: [a, b, c]`). The pipeline greps this field across every
+    summary to build the keyword index behind topic notes. Use `keywords: []`
+    only when the list is genuinely empty.
 - A `status` field, if present in the schema, is always set to `draft` in
   the output, regardless of what default/placeholder the format file shows —
   this is a first-pass, unreviewed summary.
