@@ -28,7 +28,9 @@ Works identically whether invoked from Claude app or Claude Code — same questi
 4. **Ask Tier 3 bookkeeping** questions.
 5. **Present the full draft** (every field below, plus both term lists) as a single summary and ask the researcher to confirm or edit. Do not write the file until they confirm.
 6. **Create this problem's per-problem subfolders**, if filesystem access is available: `paper_vault/<id>/` and `code_vault/<id>/`, using the `id` about to go into the frontmatter. Skip silently in Claude app, same as step 0.
-7. **Write the `.md` file** using the output format below, save it, and hand it back to the researcher (e.g. via `present_files` if available). Tell them plainly this is ready for hand-off to discovery/vault-writing — don't perform those steps yourself.
+7. **Write the `.md` file** using the output format below, setting `status: confirmed` — the researcher approved the draft in step 5, and every downstream stage refuses to run against a `draft` profile. Save it and hand it back to the researcher (e.g. via `present_files` if available). Tell them plainly this is ready for hand-off to discovery/vault-writing — don't perform those steps yourself.
+
+   If the researcher stops partway and asks you to save an unfinished profile, write it with `status: draft` and tell them plainly that discovery won't run against it until it's confirmed.
 
 ### Handling thin answers
 
@@ -106,7 +108,7 @@ Write a single markdown file with YAML frontmatter:
 ---
 id: <slug>-<yyyymmdd>
 created: <yyyy-mm-dd>
-status: draft
+status: confirmed
 domain:
 data_modality:
 study_design:
@@ -127,6 +129,8 @@ paper_vault_path: <root>/paper_vault/<id>/
 code_vault_path: <root>/code_vault/<id>/
 ---
 ```
+
+`status:` is `confirmed` for a normal completed run (the researcher signed off in step 5 before anything was written). Only write `status: draft` for the partial-save case in step 7 — `draft` means "the Q&A didn't finish," and it blocks every downstream stage.
 
 `paper_vault_path` and `code_vault_path` are only populated when directory creation actually succeeded (step 0/6). Leave them blank rather than guessing a path if filesystem access wasn't available — a blank field is a clear signal to the paper-search group that they need to create the folder themselves before writing into it.
 

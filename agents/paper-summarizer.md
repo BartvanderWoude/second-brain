@@ -43,9 +43,11 @@ disambiguate structurally: the format file has placeholder-style frontmatter
 hints like `a | b | c`) and headings followed by short instructional
 guidance rather than real content; the paper has substantive prose (title,
 abstract/body text, etc.) and no placeholder syntax. If you cannot
-confidently tell which is which, stop and ask rather than guessing. A third
-path is only ever the problem profile — do not try to disambiguate it
-against the other two.
+confidently tell which is which, stop and report the ambiguity, naming both
+candidate paths, so the caller can label them and dispatch you again — you run
+once and return, so you cannot ask and wait for an answer. A third path is
+only ever the problem profile — do not try to disambiguate it against the
+other two.
 
 If the paper or format path does not exist or is not a markdown file, stop
 and report the problem — do not proceed with a partial input. If a problem

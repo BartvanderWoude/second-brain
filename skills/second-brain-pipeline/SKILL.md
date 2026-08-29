@@ -7,7 +7,7 @@ description: >
   materialization. Use this whenever a researcher wants to go from a raw
   problem description all the way to a populated, linked Obsidian vault in
   one flow, rather than invoking research-problem-intake,
-  second-brain-paper-downloader, paper-summarizer, and obsidian-vault
+  second-brain-paper-downloader, paper-summarizer, and obsidian-vault-writer
   separately. Does not implement PubMed/Semantic Scholar/GitHub discovery,
   code/repo vault-build, embedding cross-linking, or an experiment plan —
   those stages of the pipeline spec are not built yet.
@@ -93,11 +93,18 @@ Only after the researcher confirms:
    counterpart unless the researcher asked to regenerate.
 
 2. **Vault.** `Glob` `<paper_vault_path>/summaries/*.md` for the records
-   just written. Dispatch the `obsidian-vault` skill with: the confirmed
+   just written. Dispatch the `obsidian-vault-writer` agent with: the confirmed
    profile path, that paper collection, and an explicit vault path —
    the parent directory of `paper_vault_path` (i.e. strip the trailing
    `paper_vault/<id>/` and replace with `obsidian_vault/`), so it is never
-   left to guess a default.
+   left to guess a default. All three inputs are required by the agent — it
+   derives nothing and guesses nothing, so pass all three explicitly.
+
+   The agent writes markdown files and nothing else. It does not need the
+   Obsidian application installed, and vault-build never blocks on it. If the
+   agent reports it couldn't proceed (a missing field, an unusable vault path),
+   fix the named input and dispatch it again — never write the vault notes
+   yourself instead.
 
 ## Report back
 
@@ -108,3 +115,25 @@ plainly rather than reporting a clean run. Close by reminding the
 researcher which stages of the original pipeline spec this run does not
 cover (code/repo discovery and vault-build, cross-linking, experiment
 plan) so they don't assume those happened silently.
+
+## Finally: offer to open the vault
+
+Not a pipeline-spec stage — the spec's stages 6 and 7 are cross-linking and the
+experiment plan, neither of which is implemented. This is a convenience step
+that runs once vault-build is already complete and reported, and nothing here
+can turn a finished run into a failed one.
+
+Ask the researcher whether they want to open the vault in Obsidian. If they
+already asked for it to be opened earlier in this run, skip the question and go
+straight to the launch attempt.
+
+Only if they say yes, check whether Obsidian is actually present — a
+platform-appropriate check (on Linux/WSL, an `obsidian` binary on `PATH` or a
+Flatpak install; on Windows, the standard install locations). If it is, launch
+it against the verified vault path and report any launch failure plainly
+without touching the created files.
+
+If Obsidian isn't installed, say so plainly — the vault path is already in the
+report above, so they can open it themselves. **Do not offer or run an install
+command** — no winget, no brew, no apt. Installing software on the researcher's
+machine is out of scope for this pipeline.
