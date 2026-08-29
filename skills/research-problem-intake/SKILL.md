@@ -20,7 +20,7 @@ Works identically whether invoked from Claude app or Claude Code — same questi
    └── code_vault/       # cloned repos, one subfolder per problem
    ```
 
-   Default root: `~/second-brain/`. This is a placeholder, not a settled team convention — if the team has already agreed on a root location, use that instead. Use `mkdir -p` semantics: create only what's missing, never touch or delete existing content in any of the three directories. If directory creation fails (e.g. no filesystem access, permission error), don't block the Q&A on it — note the failure plainly at the end and continue.
+   Default root: `<project-root>/second-brain/` — a `second-brain/` folder created at the root of the current project (the directory Claude Code was invoked in), not the user's home directory. This is a placeholder, not a settled team convention — if the team has already agreed on a root location, use that instead. Use `mkdir -p` semantics: create only what's missing, never touch or delete existing content in any of the three directories. If directory creation fails (e.g. no filesystem access, permission error), don't block the Q&A on it — note the failure plainly at the end and continue.
 
 1. **Take Tier 0 as given.** If the researcher already stated domain, data modality, task, and reference standard (e.g. in their opening message), do not re-ask for these — treat them as the seed and move straight to deepening them in Tier 1. If none of this was given yet, ask for it first in one open question: "What's the problem — domain, data you're working with, the task, and what you're using as ground truth?"
 2. **Work through Tier 1** (below), one question at a time, adapting to what's already been said. Skip any question already answered by something the researcher volunteered earlier in the conversation.
@@ -28,7 +28,9 @@ Works identically whether invoked from Claude app or Claude Code — same questi
 4. **Ask Tier 3 bookkeeping** questions.
 5. **Present the full draft** (every field below, plus both term lists) as a single summary and ask the researcher to confirm or edit. Do not write the file until they confirm.
 6. **Create this problem's per-problem subfolders**, if filesystem access is available: `paper_vault/<id>/` and `code_vault/<id>/`, using the `id` about to go into the frontmatter. Skip silently in Claude app, same as step 0.
-7. **Write the `.md` file** using the output format below, save it, and hand it back to the researcher (e.g. via `present_files` if available). Tell them plainly this is ready for hand-off to discovery/vault-writing — don't perform those steps yourself.
+7. **Write the `.md` file** using the output format below, setting `status: confirmed` — the researcher approved the draft in step 5, and every downstream stage refuses to run against a `draft` profile. Save it and hand it back to the researcher (e.g. via `present_files` if available). Tell them plainly this is ready for hand-off to discovery/vault-writing — don't perform those steps yourself.
+
+   If the researcher stops partway and asks you to save an unfinished profile, write it with `status: draft` and tell them plainly that discovery won't run against it until it's confirmed.
 
 ### Handling thin answers
 
@@ -76,9 +78,9 @@ For each field: primary question, then a one-shot follow-up to use only if the f
 
 The failure-mode question is deliberately asked last in Tier 1, right before the abstraction step — the researcher's own hunch becomes raw material for it instead of the agent generalizing cold.
 
-## Tier 2 — abstraction step (produces the two term lists)
+## Tier 2 — abstraction step (produces the two term lists and the keyword taxonomy)
 
-This is the skill's actual value-add and the part most likely to be shallow if rushed. Two sequential questions:
+This is the skill's actual value-add and the part most likely to be shallow if rushed. Three sequential steps:
 
 **Close-field terms** — usually mostly extractable from Tier 1 answers. Draft it yourself and confirm rather than asking cold:
 - "Here's a draft of close-field search terms based on what you've described: [draft list]. Anything to add or cut?"
@@ -89,6 +91,20 @@ This is the skill's actual value-add and the part most likely to be shallow if r
 - Close with: "Here's a draft of generalized terms: [draft list]. Does this feel like it'd actually surface the right adjacent-field work?"
 
 Cap the reframe at one nudge. If the researcher's second answer is still domain-flavored, use their best attempt rather than pushing further — record it as-is and let the confirmation step catch it if it's not good enough.
+
+**Keywords of interest** — the subtopic taxonomy. Do this last, so it can draw on all of Tier 1 plus both term lists. **Always draft and confirm, never ask cold**: the whole premise is that a researcher knows their topic but not yet their subtopics, so asking "what subtopics interest you?" puts the work back on the person least able to do it. Infer them from everything said so far:
+
+- "Based on everything you've described, here are the subtopics I'd track as keywords: [draft list]. These become the topic buckets papers get filed under — anything missing, too broad, or not actually of interest?"
+
+Drafting guidance:
+
+- Aim for roughly 5–15. A taxonomy too large to hold in your head is no longer a taxonomy.
+- Each one should be a subtopic somebody could write a note about — not a search phrase.
+- Keep them **orthogonal**. Near-synonyms are what the two term lists are for; here they'd just fragment the same papers across duplicate buckets.
+- Cover both domain subtopics (`sarcopenia`, `abdominal-ct`) and method/technique subtopics (`contrastive-pretraining`, `distribution-shift`).
+- Lowercase kebab-case slugs, always — paper notes match these by exact string.
+
+Same thin-answer rule as everywhere else: one follow-up if the response is a shrug, then record the draft as-is and move on.
 
 ## Tier 3 — bookkeeping
 
@@ -106,7 +122,7 @@ Write a single markdown file with YAML frontmatter:
 ---
 id: <slug>-<yyyymmdd>
 created: <yyyy-mm-dd>
-status: draft
+status: confirmed
 domain:
 data_modality:
 study_design:
@@ -121,12 +137,17 @@ current_approach:
 observed_failure_mode:
 close_field_terms: []
 generalized_methodology_terms: []
+keywords_of_interest: []
 cross_project_linking: true/false
 related_projects: []
 paper_vault_path: <root>/paper_vault/<id>/
 code_vault_path: <root>/code_vault/<id>/
 ---
 ```
+
+`status:` is `confirmed` for a normal completed run (the researcher signed off in step 5 before anything was written). Only write `status: draft` for the partial-save case in step 7 — `draft` means "the Q&A didn't finish," and it blocks every downstream stage.
+
+`keywords_of_interest` is the subtopic taxonomy, always lowercase kebab-case. It is a **preferred vocabulary, not a closed one** — paper notes reuse these slugs verbatim when they cover a concept named here (that exact-string reuse is what links a paper to a topic), but they may also carry keywords beyond this list, which is by design rather than an error. It is not search input; discovery queries the two term lists only.
 
 `paper_vault_path` and `code_vault_path` are only populated when directory creation actually succeeded (step 0/6). Leave them blank rather than guessing a path if filesystem access wasn't available — a blank field is a clear signal to the paper-search group that they need to create the folder themselves before writing into it.
 

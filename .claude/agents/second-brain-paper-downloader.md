@@ -1,1 +1,0 @@
-../../.agents/second-brain-paper-downloader.md

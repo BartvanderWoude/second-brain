@@ -1,0 +1,13 @@
+{
+  "name": "second-brain-researcher",
+  "description": "Self-hosted marketplace for the second-brain-researcher plugin.",
+  "owner": { "name": "Bart van der Woude" },
+  "allowCrossMarketplaceDependenciesOn": ["arxiv-mcp"],
+  "plugins": [
+    {
+      "name": "second-brain-researcher",
+      "source": "./",
+      "description": "Agentic research pipeline for literature and code discovery."
+    }
+  ]
+}

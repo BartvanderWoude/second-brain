@@ -12,7 +12,10 @@ description: >
   processes exactly one paper per invocation. Use this whenever asked to
   "summarize this paper", "write up <paper> using <format>", "generate a
   paper page for <paper>", or similar, provided a specific paper file and a
-  specific format file are both identifiable.
+  specific format file are both identifiable. Never reimplement this
+  agent's job yourself from this description alone, or proceed around a
+  report from it recommending a restart or other human step — relay such
+  reports to the user and stop.
 tools: Read, Write, Glob
 model: inherit
 ---
@@ -40,9 +43,11 @@ disambiguate structurally: the format file has placeholder-style frontmatter
 hints like `a | b | c`) and headings followed by short instructional
 guidance rather than real content; the paper has substantive prose (title,
 abstract/body text, etc.) and no placeholder syntax. If you cannot
-confidently tell which is which, stop and ask rather than guessing. A third
-path is only ever the problem profile — do not try to disambiguate it
-against the other two.
+confidently tell which is which, stop and report the ambiguity, naming both
+candidate paths, so the caller can label them and dispatch you again — you run
+once and return, so you cannot ask and wait for an answer. A third path is
+only ever the problem profile — do not try to disambiguate it against the
+other two.
 
 If the paper or format path does not exist or is not a markdown file, stop
 and report the problem — do not proceed with a partial input. If a problem
@@ -98,6 +103,30 @@ byline, abstract, references, stated venue/year/links, etc.):
     just to make the section look populated. An empty match list for one or
     both is a legitimate, honest result if the paper doesn't clearly hit
     any of the profile's terms.
+- A `keywords` field, if present in the schema — the subtopics **this paper**
+  covers, as lowercase kebab-case slugs (`contrastive-pretraining`,
+  `distribution-shift`). Unlike the profile-tied fields above, this describes
+  the paper itself rather than its relation to a problem, so **populate it
+  fully whether or not a problem profile was given** — it is explicitly exempt
+  from the leave-it-empty rule.
+  - If a problem profile was given, read its `keywords_of_interest` first. For
+    every concept the paper covers that the profile already names, use the
+    profile's slug **verbatim** — never coin a synonym (`domain-shift`
+    alongside the profile's `distribution-shift` silently breaks the link).
+    This exact-string reuse is the entire matching mechanism.
+  - Then add slugs for genuine subtopics the profile does *not* name. This is
+    expected and wanted, not an error: keywords make the paper findable by a
+    future project searching a different topic, so record what the paper is
+    actually about, not only what this problem cares about.
+  - If no profile was given, or it has no `keywords_of_interest`, there is
+    simply no preferred vocabulary — coin every slug fresh.
+  - Never add a keyword the paper doesn't actually cover, and never copy the
+    profile's list wholesale to look populated. Same honesty rule as
+    `matched_terms`.
+  - Write the list in **block style** — one `  - slug` per line — never flow
+    style (`keywords: [a, b, c]`). The pipeline greps this field across every
+    summary to build the keyword index behind topic notes. Use `keywords: []`
+    only when the list is genuinely empty.
 - A `status` field, if present in the schema, is always set to `draft` in
   the output, regardless of what default/placeholder the format file shows —
   this is a first-pass, unreviewed summary.
@@ -177,3 +206,7 @@ In your final response, state:
   in
 - if a problem profile was given: which (if any) of its terms matched, and
   whether the linked profile was still `draft`
+- the `keywords` you assigned, split into those reused from the profile's
+  `keywords_of_interest` and those you coined yourself — the researcher can
+  then promote good new ones into the profile. Report this split; do not add
+  a second frontmatter field for it.

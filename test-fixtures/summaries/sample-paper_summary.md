@@ -16,6 +16,13 @@ related_problem: ""
 matched_terms:
   close_field: []
   generalized: []
+keywords:
+  - sarcopenia
+  - body-composition
+  - abdominal-ct
+  - medical-image-segmentation
+  - contrastive-pretraining
+  - model-efficiency
 domain: medical imaging / radiology (sarcopenia / body composition assessment)
 data_modality: single-slice abdominal CT (L3 vertebral level)
 task: skeletal muscle cross-sectional area segmentation for sarcopenia screening
