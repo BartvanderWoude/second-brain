@@ -74,10 +74,20 @@ Report what was merged. A silent merge looks like a paper went missing.
 After both downloaders have reported and the merge above is done, relay a
 combined summary (what was saved per leg, what was merged as duplicates, what
 was skipped, dropped, or saved abstract-only because it is paywalled) to the
-researcher and **stop here**. Ask explicitly
-whether to proceed to vault-build with what was found, or make changes
-first (remove a saved paper file, re-run discovery with adjusted terms,
-etc.) — this is the pipeline's checkpoint before anything downstream
+researcher and **stop here**.
+
+If the biomedical leg returned a **needs-manual-download** list — papers that
+resolved neither open-access nor via the Sci-Hub rung — present it verbatim,
+with title, DOI and PMID per paper. This is the one point in the run where the
+researcher can drop those files into `paper_vault_path` by hand; once
+vault-build starts, an absent full text silently becomes an abstract-only note.
+Do not fold that list into the general "skipped" tally, and do not proceed past
+it without an explicit decision.
+
+Ask explicitly
+whether to proceed to vault-build with what was found, add the missing papers
+manually first, or make other changes (remove a saved paper file, re-run
+discovery with adjusted terms, etc.) — this is the pipeline's checkpoint before anything downstream
 consumes the papers. Do not continue to stage 5 in the same turn; wait for
 an explicit go-ahead in a follow-up message.
 

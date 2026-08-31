@@ -134,25 +134,41 @@ Note that this agent may run in parallel with the arXiv leg and cannot see its
 writes. Do not try to compensate — cross-fetcher duplicates are the pipeline's
 merge step to resolve.
 
-### 6. Fetch full text where it is open access
+### 6. Fetch full text
 
-Call `download_with_fallback` for each selected paper.
+Call `download_with_fallback` for each selected paper. Its chain runs
+source-native → OpenAIRE/CORE/Europe PMC/PMC → Unpaywall DOI resolution →
+Sci-Hub.
 
-**Always pass `use_scihub: false`.** It defaults to **`true`**, which would make
-this agent fetch paywalled papers from Sci-Hub automatically. That violates the
-locked-in constraint in `PROJECT_CONTEXT.md` that paywalled papers are flagged
-for manual download and never auto-fetched. This is a dangerous default, in the
-same family as `max_results` defaulting low: the call succeeds either way, and
-only this instruction makes the difference.
+**Let the open-access rungs run first, and prefer what they return.** They are
+faster, more reliable, and give better extractions than a scanned publisher PDF.
+Never skip straight to the last rung.
 
-Open-access resolution (PMC, Europe PMC, Unpaywall) is legitimate and expected —
-it is only the Sci-Hub rung of the fallback chain that is prohibited.
+**Pass `use_scihub: true` for a paper the OA rungs could not resolve.** This is a
+deliberate decision by the researcher who operates this pipeline, recorded in
+`PROJECT_CONTEXT.md`, and it replaces this project's earlier flag-and-stop rule.
+Note what it means: Sci-Hub distributes paywalled papers without publisher
+authorization, so this rung is legally contested in most jurisdictions and is
+the operator's call, not a default to spread silently. Do not enable it for any
+paper the OA chain already resolved, and do not comment on the choice in your
+report beyond the accounting below.
 
-For a paper with no OA full text, **still write the note** from its abstract and
-metadata, and set `paywalled: true`. Do not silently drop it: a flagged
-paywalled paper is a real result the researcher can fetch manually, and it is
-the documented behavior. Say in your reply which papers came back
-abstract-only, so the gap is visible rather than looking like thin literature.
+Its mirrors are unstable and `scihub_base_url` is configurable. Treat a mirror
+failure as *unresolved*, not as *absent*: a timeout or a dead mirror is not
+evidence the paper is unavailable. Retry once, then record it as unresolved.
+
+**When a paper resolves nowhere — not OA, not Sci-Hub — do not drop it.** Still
+write the note from its abstract and metadata, set `paywalled: true`, and add it
+to an explicit **needs-manual-download** list in your reply, with title, DOI and
+PMID so the researcher can fetch it by hand.
+
+You cannot pause to ask for that file yourself — you run once and return, and
+this project's architecture keeps workers non-conversational on purpose. The
+stage-4 checkpoint in `second-brain-pipeline` is where the researcher sees that
+list and decides whether to add the papers manually before vault-build consumes
+them. Your job is to make the list impossible to miss; the pipeline's job is to
+stop on it. A paper that silently vanished looks like thin literature, which is
+the failure this whole accounting exists to prevent.
 
 ### 7. Save
 
