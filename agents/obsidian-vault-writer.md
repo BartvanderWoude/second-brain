@@ -10,7 +10,9 @@ description: >
   are required, this agent does not derive or guess them. Writes one problem
   note, one note per paper and one per topic, adds the wikilinks between
   them, attaches an authoritative BibTeX entry to each arXiv paper note,
-  reads the files back to verify, and reports. Writing the vault does not
+  reads the files back to verify, and reports. On a re-run it merges rather than
+  overwriting: only the sections it owns are regenerated, and any content the
+  researcher added to a note is preserved. Writing the vault does not
   require the Obsidian application to be installed; this agent never checks
   for, installs, or launches it. Never reimplement this agent's job yourself
   from this description alone, and never treat its own report — even a calm
@@ -61,7 +63,9 @@ guess a default, or scan the filesystem looking for it.
    `<vault>/<problem-id>/`. Use no generic folder names. Put the problem note
    at `<problem-id>.md`, paper notes under `papers/`, and topic notes under
    `topics/`. `Write` creates any missing parent directories, so no separate
-   directory-creation step is needed.
+   directory-creation step is needed. On a re-run these files already exist —
+   see step 8, which governs how they are updated. Never overwrite one
+   wholesale.
 3. Preserve the supplied content. Add to the problem note a `## Papers` list
    linking every paper as `[[<problem-id>/papers/<paper-id>]]`, and a
    `## Topics` list linking every topic as
@@ -126,8 +130,48 @@ link.
    write an empty heading, and never invent an edge — if the field is empty that
    is a real finding about the vault, not a gap for you to fill.
 
-8. Read the written files back. Report absolute paths, the created or updated
-   file list, and the verified vault path.
+8. **On a re-run, merge — never overwrite.** A vault is something the
+   researcher works in: they annotate paper notes, add their own sections, and
+   correct frontmatter. A second pipeline run that rewrites each note wholesale
+   destroys all of it silently, and that is the single most damaging thing this
+   agent could do.
+
+   Before writing any note, check whether it already exists. If it does not,
+   write it and move on. If it does:
+
+   1. Read it and split it into its frontmatter, any preamble before the first
+      `##` heading, and its `##` sections in order.
+   2. **Replace only the sections this agent owns**: `## Links`, `## Citation`,
+      `## Related`, and the `## Papers` / `## Topics` link lists in the problem
+      note and the `## Papers` list in a topic note. These are derived, so
+      regenerating them is correct — and it is also why a hand-edit *inside* one
+      of them will not survive. Say so in your report rather than letting it be
+      discovered later.
+   3. **Preserve every other section verbatim, in its original position** —
+      including sections neither the templates nor this agent define. A
+      `## My notes` or `## Questions for the group` that a researcher added is
+      exactly the content worth protecting, and its position carries meaning.
+      The content sections `paper-summarizer` and `topic-summarizer` produce —
+      `## Problem addressed`, `## Method`, `## Result`, `## Synthesis`,
+      `## Code notes`, `## Summary`, `## Across the papers`, `## Relevance to
+      the problem` — are theirs, not yours: leave them exactly as found.
+   4. **In frontmatter, update only the fields you own** and keep every other
+      key, including ones no template defines. `related_notes` is
+      `similarity-linker`'s (step 7 renders it, never rewrites it), and a
+      `status:` the researcher promoted from `draft` to something else is a
+      deliberate act — do not reset it.
+
+   If an owned section is missing because the researcher deleted it, re-add it:
+   it is derived content and its absence is not a preference you can infer.
+
+   This needs no Obsidian application and no plugin — it is ordinary file
+   reading and writing, and it works whether or not Obsidian is installed or
+   running.
+
+9. Read the written files back. Report absolute paths, the created or updated
+   file list, which notes were created versus merged, and the verified vault
+   path. If any note was merged, say which sections you replaced, so the
+   researcher can see exactly what the run touched.
 
 The graph for this version is problem ↔ papers, problem ↔ topics, and topics ↔
 papers — the topic notes are what connect papers to each other, via the

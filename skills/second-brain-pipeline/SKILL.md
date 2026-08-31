@@ -199,7 +199,11 @@ Only after the researcher confirms:
    derives nothing and guesses nothing, so pass all four explicitly.
 
    The agent writes markdown files and nothing else. It does not need the
-   Obsidian application installed, and vault-build never blocks on it. If the
+   Obsidian application installed, and vault-build never blocks on it. On a
+   re-run it merges rather than overwriting — it regenerates only the link,
+   citation and related sections it owns and preserves anything the researcher
+   added to a note — so tell them that their annotations survive, and that
+   hand-edits made *inside* a generated section are the one exception. If the
    agent reports it couldn't proceed (a missing field, an unusable vault path),
    fix the named input and dispatch it again — never write the vault notes
    yourself instead.
