@@ -64,19 +64,61 @@ guess a default, or scan the filesystem looking for it.
    at `<problem-id>.md`, paper notes under `papers/`, and topic notes under
    `topics/`. `Write` creates any missing parent directories, so no separate
    directory-creation step is needed. On a re-run these files already exist —
-   see step 8, which governs how they are updated. Never overwrite one
+   see step 3, which governs how they are updated. Never overwrite one
    wholesale.
-3. Preserve the supplied content. Add to the problem note a `## Papers` list
+3. **Before writing anything: on a re-run, merge — never overwrite.** A vault
+   is something the researcher works in: they annotate paper notes, add their
+   own sections, and correct frontmatter. A second pipeline run that rewrites each note wholesale
+   destroys all of it silently, and that is the single most damaging thing this
+   agent could do.
+
+   Before writing any note, check whether it already exists. If it does not,
+   write it and move on. If it does:
+
+   1. Read it and split it into its frontmatter, any preamble before the first
+      `##` heading, and its `##` sections in order.
+   2. **Replace only the sections this agent owns**: `## Links`, `## Citation`,
+      `## Related`, and the `## Papers` / `## Topics` link lists in the problem
+      note and the `## Papers` list in a topic note. **Regenerating a link list
+      still preserves each link's `|Display text` alias** — `topic-summarizer`
+      writes its `## Papers` links as
+      `[[<problem-id>/papers/<paper-id>|<paper title>]]`, and dropping those
+      titles would turn a readable topic note into a list of slugs. These
+      sections are derived, so regenerating them is correct — and it is also
+      why a hand-edit *inside* one of them will not survive. Say so in your
+      report rather than letting it be discovered later.
+   3. **Preserve every other section verbatim, in its original position** —
+      including sections neither the templates nor this agent define. A
+      `## My notes` or `## Questions for the group` that a researcher added is
+      exactly the content worth protecting, and its position carries meaning.
+      The content sections `paper-summarizer` and `topic-summarizer` produce —
+      `## Problem addressed`, `## Method`, `## Result`, `## Synthesis`,
+      `## Code notes`, `## Summary`, `## Across the papers`, `## Relevance to
+      the problem` — are theirs, not yours: leave them exactly as found.
+   4. **In frontmatter, update only the fields you own** and keep every other
+      key, including ones no template defines. `related_notes` is
+      `similarity-linker`'s (step 8 renders it, never rewrites it), and a
+      `status:` the researcher promoted from `draft` to something else is a
+      deliberate act — do not reset it.
+
+   If an owned section is missing because the researcher deleted it, re-add it:
+   it is derived content and its absence is not a preference you can infer.
+
+   This needs no Obsidian application and no plugin — it is ordinary file
+   reading and writing, and it works whether or not Obsidian is installed or
+   running.
+
+4. Preserve the supplied content. Add to the problem note a `## Papers` list
    linking every paper as `[[<problem-id>/papers/<paper-id>]]`, and a
    `## Topics` list linking every topic as
    `[[<problem-id>/topics/<keyword>]]`.
-4. In each paper note, preserve `related_problem: <problem-id>` and add a
+5. In each paper note, preserve `related_problem: <problem-id>` and add a
    `## Links` entry linking `[[<problem-id>]]`, plus a
    `[[<problem-id>/topics/<keyword>]]` link to each topic note that both
    exists in the supplied topic collection and appears in that paper's own
    `keywords` list. A keyword with no topic note gets no link — do not invent
    one.
-5. In each topic note, preserve `keyword` and `related_problem`, and make its
+6. In each topic note, preserve `keyword` and `related_problem`, and make its
    `## Papers` section link every paper it drew on as
    `[[<problem-id>/papers/<paper-id>]]`.
 
@@ -89,7 +131,7 @@ and Obsidian resolves the bare link to whichever it finds first. The one
 exception is the problem note itself, `[[<problem-id>]]`, whose id is unique
 vault-wide. Preserve any `|Display text` alias already present on a supplied
 link.
-6. Add a `## Citation` section to each paper note holding that paper's BibTeX
+7. Add a `## Citation` section to each paper note holding that paper's BibTeX
    entry, in a ```bibtex fenced block.
 
    Collect the arXiv ids **first, across the whole collection**, then make a
@@ -115,7 +157,7 @@ link.
    present, skip this step entirely and say so in your report — a missing
    bibliography never blocks vault-build.
 
-7. Render each paper note's `related_notes` into a `## Related` section, one
+8. Render each paper note's `related_notes` into a `## Related` section, one
    `[[<problem-id>/papers/<paper-id>]]` link per entry, using the same full-path
    wikilink form as everywhere else.
 
@@ -130,44 +172,6 @@ link.
    write an empty heading, and never invent an edge — if the field is empty that
    is a real finding about the vault, not a gap for you to fill.
 
-8. **On a re-run, merge — never overwrite.** A vault is something the
-   researcher works in: they annotate paper notes, add their own sections, and
-   correct frontmatter. A second pipeline run that rewrites each note wholesale
-   destroys all of it silently, and that is the single most damaging thing this
-   agent could do.
-
-   Before writing any note, check whether it already exists. If it does not,
-   write it and move on. If it does:
-
-   1. Read it and split it into its frontmatter, any preamble before the first
-      `##` heading, and its `##` sections in order.
-   2. **Replace only the sections this agent owns**: `## Links`, `## Citation`,
-      `## Related`, and the `## Papers` / `## Topics` link lists in the problem
-      note and the `## Papers` list in a topic note. These are derived, so
-      regenerating them is correct — and it is also why a hand-edit *inside* one
-      of them will not survive. Say so in your report rather than letting it be
-      discovered later.
-   3. **Preserve every other section verbatim, in its original position** —
-      including sections neither the templates nor this agent define. A
-      `## My notes` or `## Questions for the group` that a researcher added is
-      exactly the content worth protecting, and its position carries meaning.
-      The content sections `paper-summarizer` and `topic-summarizer` produce —
-      `## Problem addressed`, `## Method`, `## Result`, `## Synthesis`,
-      `## Code notes`, `## Summary`, `## Across the papers`, `## Relevance to
-      the problem` — are theirs, not yours: leave them exactly as found.
-   4. **In frontmatter, update only the fields you own** and keep every other
-      key, including ones no template defines. `related_notes` is
-      `similarity-linker`'s (step 7 renders it, never rewrites it), and a
-      `status:` the researcher promoted from `draft` to something else is a
-      deliberate act — do not reset it.
-
-   If an owned section is missing because the researcher deleted it, re-add it:
-   it is derived content and its absence is not a preference you can infer.
-
-   This needs no Obsidian application and no plugin — it is ordinary file
-   reading and writing, and it works whether or not Obsidian is installed or
-   running.
-
 9. Read the written files back. Report absolute paths, the created or updated
    file list, which notes were created versus merged, and the verified vault
    path. If any note was merged, say which sections you replaced, so the
@@ -178,6 +182,6 @@ papers — the topic notes are what connect papers to each other, via the
 keywords they share. Leave paper-to-paper similarity edges, cross-project
 edges, deduplication, lifecycle changes, and source discovery untouched. Keep
 each paper note's `related_notes` field unchanged — add only the wikilinks
-required by steps 4 and 5, the citation block from step 6, and the `## Related`
-rendering from step 7. Paper-to-paper edges are `similarity-linker`'s to compute;
+required by steps 5 and 6, the citation block from step 7, and the `## Related`
+rendering from step 8. Paper-to-paper edges are `similarity-linker`'s to compute;
 yours only to display.
