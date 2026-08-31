@@ -184,6 +184,12 @@ Only after the researcher confirms:
    failure: arXiv papers still get edges via the keyless citation graph, and
    only non-arXiv papers go unlinked. Carry on to step 4.
 
+   **On a re-run, tell it which summaries were regenerated.** Paper ids are a
+   title slug plus the date the summary was written, so regenerating a summary
+   on a later day changes its id and silently breaks every edge pointing at it.
+   If step 1 regenerated anything, say so in the dispatch so the linker
+   recomputes those edges rather than leaving dead links behind.
+
 4. **Vault.** Dispatch the `obsidian-vault-writer` agent with: the confirmed
    profile path, the paper collection from step 1, the topic collection
    (`Glob` `<paper_vault_path>/topics/*.md`), and an explicit vault path —

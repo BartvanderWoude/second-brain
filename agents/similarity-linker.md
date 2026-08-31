@@ -77,6 +77,12 @@ Asta's `get_citations`, which accepts `DOI:<doi>` and `PMID:<pmid>` as
 `paper_id` and therefore covers the PubMed leg's papers. Verified working for
 both forms.
 
+Set `limit` and `fields` explicitly — the same reason `max_results` is set
+explicitly everywhere else in this plugin. `fields` should request only
+`title,externalIds`: you are matching identifiers against the vault index, not
+reading these papers, and pulling abstracts for hundreds of citing papers would
+flood your context for no benefit.
+
 Two limits to respect. It needs `ASTA_API_KEY`; check it once with
 `test -n "$ASTA_API_KEY"` before using this route, and if it is absent skip
 Route B entirely and report that non-arXiv papers went unlinked — do not let the
@@ -116,7 +122,16 @@ produced, and rewriting the whole file risks losing its content.
 
 - Write each entry as the other paper's `id` (from its own summary frontmatter),
   not its filename, so it matches what `obsidian-vault-writer` expects.
-- Preserve any entries already present; add, never replace.
+
+  **Read those ids fresh, in this run.** `paper-summarizer` derives an id as a
+  title slug plus *today's* date, so a paper re-summarized on a different day
+  gets a different id, and any edge pointing at its old id becomes a dead link.
+  Never reuse ids cached from an earlier run or inferred from a filename. If the
+  caller says some summaries were regenerated, every edge touching them must be
+  recomputed, not patched.
+- Preserve any entries already present; add, never replace. **Never write an id
+  that is already in the list** — on a re-run you will recompute edges that
+  already exist, and appending them again silently doubles every entry.
 - Keep block style, one `  - <id>` per line, matching how `keywords` is written
   and for the same reason — these fields get parsed.
 - A paper with no qualifying edges keeps `related_notes: []`. That is a real
