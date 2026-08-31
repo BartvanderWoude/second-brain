@@ -2,15 +2,17 @@
 name: second-brain-pipeline
 description: >
   Runs the second-brain research pipeline end to end, stages 1 through 5:
-  problem intake, arXiv paper discovery, a checkpoint pause for researcher
-  review, paper vault-build (structured summaries plus per-subtopic topic
-  notes), and Obsidian vault materialization. Use this whenever a researcher
+  problem intake, parallel paper discovery across arXiv and PubMed/PMC, a
+  checkpoint pause for researcher review, paper vault-build (structured
+  summaries plus per-subtopic topic notes), and Obsidian vault materialization. Use this whenever a researcher
   wants to go from a raw problem description all the way to a populated,
   linked Obsidian vault in one flow, rather than invoking
-  research-problem-intake, second-brain-paper-downloader, paper-summarizer,
-  topic-summarizer, and obsidian-vault-writer separately. Does not implement PubMed/Semantic Scholar/GitHub discovery,
-  code/repo vault-build, embedding cross-linking, or an experiment plan —
-  those stages of the pipeline spec are not built yet.
+  research-problem-intake, second-brain-paper-downloader,
+  second-brain-biomed-downloader, paper-summarizer, topic-summarizer, and
+  obsidian-vault-writer separately. Does not implement GitHub code discovery,
+  the Semantic Scholar cross-field pass, code/repo vault-build, embedding
+  cross-linking, or an experiment plan — those stages of the pipeline spec are
+  not built yet.
 ---
 
 # Second-brain pipeline
@@ -34,22 +36,45 @@ unconfirmed profile.
 Note its `id`, `paper_vault_path`, and `code_vault_path` fields — every
 later stage needs these.
 
-## Stage 3: paper discovery (arXiv)
+## Stage 3: paper discovery (parallel)
 
-Dispatch the `second-brain-paper-downloader` agent with the confirmed
-profile's file path. It reads `paper_vault_path` itself and saves matched
-papers there directly — do not pass or compute that path separately, and
-do not pre-create the directory (the agent handles that).
+Dispatch both discovery agents **in parallel**, each with the confirmed
+profile's file path and nothing else. Both read `paper_vault_path` themselves
+and save into it directly — do not pass or compute that path separately, and do
+not pre-create the directory (the agents handle that).
 
-This pipeline currently only wires up arXiv discovery. If the researcher
-asks about PubMed, Semantic Scholar, or GitHub code discovery, tell them
-plainly those sources aren't implemented yet rather than silently skipping
-them.
+- `second-brain-paper-downloader` — the arXiv leg.
+- `second-brain-biomed-downloader` — the PubMed/PMC/Europe PMC leg.
+
+If one leg fails, keep the other's results and name the failure in the stage-4
+report. A failed biomedical leg is not a reason to discard the arXiv papers.
+
+Code discovery (GitHub) and the Semantic Scholar cross-field pass are still not
+implemented. If the researcher asks about them, say so plainly rather than
+silently skipping them.
+
+### Merge before the checkpoint
+
+The two legs run blind to each other, so the same paper can arrive twice — a
+preprint from arXiv and the published version from PubMed. Resolve that here,
+before the researcher reviews anything:
+
+1. `Glob` `<paper_vault_path>/*.md` for everything both legs saved.
+2. Apply the key ladder in `templates/paper-identity-spec.md` — DOI, then
+   source-native id, then normalized title. A normalized-title match with
+   different DOIs is the preprint/published pair, not a collision.
+3. Keep **one** file per paper, preferring the copy with usable full text, then
+   the published version. Delete the redundant file rather than leaving both:
+   two files for one paper double-count it in every topic note downstream.
+
+Report what was merged. A silent merge looks like a paper went missing.
 
 ## Stage 4: checkpoint — stop and wait
 
-After the downloader reports back, relay its summary (what was saved,
-skipped, or dropped) to the researcher and **stop here**. Ask explicitly
+After both downloaders have reported and the merge above is done, relay a
+combined summary (what was saved per leg, what was merged as duplicates, what
+was skipped, dropped, or saved abstract-only because it is paywalled) to the
+researcher and **stop here**. Ask explicitly
 whether to proceed to vault-build with what was found, or make changes
 first (remove a saved paper file, re-run discovery with adjusted terms,
 etc.) — this is the pipeline's checkpoint before anything downstream

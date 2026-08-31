@@ -54,13 +54,19 @@ Everything else in the file (frontmatter body and prose) describes the research 
 
    Before selecting a paper, actively re-check it against the problem file's "out of scope"/exclusion section and confirm the abstract violates none of it. Snippets are often misleading about scope, and exclusions are exactly what topical similarity fails to catch — a paper can read as squarely on-topic and turn out to be univariate-only, or on the wrong modality, or to assume the rich labeled set the problem says it doesn't have.
 
-4. **Deduplicate and cap**: Track arXiv IDs already seen across queries so no paper is processed twice. Select at most 20 papers. If more than 20 qualify, spread the slate across the problem's distinct sub-asks rather than taking the 20 highest topical-similarity hits, and name the notable papers you dropped in your final reply.
+4. **Deduplicate, cap, and skip what's already saved**: follow
+   `templates/paper-identity-spec.md` — the single definition of paper identity,
+   the already-saved index, and the filename convention. Do not restate or
+   re-derive its rules here.
 
-5. **Skip what's already saved**: Re-runs must be idempotent, so build the index of what's already there **once per run**, before fetching anything: glob `<paper_vault_path>/*.md`, read the first line of each file (the saved extraction begins with the paper's title), and normalize it. Don't glob per candidate, and don't narrow the glob to the candidate's expected filename — the same paper can be sitting under a different year (v1 vs. v2 dates) or a differently-slugged second author.
+   Two arXiv-specific points on top of it: strip the version suffix before
+   comparing ids (`2501.12345v2` and `2501.12345` are one paper), and take
+   `YEAR` from the `published` (v1) date in `get_abstract` metadata, never an
+   update/revision date, so the same paper yields the same filename on every run.
 
-   **Normalize before comparing**: lowercase the title, then delete every character that is not `a–z` or `0–9`. This drops spaces, hyphens, colons, and case. Compare the resulting strings for equality — `Test-time Adaptation` and `Test-Time Adaptation` must compare equal. Exact string comparison is not good enough here: arXiv metadata and the extracted body routinely disagree on the casing of a title.
-
-   If a candidate's normalized title is in that set, it's already saved: skip it, and don't re-download it.
+5. **Cap at 20.** If more than 20 qualify, spread the slate across the problem's
+   distinct sub-asks rather than taking the 20 highest topical-similarity hits,
+   and name the notable papers you dropped in your final reply.
 
 6. **Fetch**: For each remaining paper, call `download_paper`. Pass a small `max_chars` (e.g. 200) — the call still fetches and caches the **complete** paper server-side regardless of how much text it returns, and you do not need the text in context.
 
@@ -76,18 +82,10 @@ Everything else in the file (frontmatter body and prose) describes the research 
 
 ## Filename convention
 
-`YEAR_firstauthor_secondauthor.md`:
-
-- `YEAR` — the paper's publication year, taken from the `published` date in `get_abstract` metadata. That is the v1 date; never use an update/revision date, so the same paper yields the same `YEAR` on every run.
-- `firstauthor` / `secondauthor` — surname slugs for the first two listed authors. If the paper has only one author, use `YEAR_firstauthor.md`.
-
-**Surname slug rule** — deterministic above all else, because the filename is half the idempotency check. Take the author string exactly as `get_abstract` returns it (`"First M. Last"`). The surname is the substring after the **final space**. Lowercase it, fold accented Latin characters to ASCII (`é`→`e`, `ø`→`o`), then delete every character that is not `a–z`. So `Jan-Christoph Goos` → `goos`, `Geoffrey I. Webb` → `webb`, `Zahra Zamanzadeh Darban` → `darban`. This drops surname particles (`van der`, `de`) — accept that. A slug that is reproducible matters more than one that is linguistically correct.
-
-**Collision suffix** — in this order:
-
-1. The first paper saved under a given base name is `YEAR_first_second.md`, with **no suffix**. Never write `_1`.
-2. Only if that exact filename already exists **and its normalized first-line title differs from the candidate's** is it a real collision — then use `YEAR_first_second_2.md`, then `_3`, and so on. (A prolific group can put the same two authors on several papers in one year; that's the case this suffix exists for.)
-3. A file whose normalized title _matches_ the candidate is the same paper. That's a skip under step 5, never a collision.
+`templates/paper-identity-spec.md` defines it — `YEAR_firstauthor_secondauthor.md`,
+the surname slug rule, and the collision suffix. It is shared with the
+biomedical leg on purpose: one convention across sources is what stops the same
+paper being saved twice under two names.
 
 ## Output
 

@@ -30,6 +30,20 @@ The second command adds the marketplace for `arxiv-mcp-server`, a separate plugi
 
 Because Claude Code's own plugin loader already refuses to load this plugin at all when `arxiv-mcp-server` is missing — confirmed in both the real install path and local dev below — none of this plugin's own agents/skills need to re-check that dependency themselves; there's no scenario where they'd run with it actually absent.
 
+### The PubMed leg needs `uv` on your PATH
+
+`second-brain-biomed-downloader` uses [`paper-search-mcp`](https://github.com/openags/paper-search-mcp) (MIT) for PubMed/PMC/Europe PMC. Unlike `arxiv-mcp-server` this is **not** a Claude Code plugin — it has no marketplace, so it cannot be a `dependencies` entry, which accepts marketplace plugins only. This plugin therefore bundles it as its own MCP server in `.mcp.json`:
+
+```json
+{ "mcpServers": { "paper-search": { "command": "uvx", "args": ["paper-search-mcp"] } } }
+```
+
+That means there is nothing extra to install *if you have [`uv`](https://docs.astral.sh/uv/) on your PATH* — `uvx` fetches and runs the server on demand. If `uv` is missing, the arXiv leg still works and only the biomedical leg goes unavailable; the agent reports that plainly rather than silently skipping PubMed.
+
+Optional API keys (CORE, DOAJ, Unpaywall email) go in `~/.config/paper-search-mcp/.env`. None are required — without them those sources are rate-limited, not broken.
+
+Note the tool-prefix consequence: a bundled server's tools are named `mcp__plugin_<plugin-name>_<server-name>__<tool>`, so these arrive as `mcp__plugin_second-brain-researcher_paper-search__*`. If you instead configure `paper-search-mcp` yourself as a user-level server named `paper-search`, they arrive as `mcp__paper-search__*`. The agent allowlists both, for the same reason the arXiv agents do — an allowlist naming a prefix that doesn't exist fails silently, leaving an agent with no tools rather than an error.
+
 For local development, run Claude Code straight from a checkout of this repo with `claude --plugin-dir .` — it loads the plugin live from the working tree, no install step, no re-running anything after an edit. Verified directly: this enforces the same `arxiv-mcp-server` dependency as a real install — with it missing, none of this plugin's agents/skills appear at all; with it present, everything loads normally. So it still needs to be installed (via the marketplace commands above) for local testing to work, same as for a real user.
 
 Once installed, running the pipeline against a real research problem happens in *your own* project — that's where `research-problem-intake` sets up `paper_vault/`, `code_vault/`, and `obsidian_vault/` as working directories, and where the resulting notes live.
