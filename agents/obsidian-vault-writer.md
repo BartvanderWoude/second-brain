@@ -4,10 +4,11 @@ description: >
   Use when a confirmed research-problem-profile .md file, a collection of
   structured paper-summary records, and a collection of topic notes need to
   be materialized into a linked Obsidian vault (problem ↔ papers, problem ↔
-  topics, topics ↔ papers). Invoke with four things in the prompt: the
+  topics, topics ↔ papers). Invoke with five things in the prompt: the
   problem-profile path, the paper record paths (or their directory), the
-  topic record paths (may be empty), and the target vault path — all four
-  are required, this agent does not derive or guess them. Writes one problem
+  topic record paths (may be empty), the repo record paths (may be empty), and
+  the target vault path — all five are required, this agent does not derive or
+  guess them. Writes one problem
   note, one note per paper and one per topic, adds the wikilinks between
   them, attaches an authoritative BibTeX entry to each arXiv paper note,
   reads the files back to verify, and reports. On a re-run it merges rather than
@@ -33,8 +34,8 @@ calling agent can fix it and dispatch you again.
 
 ## Inputs
 
-All four are required arguments (the topic collection may be empty, but must be
-supplied). If any is absent, stop and report which one — do not derive it,
+All five are required arguments (the topic and repo collections may be empty,
+but must be supplied). If any is absent, stop and report which one — do not derive it,
 guess a default, or scan the filesystem looking for it.
 
 - **Problem profile** — one Markdown file following
@@ -45,6 +46,9 @@ guess a default, or scan the filesystem looking for it.
 - **Topic collection** — records following `templates/topic-note-template.md`,
   one per subtopic. May be empty, in which case skip every topic step below and
   create no `topics/` folder. Materialize one note per record.
+- **Repo collection** — records following `templates/repo-note-template.md`, one
+  per repository. May be empty, in which case skip every repo step below and
+  create no `repos/` folder. Materialize one note per record.
 - **Vault path** — the target vault root, supplied by the caller. Note that a
   vault is conventionally at `<root>/obsidian_vault/` (underscore), a sibling of
   `paper_vault/` and `code_vault/`, but that convention is the caller's to
@@ -61,8 +65,8 @@ guess a default, or scan the filesystem looking for it.
    of inventing one.
 2. Name the problem folder exactly `<problem-id>` and create it at
    `<vault>/<problem-id>/`. Use no generic folder names. Put the problem note
-   at `<problem-id>.md`, paper notes under `papers/`, and topic notes under
-   `topics/`. `Write` creates any missing parent directories, so no separate
+   at `<problem-id>.md`, paper notes under `papers/`, topic notes under `topics/`,
+   and repo notes under `repos/`. `Write` creates any missing parent directories, so no separate
    directory-creation step is needed. On a re-run these files already exist —
    see step 3, which governs how they are updated. Never overwrite one
    wholesale.
@@ -78,8 +82,11 @@ guess a default, or scan the filesystem looking for it.
    1. Read it and split it into its frontmatter, any preamble before the first
       `##` heading, and its `##` sections in order.
    2. **Replace only the sections this agent owns**: `## Links`, `## Citation`,
-      `## Related`, and the `## Papers` / `## Topics` link lists in the problem
-      note and the `## Papers` list in a topic note. **Regenerating a link list
+      `## Related`, the `## Papers` / `## Topics` / `## Repos` link lists in the
+      problem note, and the `## Papers` list in a topic or repo note. The
+      wikilink this agent adds to a paper's `## Code notes` is owned too — but
+      that section may also hold prose from `paper-summarizer`, so replace only
+      the link line and leave any prose around it untouched. **Regenerating a link list
       still preserves each link's `|Display text` alias** — `topic-summarizer`
       writes its `## Papers` links as
       `[[<problem-id>/papers/<paper-id>|<paper title>]]`, and dropping those
@@ -97,7 +104,7 @@ guess a default, or scan the filesystem looking for it.
       the problem` — are theirs, not yours: leave them exactly as found.
    4. **In frontmatter, update only the fields you own** and keep every other
       key, including ones no template defines. `related_notes` is
-      `similarity-linker`'s (step 8 renders it, never rewrites it), and a
+      `similarity-linker`'s (step 9 renders it, never rewrites it), and a
       `status:` the researcher promoted from `draft` to something else is a
       deliberate act — do not reset it.
 
@@ -111,7 +118,9 @@ guess a default, or scan the filesystem looking for it.
 4. Preserve the supplied content. Add to the problem note a `## Papers` list
    linking every paper as `[[<problem-id>/papers/<paper-id>]]`, and a
    `## Topics` list linking every topic as
-   `[[<problem-id>/topics/<keyword>]]`.
+   `[[<problem-id>/topics/<keyword>]]`, and — when the repo collection is
+   non-empty — a `## Repos` list linking every repo as
+   `[[<problem-id>/repos/<owner>-<name>]]`.
 5. In each paper note, preserve `related_problem: <problem-id>` and add a
    `## Links` entry linking `[[<problem-id>]]`, plus a
    `[[<problem-id>/topics/<keyword>]]` link to each topic note that both
@@ -122,6 +131,21 @@ guess a default, or scan the filesystem looking for it.
    `## Papers` section link every paper it drew on as
    `[[<problem-id>/papers/<paper-id>]]`.
 
+7. In each repo note, preserve `related_problem` and `provenance`, and make its
+   `## Papers` section link every paper in `related_papers` as
+   `[[<problem-id>/papers/<paper-id>|<paper title>]]`.
+
+   Then close the loop in the other direction: in each paper note whose id
+   appears in some repo's `related_papers`, add that repo to the paper's
+   `## Code notes` section as `[[<problem-id>/repos/<owner>-<name>]]`. The link
+   has to exist on both sides or the graph only walks one way — from a repo you
+   could find its papers, but sitting on a paper note you would never discover
+   its implementation, which is the direction a researcher actually reads in.
+
+   `## Code notes` already exists in `templates/paper-page-template.md` and is
+   normally empty at this stage; add the link without disturbing any prose
+   `paper-summarizer` put there.
+
 **Wikilink form.** Every link is a full path from the vault root, and the vault
 root holds problem folders — so a link must start with `<problem-id>/`, never
 with `papers/` or `topics/`. Bare `[[<paper-id>]]` / `[[<keyword>]]` links are
@@ -131,7 +155,7 @@ and Obsidian resolves the bare link to whichever it finds first. The one
 exception is the problem note itself, `[[<problem-id>]]`, whose id is unique
 vault-wide. Preserve any `|Display text` alias already present on a supplied
 link.
-7. Add a `## Citation` section to each paper note holding that paper's BibTeX
+8. Add a `## Citation` section to each paper note holding that paper's BibTeX
    entry, in a ```bibtex fenced block.
 
    Collect the arXiv ids **first, across the whole collection**, then make a
@@ -157,7 +181,7 @@ link.
    present, skip this step entirely and say so in your report — a missing
    bibliography never blocks vault-build.
 
-8. Render each paper note's `related_notes` into a `## Related` section, one
+9. Render each paper note's `related_notes` into a `## Related` section, one
    `[[<problem-id>/papers/<paper-id>]]` link per entry, using the same full-path
    wikilink form as everywhere else.
 
@@ -172,7 +196,7 @@ link.
    write an empty heading, and never invent an edge — if the field is empty that
    is a real finding about the vault, not a gap for you to fill.
 
-9. Read the written files back. Report absolute paths, the created or updated
+10. Read the written files back. Report absolute paths, the created or updated
    file list, which notes were created versus merged, and the verified vault
    path. If any note was merged, say which sections you replaced, so the
    researcher can see exactly what the run touched.
@@ -182,6 +206,6 @@ papers — the topic notes are what connect papers to each other, via the
 keywords they share. Leave paper-to-paper similarity edges, cross-project
 edges, deduplication, lifecycle changes, and source discovery untouched. Keep
 each paper note's `related_notes` field unchanged — add only the wikilinks
-required by steps 5 and 6, the citation block from step 7, and the `## Related`
-rendering from step 8. Paper-to-paper edges are `similarity-linker`'s to compute;
+required by steps 5, 6 and 7, the citation block from step 8, and the
+`## Related` rendering from step 9. Paper-to-paper edges are `similarity-linker`'s to compute;
 yours only to display.

@@ -36,7 +36,7 @@ unconfirmed profile.
 Note its `id`, `paper_vault_path`, and `code_vault_path` fields — every
 later stage needs these.
 
-## Stage 3: paper discovery (parallel)
+## Stage 3: discovery
 
 Dispatch all three discovery agents **in parallel**, each with the confirmed
 profile's file path and nothing else. Each reads `paper_vault_path` itself
@@ -58,9 +58,6 @@ report, in one line, and carry on with the arXiv and PubMed results. Never
 present a run as failed because the optional leg was skipped, and never re-run
 discovery to "fix" a missing key.
 
-Code discovery (GitHub) is still not implemented. If the researcher asks about
-it, say so plainly rather than silently skipping it.
-
 ### Merge before the checkpoint
 
 The legs run blind to each other, so the same paper can arrive twice — a
@@ -78,12 +75,36 @@ before the researcher reviews anything:
 
 Report what was merged. A silent merge looks like a paper went missing.
 
+### Then the code leg — after the paper legs, still before the checkpoint
+
+Dispatch `second-brain-code-finder` with the confirmed profile path, **once the
+three paper legs have returned and the merge above is done**. It is not a fourth
+parallel leg, and the reason is a real dependency rather than caution: its
+highest-precision source is the repos named *inside the saved papers*, so it
+needs those files on disk. Started in parallel it would find an empty vault and
+silently degrade to topic search alone — the weakest half of what it does.
+
+It still runs before the checkpoint, so repos and papers are approved together
+in one review.
+
+Note what does *not* exist yet at this point: `summaries/` is written at stage 5,
+so the `code_link` field is unavailable on a first run and the agent works from
+the full texts. That is the richer source anyway. On a re-run where summaries
+already exist, it uses both.
+
+The agent reads GitHub through the API only — it never clones, downloads, or
+executes anything, and `code_vault_path` is still empty when it finishes. That
+is what makes it safe to run *before* the checkpoint at all. If it reports that
+`gh` is missing or unauthenticated, that is a skipped enhancement exactly like a
+missing Asta key: report it in one line and carry on.
+
+
 ## Stage 4: checkpoint — stop and wait
 
-After both downloaders have reported and the merge above is done, relay a
+After every discovery leg has reported and the merge above is done, relay a
 combined summary (what was saved per leg, which legs ran and which were
 skipped, what was merged as duplicates, what was skipped, dropped, or saved
-abstract-only because it is paywalled) to the
+abstract-only because it is paywalled, and which repositories were found) to the
 researcher and **stop here**.
 
 If the biomedical leg returned a **needs-manual-download** list — papers that
@@ -93,6 +114,13 @@ researcher can drop those files into `paper_vault_path` by hand; once
 vault-build starts, an absent full text silently becomes an abstract-only note.
 Do not fold that list into the general "skipped" tally, and do not proceed past
 it without an explicit decision.
+
+Report the repositories as their own section, not folded into the paper counts:
+how many came from the papers versus from topic search, and — named individually
+— any with **no license**. That last one is the finding most likely to change
+what the researcher does with a repo, and the checkpoint is where it is still
+cheap to act on. State that nothing was cloned and `code_vault_path` is empty,
+so its emptiness reads as intended rather than as a step that failed.
 
 Ask explicitly
 whether to proceed to vault-build with what was found, add the missing papers
@@ -192,11 +220,13 @@ Only after the researcher confirms:
 
 4. **Vault.** Dispatch the `obsidian-vault-writer` agent with: the confirmed
    profile path, the paper collection from step 1, the topic collection
-   (`Glob` `<paper_vault_path>/topics/*.md`), and an explicit vault path —
+   (`Glob` `<paper_vault_path>/topics/*.md`), the repo collection (`Glob`
+   `<paper_vault_path>/repos/*.md`, empty if the code leg was skipped), and an
+   explicit vault path —
    the parent directory of `paper_vault_path` (i.e. strip the trailing
    `paper_vault/<id>/` and replace with `obsidian_vault/`), so it is never
-   left to guess a default. All four inputs are required by the agent — it
-   derives nothing and guesses nothing, so pass all four explicitly.
+   left to guess a default. All five inputs are required by the agent — it
+   derives nothing and guesses nothing, so pass all five explicitly.
 
    The agent writes markdown files and nothing else. It does not need the
    Obsidian application installed, and vault-build never blocks on it. On a
@@ -211,7 +241,7 @@ Only after the researcher confirms:
 ## Report back
 
 State the profile id, how many papers were found/summarized/vaulted, how many
-topic notes were written, and the final vault path. Name any topic note that
+topic notes and repo notes were written, and the final vault path. Name any topic note that
 came back with zero matching papers — that's a gap in the literature or in the
 search terms, and it's the kind of thing that's easy to miss in a folder
 listing. If anything failed at any stage (a summarizer call errored, a paper
@@ -223,8 +253,9 @@ Report the paper-to-paper edges separately from the topic notes: how many
 bibliographic couplings, and how many papers ended with none.
 
 Close by reminding the researcher which stages of the original pipeline spec
-this run does not cover, so they don't assume those happened silently:
-code/repo discovery and vault-build, and the experiment plan.
+this run does not cover, so they don't assume those happened silently: repos
+were catalogued but **never cloned, run, or tested** — there is no code
+vault-build and no Docker sandbox — and there is no experiment plan.
 
 **Be precise about cross-linking**, because it is now the easiest thing in this
 pipeline to overstate. Papers are linked to each other two ways — through

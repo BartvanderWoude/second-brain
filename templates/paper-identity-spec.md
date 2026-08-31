@@ -33,6 +33,20 @@ one hit is a preprint and the other is the published version — that is the
 common arXiv/PubMed case, not a collision. Prefer the version with a DOI and a
 real venue, and record the other's id in the note rather than saving twice.
 
+## Repository identity
+
+Repos use the same idea with a simpler key: **`owner/name`, lowercased**, is the
+identity. A fork and its upstream are different repos with different keys — but
+they are usually *not* both worth a note, so resolve a fork to its canonical
+upstream and keep one, exactly as a preprint and its published version collapse
+to one paper above. The note filename is that key with the slash replaced by a
+hyphen: `<owner>-<name>.md`.
+
+Normalize a URL found in prose before keying on it: strip trailing sentence
+punctuation, a `.git` suffix, and any `/tree/<branch>` or `/blob/<path>` tail.
+`https://github.com/Foo/Bar.git`, `https://github.com/foo/bar`, and
+`https://github.com/foo/bar/tree/main` are one repo.
+
 ## Which copy to keep
 
 When one paper is reachable from several sources, keep **one** file:

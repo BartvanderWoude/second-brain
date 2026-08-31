@@ -58,6 +58,20 @@ Two flags matter and the agent always passes them. `--image-export-mode placehol
 
 First run downloads layout models (a few hundred MB), so expect the first paper to be slow.
 
+### Code discovery needs the GitHub CLI (optional)
+
+`second-brain-code-finder` catalogues the repositories behind a problem: the ones the saved papers name, plus what `gh search repos` turns up for the profile's terms. It needs [`gh`](https://cli.github.com/) on your PATH and logged in:
+
+```bash
+gh auth login
+```
+
+Optional. Without it the paper legs run normally and the code leg reports that it was skipped.
+
+**It never clones, downloads, or executes anything.** Every note is built from the GitHub API — README plus the file tree — so `code_vault/<id>/` stays empty and no third-party code reaches your machine. That is deliberate: the code leg runs *before* the stage-4 checkpoint, and `PROJECT_CONTEXT.md` locks in that nothing is cloned or executed until you have approved it. Cloning, running, and the Docker sandbox remain unbuilt.
+
+Each repo note records what the repo is, how it is structured, its entry points, and what it would take to run — plus two things that are easy to miss and expensive to discover late: whether it has **any license at all** (unlicensed code grants no reuse rights), and whether it is the paper's **official implementation** or a third-party reimplementation.
+
 ### The cross-field pass needs an Asta API key (optional)
 
 `second-brain-crossfield-searcher` uses [Ai2's Asta Scientific Corpus Tool](https://allenai.org/asta/resources/mcp) to search *paper bodies* rather than abstracts — the pass that finds methods from adjacent fields whose abstracts never mention your domain. It is bundled in `.mcp.json` as a remote HTTP server and reads `ASTA_API_KEY` from the environment.
