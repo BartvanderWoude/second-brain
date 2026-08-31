@@ -38,28 +38,37 @@ later stage needs these.
 
 ## Stage 3: paper discovery (parallel)
 
-Dispatch both discovery agents **in parallel**, each with the confirmed
-profile's file path and nothing else. Both read `paper_vault_path` themselves
+Dispatch all three discovery agents **in parallel**, each with the confirmed
+profile's file path and nothing else. Each reads `paper_vault_path` itself
 and save into it directly — do not pass or compute that path separately, and do
 not pre-create the directory (the agents handle that).
 
 - `second-brain-paper-downloader` — the arXiv leg.
 - `second-brain-biomed-downloader` — the PubMed/PMC/Europe PMC leg.
+- `second-brain-crossfield-searcher` — the cross-field methodology pass, over
+  paper bodies via Asta. **Dispatch it unconditionally**; do not pre-check for a
+  key yourself. The agent's own first step is a one-line key check that returns
+  in seconds, and centralizing that check in the agent is what keeps this skill
+  from having to know about anyone's credentials.
 
-If one leg fails, keep the other's results and name the failure in the stage-4
-report. A failed biomedical leg is not a reason to discard the arXiv papers.
+**The legs are independent — one failing never discards another's results.** In
+particular, the cross-field pass is *additive*: if it reports that `ASTA_API_KEY`
+is unset, that is a skipped enhancement, not a failed run. Say so in the stage-4
+report, in one line, and carry on with the arXiv and PubMed results. Never
+present a run as failed because the optional leg was skipped, and never re-run
+discovery to "fix" a missing key.
 
-Code discovery (GitHub) and the Semantic Scholar cross-field pass are still not
-implemented. If the researcher asks about them, say so plainly rather than
-silently skipping them.
+Code discovery (GitHub) is still not implemented. If the researcher asks about
+it, say so plainly rather than silently skipping it.
 
 ### Merge before the checkpoint
 
-The two legs run blind to each other, so the same paper can arrive twice — a
-preprint from arXiv and the published version from PubMed. Resolve that here,
+The legs run blind to each other, so the same paper can arrive twice — a
+preprint from arXiv and the published version from PubMed, or a cross-field hit
+that is also an arXiv paper. Resolve that here,
 before the researcher reviews anything:
 
-1. `Glob` `<paper_vault_path>/*.md` for everything both legs saved.
+1. `Glob` `<paper_vault_path>/*.md` for everything the legs saved.
 2. Apply the key ladder in `templates/paper-identity-spec.md` — DOI, then
    source-native id, then normalized title. A normalized-title match with
    different DOIs is the preprint/published pair, not a collision.
@@ -72,8 +81,9 @@ Report what was merged. A silent merge looks like a paper went missing.
 ## Stage 4: checkpoint — stop and wait
 
 After both downloaders have reported and the merge above is done, relay a
-combined summary (what was saved per leg, what was merged as duplicates, what
-was skipped, dropped, or saved abstract-only because it is paywalled) to the
+combined summary (what was saved per leg, which legs ran and which were
+skipped, what was merged as duplicates, what was skipped, dropped, or saved
+abstract-only because it is paywalled) to the
 researcher and **stop here**.
 
 If the biomedical leg returned a **needs-manual-download** list — papers that

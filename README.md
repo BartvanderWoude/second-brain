@@ -44,6 +44,20 @@ Optional API keys (CORE, DOAJ, Unpaywall email) go in `~/.config/paper-search-mc
 
 Note the tool-prefix consequence: a bundled server's tools are named `mcp__plugin_<plugin-name>_<server-name>__<tool>`, so these arrive as `mcp__plugin_second-brain-researcher_paper-search__*`. If you instead configure `paper-search-mcp` yourself as a user-level server named `paper-search`, they arrive as `mcp__paper-search__*`. The agent allowlists both, for the same reason the arXiv agents do — an allowlist naming a prefix that doesn't exist fails silently, leaving an agent with no tools rather than an error.
 
+### The cross-field pass needs an Asta API key (optional)
+
+`second-brain-crossfield-searcher` uses [Ai2's Asta Scientific Corpus Tool](https://allenai.org/asta/resources/mcp) to search *paper bodies* rather than abstracts — the pass that finds methods from adjacent fields whose abstracts never mention your domain. It is bundled in `.mcp.json` as a remote HTTP server and reads `ASTA_API_KEY` from the environment.
+
+```bash
+cp .env.example .env          # then paste your key into .env
+set -a; source .env; set +a   # Claude Code does NOT read .env by itself
+claude
+```
+
+Request a free key at [share.hsforms.com/1L4hUh20oT3mu8iXJQMV77w3ioxm](https://share.hsforms.com/1L4hUh20oT3mu8iXJQMV77w3ioxm). Keys are personal — `.env` is gitignored, `.env.example` is the committed placeholder, so nobody has to share one.
+
+**Without a key the pipeline still works.** The arXiv and PubMed legs are unaffected; the cross-field pass reports that it was skipped and the run continues. What you must *not* do is run that pass unauthenticated and hope: Ai2's docs describe the key as enabling "higher rate limits", but the search tools are gated outright — `snippet_search` and `search_papers_by_relevance` hang for ~271 seconds and then fail with a misleading `ConnectionRefusedError` rather than a clean 401. That is why the agent checks for the key before it searches instead of letting the call fail. (Identifier lookups like `search_paper_by_title` do work without a key, which is what makes the docs' framing so easy to believe.)
+
 For local development, run Claude Code straight from a checkout of this repo with `claude --plugin-dir .` — it loads the plugin live from the working tree, no install step, no re-running anything after an edit. Verified directly: this enforces the same `arxiv-mcp-server` dependency as a real install — with it missing, none of this plugin's agents/skills appear at all; with it present, everything loads normally. So it still needs to be installed (via the marketplace commands above) for local testing to work, same as for a real user.
 
 Once installed, running the pipeline against a real research problem happens in *your own* project — that's where `research-problem-intake` sets up `paper_vault/`, `code_vault/`, and `obsidian_vault/` as working directories, and where the resulting notes live.
