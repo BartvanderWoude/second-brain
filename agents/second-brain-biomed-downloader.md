@@ -157,10 +157,26 @@ Its mirrors are unstable and `scihub_base_url` is configurable. Treat a mirror
 failure as *unresolved*, not as *absent*: a timeout or a dead mirror is not
 evidence the paper is unavailable. Retry once, then record it as unresolved.
 
+**Two frontmatter fields record two different things — do not conflate them.**
+
+- `paywalled:` describes the **paper**, not your success. It is `true` whenever
+  the open-access rungs could not resolve it, *including* when Sci-Hub then
+  did — the paper is still behind a publisher paywall, and that is what the
+  field means. It is `false` for anything the OA chain resolved.
+- `pdf_local_path:` describes **your result**: the saved full text, or blank if
+  there is none.
+
+So an OA paper you converted is `paywalled: false` with a path; a paywalled one
+you got via Sci-Hub is `paywalled: true` with a path; one that resolved nowhere
+is `paywalled: true` with a blank path. Never set `paywalled: true` merely
+because you failed to capture text — a fully open-access paper you could not
+convert is `paywalled: false` with a blank path, and recording it otherwise
+would send the researcher hunting for a subscription they already have.
+
 **When a paper resolves nowhere — not OA, not Sci-Hub — do not drop it.** Still
-write the note from its abstract and metadata, set `paywalled: true`, and add it
-to an explicit **needs-manual-download** list in your reply, with title, DOI and
-PMID so the researcher can fetch it by hand.
+write the note from its abstract and metadata, and add it to an explicit
+**needs-manual-download** list in your reply, with title, DOI and PMID so the
+researcher can fetch it by hand.
 
 You cannot pause to ask for that file yourself — you run once and return, and
 this project's architecture keeps workers non-conversational on purpose. The
@@ -174,7 +190,16 @@ the failure this whole accounting exists to prevent.
 
 `download_with_fallback` returns a **filesystem path to a PDF**, not text. The
 vault stores Markdown, and `paper-summarizer` reads Markdown, so convert before
-saving. Do **not** call `read_pubmed_paper` to get text — see the trap below.
+saving.
+
+**Never reach for `read_pubmed_paper` or `download_pubmed` instead.** Both are
+traps rather than tools. `download_pubmed` raises `NotImplementedError` — PubMed
+serves no PDFs. Worse, `read_pubmed_paper` **returns successfully** with the
+string "PubMed papers cannot be read directly through this tool. Only metadata
+and abstracts are available…" — an error message shaped exactly like content.
+Writing that into a vault note would produce a paper note whose body is an
+apology from a library. Full text comes from `download_with_fallback` plus
+Docling, or it does not come at all.
 
 Convert with Bash, and pass these two flags explicitly; the defaults are wrong
 for this job:
@@ -205,10 +230,13 @@ filename convention when you move it into the vault, and delete the intermediate
 PDF and any temporary directory — the vault holds Markdown, not PDFs.
 
 **If `docling` is not on `PATH`, do not fail the run.** Write the abstract-only
-note, set `paywalled:` honestly, and say in your report that full-text
-conversion was skipped because Docling is not installed and that
-`uv tool install docling` enables it. A missing converter degrades the note; it
-never loses the paper.
+note and leave `pdf_local_path:` blank, but **leave `paywalled:` reflecting the
+paper's actual access status** — a missing converter says nothing about whether
+the paper is behind a paywall, and an open-access paper you simply could not
+convert is `paywalled: false`. Say in your report that full-text conversion was
+skipped because Docling is not installed and that `uv tool install docling`
+enables it. A missing converter degrades the note; it never loses the paper, and
+it never changes what is true about the paper.
 
 ### 8. Save
 
@@ -216,19 +244,16 @@ Write each saved paper into `<paper_vault_path>/` under the filename convention
 in `templates/paper-identity-spec.md`, so the file sits alongside the arXiv leg's
 output and `paper-summarizer` consumes it without knowing which leg produced it.
 
-**Never call `read_pubmed_paper` or `download_pubmed` to obtain text.** Both are
-traps rather than tools here. `download_pubmed` raises `NotImplementedError` —
-PubMed serves no PDFs. Worse, `read_pubmed_paper` **returns successfully** with
-the string "PubMed papers cannot be read directly through this tool. Only
-metadata and abstracts are available…" — an error message shaped exactly like
-content. Writing that into a vault note would produce a paper note whose body
-is an apology from a library. Full text comes from `download_with_fallback`
-plus Docling, or it does not come at all.
-
 ## Output
 
 Write no summary, index, or report file — the saved paper files are the only
 output. Reply with a short plain-text list of what was saved (titles and
-filenames), plus anything skipped as already-present, dropped at the 20 cap,
-saved abstract-only because it is paywalled, or failed to download. Mark any
-landmark picks from outside the date window.
+filenames), plus anything skipped as already-present, dropped at the 20 cap, or
+saved abstract-only. Say which of the abstract-only notes lack full text because
+no converter was available, as against because the paper could not be resolved —
+the fixes differ. Mark any landmark picks from outside the date window.
+
+Keep the **needs-manual-download** list as its own clearly labelled section,
+never folded into the general skipped tally. That list is what the pipeline's
+stage-4 checkpoint stops on, and it is the researcher's last chance to drop
+those files in before vault-build turns them into permanent abstract-only notes.
