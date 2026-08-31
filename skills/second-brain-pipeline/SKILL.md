@@ -163,7 +163,28 @@ Only after the researcher confirms:
    run, regenerate the topics they touch — a stale topic note that predates
    half its papers is worse than none.
 
-3. **Vault.** Dispatch the `obsidian-vault-writer` agent with: the confirmed
+3. **Similarity edges.** Dispatch `similarity-linker` once, passing three
+   paths: the summaries directory (`<paper_vault_path>/summaries/`), the
+   `paper_vault_path`, and the confirmed profile. It adds paper-to-paper
+   `related_notes` edges built from the citation graph, so papers link directly
+   rather than only through shared-keyword topic notes.
+
+   Run it **after** step 1, since it reads the summaries, and **before** step 4,
+   since the vault writer renders the edges it produces. It is a single
+   dispatch, not a fan-out — it needs to see every paper at once to find shared
+   references between them.
+
+   This step is **not** the spec's stage 6. Citation-based linking is a
+   different mechanism from embedding similarity: it is factual and
+   interpretable, but it cannot connect two papers that solve the same problem
+   in different literatures with no shared bibliography. Relay the agent's
+   report as it stands and do not upgrade its language.
+
+   If it reports a missing `ASTA_API_KEY`, that is a partial result, not a
+   failure: arXiv papers still get edges via the keyless citation graph, and
+   only non-arXiv papers go unlinked. Carry on to step 4.
+
+4. **Vault.** Dispatch the `obsidian-vault-writer` agent with: the confirmed
    profile path, the paper collection from step 1, the topic collection
    (`Glob` `<paper_vault_path>/topics/*.md`), and an explicit vault path —
    the parent directory of `paper_vault_path` (i.e. strip the trailing
@@ -187,12 +208,23 @@ listing. If anything failed at any stage (a summarizer call errored, a paper
 had no matches to the profile's terms, etc.), name it plainly rather than
 reporting a clean run.
 
+Report the paper-to-paper edges separately from the topic notes: how many
+`related_notes` edges were written, the split between direct citations and
+bibliographic couplings, and how many papers ended with none.
+
 Close by reminding the researcher which stages of the original pipeline spec
 this run does not cover, so they don't assume those happened silently:
-code/repo discovery and vault-build, and the experiment plan. Be precise about
-cross-linking — papers are now linked to each other through shared-keyword
-topic notes, but the spec's **embedding-similarity** cross-linking is still not
-implemented, so don't report spec stage 6 as done.
+code/repo discovery and vault-build, and the experiment plan.
+
+**Be precise about cross-linking**, because it is now the easiest thing in this
+pipeline to overstate. Papers are linked to each other two ways — through
+shared-keyword topic notes, and through citation-graph edges in
+`related_notes`. Neither is the spec's stage 6, which specifies
+**embedding-similarity** linking, and that remains unimplemented. The
+distinction is not pedantic: citation edges cannot connect two papers that solve
+the same problem in different literatures with no shared bibliography, and that
+cross-field case is the entire motivation for this project. Report what ran, not
+what the spec asked for.
 
 ## Finally: offer to open the vault
 

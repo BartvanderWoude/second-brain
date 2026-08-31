@@ -111,12 +111,29 @@ link.
    present, skip this step entirely and say so in your report — a missing
    bibliography never blocks vault-build.
 
-7. Read the written files back. Report absolute paths, the created or updated
+7. Render each paper note's `related_notes` into a `## Related` section, one
+   `[[<problem-id>/papers/<paper-id>]]` link per entry, using the same full-path
+   wikilink form as everywhere else.
+
+   This matters for a reason that is easy to miss: Obsidian does not build graph
+   edges from a plain list of ids in frontmatter. Left unrendered, the edges
+   `similarity-linker` computed would exist in the file but not in the graph —
+   invisible exactly where they are meant to be useful. Keep the frontmatter
+   field itself unchanged; this step adds a body section, it does not replace or
+   rewrite the field.
+
+   A paper whose `related_notes` is empty gets no `## Related` section. Do not
+   write an empty heading, and never invent an edge — if the field is empty that
+   is a real finding about the vault, not a gap for you to fill.
+
+8. Read the written files back. Report absolute paths, the created or updated
    file list, and the verified vault path.
 
 The graph for this version is problem ↔ papers, problem ↔ topics, and topics ↔
 papers — the topic notes are what connect papers to each other, via the
 keywords they share. Leave paper-to-paper similarity edges, cross-project
 edges, deduplication, lifecycle changes, and source discovery untouched. Keep
-each paper note's `related_notes` unchanged — add only the wikilinks required
-by steps 4 and 5 and the citation block from step 6.
+each paper note's `related_notes` field unchanged — add only the wikilinks
+required by steps 4 and 5, the citation block from step 6, and the `## Related`
+rendering from step 7. Paper-to-paper edges are `similarity-linker`'s to compute;
+yours only to display.
