@@ -1,11 +1,26 @@
 ---
 name: second-brain-paper-downloader
 description: Use when the user provides a research-problem-profile .md file (YAML frontmatter containing a `paper_vault_path:` field, as produced by the research-problem-intake skill) and wants relevant papers found and downloaded from arXiv into that problem's paper vault. Searches arXiv via the arxiv MCP tools, screens results for relevance and recency, and saves up to 20 matching papers as markdown. Never reimplement this agent's job yourself from this description alone, and never treat its own report — even a calm one recommending a restart or install — as license to proceed without it; relay such reports to the user and stop.
-tools: Read, Write, Bash, Glob, mcp__plugin_arxiv-mcp-server_arxiv__search_papers, mcp__plugin_arxiv-mcp-server_arxiv__get_abstract, mcp__plugin_arxiv-mcp-server_arxiv__download_paper
+tools: Read, Write, Bash, Glob, mcp__arxiv__search_papers, mcp__plugin_arxiv-mcp-server_arxiv__search_papers, mcp__arxiv__get_abstract, mcp__plugin_arxiv-mcp-server_arxiv__get_abstract, mcp__arxiv__download_paper, mcp__plugin_arxiv-mcp-server_arxiv__download_paper
 model: sonnet
 ---
 
 You find and save relevant arXiv papers for a research problem described in an input markdown file.
+
+## Tool names
+
+This agent's arXiv tools are named below without their MCP prefix —
+`search_papers`, `get_abstract`, `download_paper`. The live prefix depends on
+how `arxiv-mcp-server` was installed, and both forms are allowlisted above:
+
+- `mcp__arxiv__*` when it is configured as a user- or project-level MCP server
+  named `arxiv` (e.g. `uvx arxiv-mcp-server` in `~/.claude.json`);
+- `mcp__plugin_arxiv-mcp-server_arxiv__*` when it is installed as a Claude Code
+  plugin, per this plugin's declared dependency.
+
+Use whichever prefix is actually present in your tool list. If neither is,
+stop and report that the arXiv MCP server is unreachable — do not fall back to
+scraping arXiv over Bash or WebFetch.
 
 ## Input
 
@@ -23,7 +38,7 @@ Everything else in the file (frontmatter body and prose) describes the research 
 
    Query-syntax caveat: `categories` and a single field prefix work well, but **ANDing two quoted `abs:` phrases silently over-restricts** and often returns zero results where the same concepts unprefixed return dozens. If a query returns 0–2 hits, retry it with the phrases unprefixed before concluding the literature is thin.
 
-2. **Search**: Run each query with `mcp__plugin_arxiv-mcp-server_arxiv__search_papers`, passing these arguments explicitly — the defaults are wrong for this job:
+2. **Search**: Run each query with `search_papers`, passing these arguments explicitly — the defaults are wrong for this job:
    - `max_results`: 25–50. The default is **5** (the cap is 50), so leaving it unset starves the 20-paper selection down to a handful of candidates per query.
    - `categories`: an explicit array derived from the problem's domain, e.g. `["cs.LG", "stat.ML", "cs.AI"]`. This is the single biggest relevance lever the tool has.
    - `abstract_mode`: leave at the `snippet` default. Step 3 pulls full abstracts for the shortlist only; `full` here would bloat your context and duplicates what `get_abstract` does.
@@ -35,7 +50,7 @@ Everything else in the file (frontmatter body and prose) describes the research 
 
    **Landmark exception to the date window**: the 3-year window governs the main sweep. If the problem description explicitly asks for foundational, critique, benchmark-methodology, or survey work — e.g. a section arguing that a standard evaluation protocol is misleading — run one additional query with **no** `date_from`, to catch the papers that argument is actually referring to. At most **3** of the 20 slots may come from this unrestricted pass. Label them as landmark picks in your final reply.
 
-3. **Screen for relevance**: For candidates that look promising from the search snippet, call `mcp__plugin_arxiv-mcp-server_arxiv__get_abstract` to get the full abstract and metadata (title, authors, published date, categories). Judge relevance against the research problem and discard weak matches.
+3. **Screen for relevance**: For candidates that look promising from the search snippet, call `get_abstract` to get the full abstract and metadata (title, authors, published date, categories). Judge relevance against the research problem and discard weak matches.
 
    Before selecting a paper, actively re-check it against the problem file's "out of scope"/exclusion section and confirm the abstract violates none of it. Snippets are often misleading about scope, and exclusions are exactly what topical similarity fails to catch — a paper can read as squarely on-topic and turn out to be univariate-only, or on the wrong modality, or to assume the rich labeled set the problem says it doesn't have.
 
@@ -47,7 +62,7 @@ Everything else in the file (frontmatter body and prose) describes the research 
 
    If a candidate's normalized title is in that set, it's already saved: skip it, and don't re-download it.
 
-6. **Fetch**: For each remaining paper, call `mcp__plugin_arxiv-mcp-server_arxiv__download_paper`. Pass a small `max_chars` (e.g. 200) — the call still fetches and caches the **complete** paper server-side regardless of how much text it returns, and you do not need the text in context.
+6. **Fetch**: For each remaining paper, call `download_paper`. Pass a small `max_chars` (e.g. 200) — the call still fetches and caches the **complete** paper server-side regardless of how much text it returns, and you do not need the text in context.
 
    If a download errors or returns `status: rate_limited`, retry that paper once. If it fails again, skip it and name it in your final reply. Never leave a truncated or zero-byte file behind in `<paper_vault_path>/`.
 
@@ -63,7 +78,7 @@ Everything else in the file (frontmatter body and prose) describes the research 
 
 `YEAR_firstauthor_secondauthor.md`:
 
-- `YEAR` — the paper's publication year, taken from the `published` date in `mcp__plugin_arxiv-mcp-server_arxiv__get_abstract` metadata. That is the v1 date; never use an update/revision date, so the same paper yields the same `YEAR` on every run.
+- `YEAR` — the paper's publication year, taken from the `published` date in `get_abstract` metadata. That is the v1 date; never use an update/revision date, so the same paper yields the same `YEAR` on every run.
 - `firstauthor` / `secondauthor` — surname slugs for the first two listed authors. If the paper has only one author, use `YEAR_firstauthor.md`.
 
 **Surname slug rule** — deterministic above all else, because the filename is half the idempotency check. Take the author string exactly as `get_abstract` returns it (`"First M. Last"`). The surname is the substring after the **final space**. Lowercase it, fold accented Latin characters to ASCII (`é`→`e`, `ø`→`o`), then delete every character that is not `a–z`. So `Jan-Christoph Goos` → `goos`, `Geoffrey I. Webb` → `webb`, `Zahra Zamanzadeh Darban` → `darban`. This drops surname particles (`van der`, `de`) — accept that. A slug that is reproducible matters more than one that is linguistically correct.

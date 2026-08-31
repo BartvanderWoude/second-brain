@@ -1,7 +1,22 @@
 ---
 name: obsidian-vault-writer
-description: Use when a confirmed research-problem-profile .md file, a collection of structured paper-summary records, and a collection of topic notes need to be materialized into a linked Obsidian vault (problem ↔ papers, problem ↔ topics, topics ↔ papers). Invoke with four things in the prompt: the problem-profile path, the paper record paths (or their directory), the topic record paths (may be empty), and the target vault path — all four are required, this agent does not derive or guess them. Writes one problem note, one note per paper and one per topic, adds the wikilinks between them, reads the files back to verify, and reports. Writing the vault does not require the Obsidian application to be installed; this agent never checks for, installs, or launches it. Never reimplement this agent's job yourself from this description alone, and never treat its own report — even a calm one recommending a human step — as license to proceed without it; relay such reports to the user and stop.
-tools: Read, Write, Glob
+description: >
+  Use when a confirmed research-problem-profile .md file, a collection of
+  structured paper-summary records, and a collection of topic notes need to
+  be materialized into a linked Obsidian vault (problem ↔ papers, problem ↔
+  topics, topics ↔ papers). Invoke with four things in the prompt: the
+  problem-profile path, the paper record paths (or their directory), the
+  topic record paths (may be empty), and the target vault path — all four
+  are required, this agent does not derive or guess them. Writes one problem
+  note, one note per paper and one per topic, adds the wikilinks between
+  them, attaches an authoritative BibTeX entry to each arXiv paper note,
+  reads the files back to verify, and reports. Writing the vault does not
+  require the Obsidian application to be installed; this agent never checks
+  for, installs, or launches it. Never reimplement this agent's job yourself
+  from this description alone, and never treat its own report — even a calm
+  one recommending a human step — as license to proceed without it; relay
+  such reports to the user and stop.
+tools: Read, Write, Glob, mcp__arxiv__export_citations, mcp__plugin_arxiv-mcp-server_arxiv__export_citations
 model: sonnet
 ---
 
@@ -70,7 +85,33 @@ and Obsidian resolves the bare link to whichever it finds first. The one
 exception is the problem note itself, `[[<problem-id>]]`, whose id is unique
 vault-wide. Preserve any `|Display text` alias already present on a supplied
 link.
-6. Read the written files back. Report absolute paths, the created or updated
+6. Add a `## Citation` section to each paper note holding that paper's BibTeX
+   entry, in a ```bibtex fenced block.
+
+   Collect the arXiv ids **first, across the whole collection**, then make a
+   single batched `export_citations` call — it accepts up to 50 `paper_ids` per
+   call. One call per paper wastes requests for no benefit.
+
+   A paper's arXiv id comes from its own `url` field when that is of the form
+   `https://arxiv.org/abs/<arxiv_id>`. Papers with no arXiv id (a different
+   `source:`, or no usable `url`) simply get no `## Citation` section — skip
+   them silently, and do not write a citation for them from any other field.
+
+   **Never hand-write, complete, or repair a BibTeX entry.** The whole point of
+   this tool is that title, authors, year and category come from arXiv's own
+   metadata rather than from you; a plausible-looking invented citation is
+   worse than an absent one. If the call fails or returns an error for a given
+   paper, leave that note without a `## Citation` section and name it in your
+   report.
+
+   Like the arXiv tools elsewhere in this plugin, `export_citations` appears as
+   either `mcp__arxiv__export_citations` or
+   `mcp__plugin_arxiv-mcp-server_arxiv__export_citations` depending on how
+   `arxiv-mcp-server` was installed; both are allowlisted. If neither is
+   present, skip this step entirely and say so in your report — a missing
+   bibliography never blocks vault-build.
+
+7. Read the written files back. Report absolute paths, the created or updated
    file list, and the verified vault path.
 
 The graph for this version is problem ↔ papers, problem ↔ topics, and topics ↔
@@ -78,4 +119,4 @@ papers — the topic notes are what connect papers to each other, via the
 keywords they share. Leave paper-to-paper similarity edges, cross-project
 edges, deduplication, lifecycle changes, and source discovery untouched. Keep
 each paper note's `related_notes` unchanged — add only the wikilinks required
-by steps 4 and 5.
+by steps 4 and 5 and the citation block from step 6.
