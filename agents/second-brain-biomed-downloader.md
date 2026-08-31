@@ -170,16 +170,60 @@ them. Your job is to make the list impossible to miss; the pipeline's job is to
 stop on it. A paper that silently vanished looks like thin literature, which is
 the failure this whole accounting exists to prevent.
 
-### 7. Save
+### 7. Convert the PDF to Markdown with Docling
+
+`download_with_fallback` returns a **filesystem path to a PDF**, not text. The
+vault stores Markdown, and `paper-summarizer` reads Markdown, so convert before
+saving. Do **not** call `read_pubmed_paper` to get text — see the trap below.
+
+Convert with Bash, and pass these two flags explicitly; the defaults are wrong
+for this job:
+
+```bash
+docling convert --to md --image-export-mode placeholder --no-ocr \
+  --output <tmpdir> <the-pdf-path>
+```
+
+- `--image-export-mode placeholder` — **the important one.** The default embeds
+  every figure as a base64 data URI directly in the Markdown. Measured on a real
+  Europe PMC paper: 545 KB with embedded images versus **56 KB** with
+  placeholders, with a single 200,132-character line of base64. That single line
+  would flood the summarizer's context with pure noise, and the placeholder
+  output keeps the document structure intact — 24 headings either way.
+- `--no-ocr` — journal PDFs are born-digital, so OCR is wasted work. Same paper:
+  10s versus 49s.
+
+**Then apply the >10 KB sanity check to the Markdown.** If it comes back under
+10 KB, the PDF was probably scanned rather than born-digital, and `--no-ocr`
+produced an empty shell. Retry that one paper **with** OCR (drop `--no-ocr`);
+it is much slower, so do it only on the small-output path, never by default.
+If it is still under 10 KB, treat the full text as unavailable and fall back to
+the abstract-only note.
+
+Docling writes `<pdf-basename>.md` into the output directory. Rename it to the
+filename convention when you move it into the vault, and delete the intermediate
+PDF and any temporary directory — the vault holds Markdown, not PDFs.
+
+**If `docling` is not on `PATH`, do not fail the run.** Write the abstract-only
+note, set `paywalled:` honestly, and say in your report that full-text
+conversion was skipped because Docling is not installed and that
+`uv tool install docling` enables it. A missing converter degrades the note; it
+never loses the paper.
+
+### 8. Save
 
 Write each saved paper into `<paper_vault_path>/` under the filename convention
 in `templates/paper-identity-spec.md`, so the file sits alongside the arXiv leg's
 output and `paper-summarizer` consumes it without knowing which leg produced it.
 
-Verify a downloaded full text is **more than 10 KB** — the same sanity check the
-arXiv leg uses. Anything smaller means the fetch did not complete; retry once,
-then fall back to the abstract-only note rather than leaving a truncated file.
-Never leave a truncated or zero-byte file in the vault.
+**Never call `read_pubmed_paper` or `download_pubmed` to obtain text.** Both are
+traps rather than tools here. `download_pubmed` raises `NotImplementedError` —
+PubMed serves no PDFs. Worse, `read_pubmed_paper` **returns successfully** with
+the string "PubMed papers cannot be read directly through this tool. Only
+metadata and abstracts are available…" — an error message shaped exactly like
+content. Writing that into a vault note would produce a paper note whose body
+is an apology from a library. Full text comes from `download_with_fallback`
+plus Docling, or it does not come at all.
 
 ## Output
 

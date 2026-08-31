@@ -44,6 +44,20 @@ Optional API keys (CORE, DOAJ, Unpaywall email) go in `~/.config/paper-search-mc
 
 Note the tool-prefix consequence: a bundled server's tools are named `mcp__plugin_<plugin-name>_<server-name>__<tool>`, so these arrive as `mcp__plugin_second-brain-researcher_paper-search__*`. If you instead configure `paper-search-mcp` yourself as a user-level server named `paper-search`, they arrive as `mcp__paper-search__*`. The agent allowlists both, for the same reason the arXiv agents do — an allowlist naming a prefix that doesn't exist fails silently, leaving an agent with no tools rather than an error.
 
+### Full text for non-arXiv papers needs Docling (optional)
+
+The arXiv leg gets clean Markdown from `arxiv-mcp-server`'s own extraction. Nothing equivalent exists for PubMed/PMC, where `download_with_fallback` returns a **PDF**. `second-brain-biomed-downloader` converts it with [Docling](https://github.com/docling-project/docling) (MIT):
+
+```bash
+uv tool install docling
+```
+
+Optional. Without it the biomedical leg still saves every paper it found — just as abstract-only notes, flagged as such, rather than full text.
+
+Two flags matter and the agent always passes them. `--image-export-mode placeholder` stops Docling embedding every figure as a base64 data URI: on a real Europe PMC paper that was **545 KB versus 56 KB**, including one 200,132-character line, with identical document structure either way. `--no-ocr` skips OCR on born-digital journal PDFs — 10s versus 49s on the same paper. If the converted Markdown comes back under 10 KB the PDF was probably scanned, and the agent retries that one paper with OCR enabled.
+
+First run downloads layout models (a few hundred MB), so expect the first paper to be slow.
+
 ### The cross-field pass needs an Asta API key (optional)
 
 `second-brain-crossfield-searcher` uses [Ai2's Asta Scientific Corpus Tool](https://allenai.org/asta/resources/mcp) to search *paper bodies* rather than abstracts — the pass that finds methods from adjacent fields whose abstracts never mention your domain. It is bundled in `.mcp.json` as a remote HTTP server and reads `ASTA_API_KEY` from the environment.
