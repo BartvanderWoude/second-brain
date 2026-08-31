@@ -68,8 +68,8 @@ guess a default, or scan the filesystem looking for it.
    wholesale.
 3. **Before writing anything: on a re-run, merge — never overwrite.** A vault
    is something the researcher works in: they annotate paper notes, add their
-   own sections, and correct frontmatter. A second pipeline run that rewrites each note wholesale
-   destroys all of it silently, and that is the single most damaging thing this
+   own sections, and correct frontmatter. A second pipeline run that rewrites
+   each note wholesale destroys all of it silently, and that is the single most damaging thing this
    agent could do.
 
    Before writing any note, check whether it already exists. If it does not,
