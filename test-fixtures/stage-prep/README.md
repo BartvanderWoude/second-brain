@@ -48,9 +48,13 @@ What each record tests:
   are not read. Everything else goes in one batch.
   Without `--regenerate`, the two papers that have summaries are skipped.
 - `keywords`: `survival-analysis` has a note that lists only `2019_legacy`, so
-  it shows `+1 new`. The profile keyword `external-validation` is on no paper.
-  `time-to-event-prediction` appears only among the single-paper slugs that
-  are available for merging. Q2 is not cited by any summary.
+  it shows `+1 new`. `2020_hand_a`'s summary is tagged `model-updating` but
+  says "Survival Analysis" in its Method section, so the line also shows
+  `+1 mention it untagged`. The profile keyword `external-validation` is on no
+  paper. `time-to-event-prediction` appears only among the single-paper slugs
+  that are available for merging. Q2 is not cited by any summary.
 - `digest`: collects every summary that carries the slug or one of its
   aliases, each paper once. `## Code notes` and most of the frontmatter are
-  dropped.
+  dropped. `2020_hand_a` is listed under `## Mentioned but not tagged` with
+  the sentence from its Method section; the mention in its `## Code notes`
+  does not count, because code notes are dropped everywhere else too.

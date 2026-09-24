@@ -16,8 +16,10 @@ description: >
   merge, fan-out planning, keyword index, topic digests),
   `scripts/link_papers.py` (paper-to-paper links, content similarity from
   SPECTER2 title+abstract embeddings, not full text),
-  `scripts/fetch_fulltext.py` (full text), `scripts/build_vault.py` (the
-  Obsidian vault) and `scripts/check_vault.py` (records and links).
+  `scripts/fetch_fulltext.py` (full text), `scripts/recall_check.py` (the
+  stage-4 check for comparator papers discovery missed),
+  `scripts/build_vault.py` (the Obsidian vault) and `scripts/check_vault.py`
+  (records and links).
 ---
 
 # Second-brain pipeline
@@ -161,14 +163,48 @@ is what makes it safe to run *before* the checkpoint at all. If it reports that
 `gh` is missing or unauthenticated, that is a skipped enhancement exactly like a
 missing Asta key: report it in one line and carry on.
 
+### Last, the recall check — one Bash call, before the checkpoint
+
+The legs can report what they found, never what they failed to retrieve. A reRD
+run once lacked two of its four closest comparator papers while every stage
+reported a clean run: one matched no query the PubMed leg kept, and the other
+ranked below the 30 results it read. Check instead of assuming — no agent:
+
+```
+python3 <plugin root>/scripts/recall_check.py probe <paper_vault_path> --profile <profile path>
+```
+
+It runs the profile's `recall_probes` — 1–3 precise PubMed-syntax queries for
+the papers the researcher's own work would be compared against — on PubMed and
+arXiv, within `date_window_years`, and matches each source's top hits against
+the vault and `.merged/` by the key ladder in `templates/paper-identity-spec.md`.
+It checks `seed_papers` the same way.
+
+**A profile without `recall_probes`** (one written before the field existed):
+draft 1–3 yourself from `task`, `domain` and `close_field_terms`, as concept
+blocks per the format spec's "Recall probes" section — the papers doing the
+profile's own task on its own condition — and pass each as `--probe '<query>'`.
+Show them in the stage-4 report, labelled as drafted by the pipeline, so the
+researcher can correct them and add them to the profile for the next run.
+
+Its JSON gives, per probe and source, `count` (all hits), `checked` (the top
+ones compared), `in_vault` and `missing`. `missing` holds numbers into the
+top-level `missing` list, which numbers each paper once however many probes
+found it. `too_broad` means the probe matched more than it checks. `error`
+means that source was **not checked** — never report it as 0 missing. arXiv's
+query API intermittently answers HTTP 406 for minutes at a time; the script
+retries twice, and if arXiv still refuses, rerun the probe once before the
+checkpoint and otherwise report arXiv as not checked.
+
 
 ## Stage 4: checkpoint — stop and wait
 
-After every discovery leg has reported and the merge above is done, relay a
-combined summary (the profile type, what was saved per leg, which legs ran and which were
-skipped, what was merged as duplicates, what was skipped, dropped, or saved
-abstract-only because it is paywalled, and which repositories were found) to the
-researcher and **stop here**.
+After every discovery leg has reported and the merge and the recall check
+above are done, relay a combined summary (the profile type, what was saved per
+leg, which legs ran and which were skipped, each leg's queries that still
+returned 0 hits, what was merged as duplicates, what was skipped, dropped, or
+saved abstract-only because it is paywalled, and which repositories were
+found) to the researcher and **stop here**.
 
 State **full-text coverage** as numbers, from the merge report rather than
 from the legs' prose: `full_text` gives `full` versus `abstract-only`,
@@ -201,6 +237,33 @@ PDF once the report says `full_text: full` — the vault holds Markdown, not PDF
 If the report says the file is not a PDF (a browser often saves a publisher's
 HTML page under a `.pdf` name), tell the researcher that rather than deleting
 anything.
+
+Report the **recall check** as its own section. Per probe and source, one
+line: "k of N top hits already in the vault" (`in_vault` of `checked`, out of
+`count`), with `too_broad` or `error` when set. Then the top-level `missing`
+list, numbered as the script numbered it, one line per paper: number, year,
+first author, title, PMID or arXiv id. A probe is precise, not perfect, so
+the list holds off-target papers too; the researcher chooses. Name any
+`seed_papers` entry not found in the vault. If most on-target hits are
+missing, say that the legs' queries missed a whole region, and offer to re-run
+discovery with adjusted terms rather than adding dozens by hand.
+
+Ask the researcher to answer with the numbers to add, `all` or `none`, in the
+same reply as the go-ahead. For the chosen ones, one Bash call:
+
+```
+python3 <plugin root>/scripts/recall_check.py add <paper_vault_path> \
+  --pmid <PMID> ... --arxiv <arXiv id> ...
+```
+
+It saves each paper as an identity-header record per the identity spec, skips
+any already on disk, and runs the full-text fetcher's open-access rungs on each
+new one. Then run `stage_prep.py merge` again and report the updated coverage.
+A record `add` left abstract-only goes on the needs-manual-download list above
+and through the same manual-PDF step, which needs the researcher again before
+stage 5; the Sci-Hub rung stays in the biomedical leg and is not repeated here.
+If every added record came back with full text, the go-ahead already given
+covers stage 5.
 
 Report the repositories as their own section, not folded into the paper counts:
 how many came from the papers versus from topic search, and — named individually
@@ -441,7 +504,9 @@ Only after the researcher confirms:
    link or an id by hand, and never by matching titles** — ids are fixed at
    download so that nothing has to match titles, and a mismatch is a bug in the
    agent that wrote it. Its warnings — summaries with no resolvable identifier,
-   "full texts" that are not, extraction warnings — go in the report too.
+   a summary whose `year` disagrees with its paper's header (the summarizer
+   took a date from the body), "full texts" that are not, extraction
+   warnings — go in the report too.
 
 4. **Vault.** One Bash call — no agent; this step involves no model:
 
@@ -495,6 +560,10 @@ printed them. An unanswered review question is the topic-review counterpart of a
 note, and it is the finding the researcher most needs. If anything failed at any stage (a summarizer call errored, a paper
 had no matches to the profile's terms, etc.), name it plainly rather than
 reporting a clean run.
+
+State the recall check in one line: which probes ran (the profile's or drafted),
+k of N top hits in the vault per source, how many missing hits the researcher
+added, and any source that was not checked.
 
 Report both `check_vault.py` results: the record errors from step 3b and the
 dead-link count from step 5, with each dead link named. A clean run says "0 dead

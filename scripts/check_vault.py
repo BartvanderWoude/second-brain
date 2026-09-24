@@ -9,7 +9,8 @@ break links. Stdlib only; prints a JSON report on stdout.
       problem's vault layout (papers/<id>, topics/<slug>, repos/<id>,
       <problem-id>); every id in a topic's `papers`, a repo's `related_papers`
       or a summary's `related_notes` is a real paper; no file carries leaked
-      tool-call markup; no stray side files. --fix strips markup trailing at the
+      tool-call markup; no stray side files. Warns when a summary's `year`
+      differs from its paper header's (or, headerless, its filename's). --fix strips markup trailing at the
       end of a file and deletes stray side files, and nothing else.
 
   vault <vault_path>
@@ -63,19 +64,23 @@ def check_records(root, fix):
     err = {k: [] for k in ("paper_no_header", "paper_id_mismatch", "summary_without_paper",
                            "summary_id_mismatch", "dead_links", "unknown_paper_ids",
                            "tool_markup", "stray_files")}
-    warn = {k: [] for k in ("summary_missing_identifier", "full_text_suspect",
+    warn = {k: [] for k in ("summary_missing_identifier", "year_mismatch", "full_text_suspect",
                             "extraction_warnings", "non_markdown_in_vault_root")}
     fixed = []
     counts = {"full": 0, "abstract-only": 0, "unset": 0}
 
-    papers = {}
+    papers, years = {}, {}
     for f in sorted(root.glob("*.md")):
         fm, body = split(f.read_text())
         papers[f.stem] = f
         if fm is None:
             err["paper_no_header"].append(f.name)
             counts["unset"] += 1
+            if re.match(r"\d{4}_", f.stem):
+                years[f.stem] = (f.stem[:4], "filename")
             continue
+        if scalar(fm, "year"):
+            years[f.stem] = (scalar(fm, "year"), "header")
         if scalar(fm, "id") != f.stem:
             err["paper_id_mismatch"].append({"file": f.name, "id": scalar(fm, "id")})
         ft = scalar(fm, "full_text")
@@ -133,6 +138,11 @@ def check_records(root, fix):
                     err["summary_id_mismatch"].append({"file": rel, "id": scalar(fm, "id"), "expected": stem})
                 if fm is not None and not s2_ident(fm):
                     warn["summary_missing_identifier"].append(rel)
+                # the header's year comes from the API; a summary that differs
+                # took it from the body, where a renderer may have stamped a date
+                y, py = scalar(fm or "", "year"), years.get(stem)
+                if y and py and y != py[0]:
+                    warn["year_mismatch"].append({"file": rel, "year": y, f"paper_{py[1]}_year": py[0]})
 
             for field in idfields:
                 for i in block_list(fm or "", field):

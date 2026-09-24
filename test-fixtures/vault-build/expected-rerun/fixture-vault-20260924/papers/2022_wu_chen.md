@@ -33,6 +33,7 @@ Not run.
 
 - [[fixture-vault-20260924]]
 - [[topics/survival-analysis]]
+- [[topics/calibration]]
 
 ## Related
 

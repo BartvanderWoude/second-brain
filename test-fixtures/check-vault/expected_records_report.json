@@ -76,6 +76,18 @@
   "summary_missing_identifier": [
    "summaries/2021_full_paper_summary.md"
   ],
+  "year_mismatch": [
+   {
+    "file": "summaries/2022_no_header_summary.md",
+    "year": "2023",
+    "paper_filename_year": "2022"
+   },
+   {
+    "file": "summaries/2024_fake_full_summary.md",
+    "year": "2026",
+    "paper_header_year": "2020"
+   }
+  ],
   "full_text_suspect": [
    {
     "file": "2024_fake_full.md",

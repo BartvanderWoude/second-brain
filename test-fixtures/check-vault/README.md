@@ -36,7 +36,11 @@ finding it must produce:
   inline code must **not** be read as links.
 - `topics/good-topic.md.tmp` is a stray side file. `repos/foo-bar.md` has a
   slug in `related_papers`.
-- The warnings: `2021_full_paper.md` has `extraction_warning: garbled-digits`,
+- `summaries/2024_fake_full_summary.md` gives `year: 2026` against its
+  header's 2020, and `summaries/2022_no_header_summary.md` gives 2023 against
+  its headerless paper's filename year 2022. Both are `year_mismatch`
+  warnings.
+- The other warnings: `2021_full_paper.md` has `extraction_warning: garbled-digits`,
   `2024_fake_full.md` claims `full_text: full` with a short, summary-shaped
   body, and `2024_fake_full.pdf` sits in the vault root.
 

@@ -65,3 +65,9 @@ Result of 2023_lee_park.
 **What would need to change to apply it** — Leaves open part of Q1.
 
 **Skeptical note** — Doubt about 2023_lee_park.
+
+## Mentioned but not tagged
+
+1 more summary names this topic without carrying the slug. Add one to the note's `papers` only if it covers the topic, not if it mentions it in passing.
+
+- 2020_hand_a — A Shared Title: "A Survival Analysis of the refitted cohort sets the recalibration interval."

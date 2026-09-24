@@ -129,4 +129,4 @@ paper being saved twice under two names.
 
 ## Output
 
-Don't write any summary, index, or report file — the saved paper files are the only output. After downloads complete, reply with a short plain-text list of what was saved (titles and filenames), plus anything you skipped as already-present or dropped at the 20 cap. Say which papers came through the PDF fallback and which ended up abstract-only, with the fetcher's reason for each. Mark any landmark picks that came from outside the date window. That reply is a response to the user, not a file.
+Don't write any summary, index, or report file — the saved paper files are the only output. After downloads complete, reply with a short plain-text list of what was saved (titles and filenames), plus anything you skipped as already-present or dropped at the 20 cap. Say which papers came through the PDF fallback and which ended up abstract-only, with the fetcher's reason for each. Mark any landmark picks that came from outside the date window. Add one line listing every query that still returned 0 hits after its retry, verbatim — or "zero-hit queries: none". That reply is a response to the user, not a file.

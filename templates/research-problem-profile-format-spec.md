@@ -52,6 +52,7 @@ Required: **all** = both types; **problem** / **topic** = required for that type
 | `review_questions` | list[string] | topic | 1–5 guiding questions the review should answer. The topic-profile counterpart of `observed_failure_mode`: the anchor every relevance section ties back to. | Summarizers + pipeline report |
 | `seed_papers` | list[string] | no | Known key papers (title, DOI or arXiv id) or authors. Extra query anchors for discovery, not an allowlist. Topic profiles mostly, but valid on either type. | Paper-search group |
 | `date_window_years` | integer | no | How many years back the main discovery sweep reaches. Missing means `3`; `0` means no lower bound. Either type. | Paper-search group |
+| `recall_probes` | list[string] | no | 1–3 boolean queries in PubMed syntax describing the **direct-comparator** category — papers doing this profile's own task on its own condition. Not discovery input: the stage-4 recall check runs them and reports hits the vault lacks. Missing means the pipeline drafts its own at stage 4. Either type. See "Recall probes" below. | Pipeline (stage-4 recall check) |
 | `close_field_terms` | list[string] | all | Direct search terms for pass 1 of discovery | **Paper-search group — this is a primary input** |
 | `generalized_methodology_terms` | list[string] | all | Abstracted terms for pass 2 (cross-field transfer search). **May be empty on a topic profile** — the researcher declined the cross-field pass — in which case that pass is skipped, not failed. | **Paper-search group — this is a primary input** |
 | `keywords_of_interest` | list[string] | all | Subtopic taxonomy for this problem — the buckets papers get filed under. Lowercase kebab-case slugs. Not search input; see "Keyword vocabulary" below. | Obsidian group (topic notes) + `paper-summarizer` (preferred vocabulary) |
@@ -70,6 +71,16 @@ The contract between this file and the paper notes:
 - **This list is a preferred vocabulary, not a closed one.** Its job is to prevent synonym drift: when a paper covers a concept already named here, `paper-summarizer` must reuse this exact slug rather than coining `domain-shift` alongside our `distribution-shift`. That reuse rule is the entire matching mechanism.
 - **Paper notes may carry keywords beyond this list, by design.** A paper's `keywords` describe the paper itself, not its relation to this problem, so a subtopic irrelevant to this review may match a future one and let that paper be picked up again. Do not treat an unlisted keyword on a paper as an error.
 - **Absent on older profiles is not an error** — treat a missing `keywords_of_interest` as an empty preferred vocabulary and carry on.
+
+## Recall probes
+
+`recall_probes` is the check on discovery, not an input to it. The discovery legs build their own queries from the two term lists, and nothing downstream sees what those queries missed: a reRD review once lacked two of the four papers that were its closest comparators, and no stage noticed. A probe is a small, precise query for the one category whose gaps matter most — the papers the researcher's own work would be compared against. At the stage-4 checkpoint, `scripts/recall_check.py` runs each probe on PubMed and arXiv and lists every top hit that is not already in the paper vault.
+
+- **Syntax: concept blocks.** Each probe has 2–3 blocks joined by AND; a block is an OR-group of synonyms in parentheses, with every multi-word phrase in quotes — `("retinal detachment" OR redetachment) AND (recurrence OR "anatomical success") AND (nomogram OR "machine learning" OR "prediction model")`. PubMed syntax; the script translates it for arXiv, dropping any `[tiab]`-style field tag there. Tagging a block's terms `[tiab]` keeps PubMed from widening them through MeSH mapping, which trims off-target hits.
+- **Precise, not exhaustive.** A probe should return tens of hits, mostly on target. The check flags a probe that returns more than 60 as `too_broad` — the top of a flood is not a recall test.
+- **Write each as a single-quoted YAML string** (`- '(...) AND (...)'`), since probes carry double quotes; a literal single quote is doubled.
+- **Discovery legs do not read this field.** Letting them query with it would make the check test itself.
+- **Absent is not an error.** Older profiles have none; the pipeline drafts 1–3 at stage 4 from `task`, `domain` and `close_field_terms`, and labels them as drafted in its report.
 
 ## Body
 
@@ -95,6 +106,7 @@ The root path itself is not yet a settled team convention — treat `<project-ro
 - `close_field_terms` and `generalized_methodology_terms` are the two inputs for the two discovery passes described in the pipeline spec — treat them as separate query sets, not one merged list. A hit that only matches `generalized_methodology_terms` is a genuine cross-field transfer candidate and probably worth surfacing even with a weaker literal match.
 - Don't query against a note with `status: draft` — it means the researcher hasn't confirmed the profile yet.
 - `keywords_of_interest` is **not** search input. It's the vault's subtopic taxonomy — discovery still queries the two term lists only.
+- `recall_probes` is not search input either. It is the stage-4 check on what discovery found; a leg that queried with it would be grading its own work.
 - `domain`, `data_modality`, `task`, `reference_standard`, `data_partitioning` are free text, not enums — expect variation in phrasing across notes, no fixed vocabulary yet.
 - On a `topic` profile, most of those fields are absent. Screen relevance against `review_scope` instead, and treat `seed_papers` as extra query anchors — search for them and their neighbourhood, but don't save a seed paper that falls outside `review_scope` just because it was named.
 - Read `date_window_years` for the main sweep's lower bound: missing → 3 years, `0` → none. Never hardcode the window.

@@ -24,16 +24,18 @@ Stdlib only.
 
   keywords <paper_vault_path> --profile P
       Stage 5 step 2a. The keyword index as one line per slug: paper count,
-      two titles, whether a topic note exists and how many papers it lacks.
-      Profile keywords first, then candidates on >= --min papers. Also which
-      review questions (Q1, Q2, ...) no summary cites. Text.
+      how many untagged summaries name the slug in their text, two titles,
+      whether a topic note exists and how many papers it lacks. Profile
+      keywords first, then candidates on >= --min papers. Also which review
+      questions (Q1, Q2, ...) no summary cites. Text.
 
   digest <paper_vault_path> --topic slug[:alias,alias] ...
       Stage 5 step 2d. Writes <paper_vault_path>/.digests/<slug>.md per topic:
       each matched summary's identity line, one-liners and body sections
       (everything but ## Code notes), without the rest of the frontmatter.
-      One file for topic-summarizer to read instead of one Read per summary.
-      JSON.
+      Then the summaries that name the slug or an alias without carrying it,
+      one sentence each, for topic-summarizer to take or leave. One file to
+      read instead of one Read per summary. JSON.
 """
 import argparse, json, re, sys
 from pathlib import Path
@@ -252,6 +254,51 @@ def summaries(root):
     return out
 
 
+def phrase_re(slugs):
+    """A slug as prose: its words in order, hyphen or space between, a plural
+    s allowed, case ignored."""
+    alts = [r"[-\s]+".join(map(re.escape, x.split("-"))) + "(?:e?s)?" for x in slugs]
+    return re.compile(r"\b(?:" + "|".join(alts) + r")\b", re.I)
+
+
+def prose(s):
+    fm = s["fm"]
+    lines = [s["title"]] + [unq(scalar(fm, k)) for k in ("task", "method", "result") if scalar(fm, k)]
+    body = re.sub(r"^## Code notes\n.*?(?=^## |\Z)", "", s["body"], flags=re.S | re.M)
+    return "\n".join(lines) + "\n" + body
+
+
+def sentence(text, m, width=240):
+    """The sentence around match m, cut to about width characters on word
+    boundaries, keeping the match in view."""
+    dot = text.rfind(". ", 0, m.start())
+    a = max(dot + 2 if dot >= 0 else 0, text.rfind("\n", 0, m.start()) + 1)
+    ends = [x for x in (text.find(". ", m.end()), text.find("\n", m.end())) if x >= 0]
+    out = " ".join(text[a:(min(ends) + 1 if ends else len(text))].split())
+    if len(out) <= width:
+        return out
+    at = out.lower().find(" ".join(m.group(0).split()).lower())
+    lo = max(0, min(at - width // 3, len(out) - width))
+    words = out[lo:lo + width].split(" ")
+    return ("… " if lo else "") + " ".join(words[1 if lo else 0:-1]) + " …"
+
+
+def mentions(ss, slugs):
+    """id -> the first sentence naming the slug or an alias, for each summary
+    that carries none of them. Tags drift across summarizer batches: a paper
+    that says "events per variable" throughout can be filed under another
+    slug, and a keyword index built from tags alone never sees it."""
+    rx, out = phrase_re(slugs), {}
+    for i, s in ss.items():
+        if any(k in s["keywords"] for k in slugs):
+            continue
+        text = prose(s)
+        m = rx.search(text)
+        if m:
+            out[i] = sentence(text, m)
+    return out
+
+
 def cmd_keywords(a):
     root = a.path
     ss = summaries(root)
@@ -276,6 +323,9 @@ def cmd_keywords(a):
         ids = index.get(k, [])
         s = f"  {k}  {len(ids)} paper{'s' if len(ids) != 1 else ''}"
         topic = k if k in notes else alias_of.get(k)
+        untagged = len(mentions(ss, [k] + (notes[k][1] if k in notes else [])))
+        if untagged:
+            s += f", +{untagged} mention it untagged"
         if topic:
             covered, al = notes[topic]
             members = set(ids)
@@ -345,12 +395,19 @@ def cmd_digest(a):
             body = re.sub(r"^## Code notes\n.*?(?=^## |\Z)", "", body, flags=re.S | re.M)
             body = re.sub(r"^## ", "### ", body, flags=re.M).strip()
             parts += ["", body, ""]
+        cands = mentions(ss, slugs)
+        if cands:
+            parts += ["## Mentioned but not tagged", "",
+                      f"{len(cands)} more summar{'ies name' if len(cands) != 1 else 'y names'} this topic without "
+                      "carrying the slug. Add one to the note's `papers` only if it covers the topic, not if it "
+                      "mentions it in passing.", ""]
+            parts += [f"- {i} — {ss[i]['title']}: \"{snip}\"" for i, snip in cands.items()] + [""]
         text = "\n".join(parts).rstrip() + "\n"
         out = ddir / f"{slug}.md"
         ddir.mkdir(exist_ok=True)
         out.write_text(text)
-        report.append({"topic": slug, "papers": len(ids), "digest": f".digests/{slug}.md",
-                       "kb": round(len(text.encode()) / 1024, 1)})
+        report.append({"topic": slug, "papers": len(ids), "mentioned_untagged": len(cands),
+                       "digest": f".digests/{slug}.md", "kb": round(len(text.encode()) / 1024, 1)})
     print(json.dumps({"digests": report}, indent=1))
     return 0
 

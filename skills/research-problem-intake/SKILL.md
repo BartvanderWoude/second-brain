@@ -34,7 +34,7 @@ Works identically whether invoked from Claude app or Claude Code — same questi
 3. **Work through Tier 1** for the chosen type (below), one question at a time, adapting to what's already been said. Skip any question already answered by something the researcher volunteered earlier in the conversation.
 4. **Run the Tier 2 abstraction step.** This is the highest-value part of the whole skill — see the dedicated section below. Do not skip or shortcut it even if the researcher seems ready to move on.
 5. **Ask Tier 3 bookkeeping** questions.
-6. **Present the full draft** (every field below, plus both term lists) as a single summary and ask the researcher to confirm or edit. Do not write the file until they confirm.
+6. **Present the full draft** (every field below, plus both term lists and the recall probes) as a single summary and ask the researcher to confirm or edit. Do not write the file until they confirm.
 7. **Create this profile's subfolders**, if filesystem access is available: `paper_vault/<id>/` and `code_vault/<id>/`, using the `id` about to go into the frontmatter. Skip silently in Claude app, same as step 0.
 8. **Write the `.md` file** using the output format below, setting `status: confirmed` — the researcher approved the draft in step 6, and every downstream stage refuses to run against a `draft` profile. Save it and hand it back to the researcher (e.g. via `present_files` if available). Tell them plainly this is ready for hand-off to discovery/vault-writing — don't perform those steps yourself.
 
@@ -113,12 +113,17 @@ Same one-question-at-a-time rhythm and thin-answer rule as the problem branch. N
 
 `review_questions` is deliberately asked last, right before the abstraction step, for the same reason the failure mode is in the problem branch: it is the raw material the term lists and keywords are drafted from, and it is what every relevance section downstream ties back to. Where the researcher's topic implies a `domain` or `task`, record it — it helps discovery choose arXiv categories — but don't ask for either as a separate question.
 
-## Tier 2 — abstraction step (produces the two term lists and the keyword taxonomy)
+## Tier 2 — abstraction step (produces the two term lists, the recall probes and the keyword taxonomy)
 
-This is the skill's actual value-add and the part most likely to be shallow if rushed. Three sequential steps:
+This is the skill's actual value-add and the part most likely to be shallow if rushed. Four sequential steps:
 
 **Close-field terms** — usually mostly extractable from Tier 1 answers. Draft it yourself and confirm rather than asking cold:
 - "Here's a draft of close-field search terms based on what you've described: [draft list]. Anything to add or cut?"
+
+**Recall probes** — 1–3 queries for the papers the researcher's own work would be compared against: the ones doing the same task on the same condition. They are not used for discovery; at the stage-4 checkpoint the pipeline runs them and lists every hit missing from the vault. Draft them from `task`, `domain` (or `review_questions`) and the close-field terms, and confirm:
+- "One more thing on search. These queries test, after discovery, whether we found the papers your work would be compared against — [task] on [condition]: [draft probes]. Would the papers you'd cite as direct comparators match these?"
+
+Write each probe as 2–3 concept blocks joined by AND, a block being an OR-group of synonyms in parentheses with multi-word phrases quoted — `("retinal detachment" OR redetachment) AND (recurrence OR "anatomical success") AND (nomogram OR "machine learning" OR "prediction model")`. Keep them narrow: a probe returning hundreds of hits tests nothing. If the researcher can name no comparator category (a broad methods survey, say), record none — the pipeline drafts its own at stage 4 — and do not push for one.
 
 **Generalized methodology terms** — ask explicitly, never infer silently:
 - "Strip away the domain framing for a second. What's the underlying computational or statistical problem — a distribution-shift problem, a small-sample problem, a representation/pooling problem, a label-noise problem, something else?"
@@ -175,6 +180,7 @@ current_approach:
 observed_failure_mode:
 date_window_years:          # omit unless the researcher changed the 3-year default
 close_field_terms: []
+recall_probes: []           # 1–3 single-quoted PubMed boolean queries; omit if none
 generalized_methodology_terms: []
 keywords_of_interest: []
 cross_project_linking: true/false
@@ -200,6 +206,7 @@ review_questions: []
 seed_papers: []
 date_window_years:          # omit for the 3-year default; 0 = no limit
 close_field_terms: []
+recall_probes: []           # 1–3 single-quoted PubMed boolean queries; omit if none
 generalized_methodology_terms: []   # may be empty — cross-field pass declined
 keywords_of_interest: []
 cross_project_linking: true/false

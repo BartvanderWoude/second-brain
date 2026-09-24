@@ -16,8 +16,10 @@ preamble and `##` sections; only the sections this script owns are replaced,
 and every other section stays verbatim in its position:
 
   problem note  ## Papers, ## Topics, ## Repos
-  paper note    ## Links, ## Citation, ## Related, and the repo link lines
-                in ## Code notes (its prose is left alone)
+  paper note    ## Links (the problem, and every topic that names the paper
+                by keyword or lists it in `papers`), ## Citation, ## Related,
+                and the repo link lines in ## Code notes (its prose is left
+                alone)
   topic note    ## Papers; for a --rebuilt-topics slug also ## Summary,
                 ## Across the papers, ## Core technical details and
                 ## Relevance to the problem
@@ -506,16 +508,19 @@ def main():
         owned["Repos"] = "".join(f"- [[repos/{r}]]\n" for r in sorted(repos))
     write_note(vault / f"{pid}.md", "problem", prof["text"], owned, set(), st)
 
-    # topic slug and alias -> topic, for paper -> topic links
-    by_kw = {}
+    # paper -> topic links: the topics its keywords name (slug or alias), then
+    # any topic whose `papers` took it without the tag, so every link a topic
+    # note makes to a paper has its way back
+    by_kw, listed = {}, {}
     for t, rec in sorted(topics.items()):
         for k in [t] + rec["aliases"]:
             by_kw.setdefault(k, t)
+        for x in rec["papers"]:
+            listed.setdefault(x, []).append(t)
 
     for x, p in sorted(papers.items()):
         tl = []
-        for k in p["keywords"]:
-            t = by_kw.get(k)
+        for t in [by_kw.get(k) for k in p["keywords"]] + listed.get(x, []):
             if t and t not in tl:
                 tl.append(t)
         owned = {"Links": f"- [[{pid}]]\n" + "".join(f"- [[topics/{t}]]\n" for t in tl),

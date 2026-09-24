@@ -43,6 +43,10 @@ and leaves the fixture unchanged. The parent folder is `records/` rather than
 - `survival-analysis` has the alias `time-to-event`. `2022_wu_chen` carries
   only the alias and still links to the topic. `2023_lee_park` carries both
   and links to it once.
+- `calibration`'s `papers` lists `2022_wu_chen`, whose summary does not carry
+  the slug: a candidate topic-summarizer took from its digest's "Mentioned but
+  not tagged" list. The paper's note still gets `[[topics/calibration]]` in
+  `## Links`, so the topic's link to it has a way back.
 - The repo `acme-survkit` names two papers. Each paper gets the repo link in
   its `## Code notes`, below the summarizer's prose.
 - `2024_orphan.md` is a saved paper with no summary. It gets no note and is

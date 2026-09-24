@@ -74,6 +74,25 @@ Build 4–8 distinct queries covering each distinct sub-ask, not just the domina
 topic. PubMed query construction does **not** resemble arXiv's — there are no
 `categories` and no `abs:` prefix.
 
+**One query, one sub-ask, 2–3 concept blocks.** A concept block is an OR-group
+of synonyms in parentheses, with every multi-word phrase in quotes; blocks are
+joined with AND:
+
+```
+("retinal detachment" OR redetachment OR "proliferative vitreoretinopathy")
+AND (nomogram OR "machine learning" OR "deep learning" OR "prediction model")
+```
+
+Never string the words of several sub-asks together as one bare list. PubMed
+ANDs every bare word, so `machine learning deep learning retinal detachment
+surgical outcome prediction model nomogram risk score` asks for papers
+containing all eleven. On a real run, 5 of 21 queries built that way
+returned 0 hits, and the retry that rescued this one dropped `nomogram` and
+`risk score`, so no classical prediction model was ever searched. The same
+concepts as three blocks returned 41 hits with all four closest comparators
+among them. More blocks narrow; more synonyms inside a block
+widen.
+
 **Do not add `[MeSH]` tags by default.** This is the opposite of the usual
 advice and it is measured, not assumed. PubMed's Automatic Term Mapping already
 expands a bare term into its MeSH descriptor OR-ed with free-text fields, so
@@ -123,8 +142,10 @@ agent does not own, and the arXiv leg is already covered by a different agent.
 Use `search_papers` with `sources: "pubmed,pmc,europepmc"` only when you
 deliberately want the PMC/Europe PMC breadth in one call.
 
-A zero-result query is a wording signal, not a finding. Retry once with a
-broader synonym before concluding the literature is thin.
+A zero-result query is a wording signal, not a finding — never report it as
+thin literature. Rebuild it: drop the least essential block, or widen an
+OR-group with more synonyms, and run it again. Check that every multi-word
+phrase is quoted and every block is parenthesised before blaming the topic.
 
 ### 4. Screen for relevance
 
@@ -288,6 +309,11 @@ fetcher's `attempts`: no converter available (Docling missing), no open-access
 copy, a source that could not be reached, or no fetcher at all — the fixes
 differ. Name any record the fetcher flagged with an `extraction_warning`. Mark
 any landmark picks from outside the date window.
+
+Add one line listing every query that still returned 0 hits after its rebuild,
+verbatim — or "zero-hit queries: none". A query that finds nothing is a gap in
+coverage, and the pipeline's recall check is only useful if it can see where
+the gaps were.
 
 Keep the **needs-manual-download** list as its own clearly labelled section,
 never folded into the general skipped tally. That list is what the pipeline's

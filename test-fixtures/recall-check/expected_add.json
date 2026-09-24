@@ -1,0 +1,29 @@
+{
+ "saved": [
+  {
+   "requested": "pmid:37013114",
+   "id": "2023_zhou_lu",
+   "file": "2023_zhou_lu.md",
+   "full_text": "abstract-only"
+  },
+  {
+   "requested": "pmid:40235812",
+   "id": "2025_gan_cao_2",
+   "file": "2025_gan_cao_2.md",
+   "full_text": "abstract-only"
+  }
+ ],
+ "skipped_existing": [
+  {
+   "requested": "pmid:38682863",
+   "in_vault": "2024_catania_chapron",
+   "key": "doi"
+  }
+ ],
+ "not_found": [],
+ "fetched": false,
+ "still_abstract_only": [
+  "2023_zhou_lu",
+  "2025_gan_cao_2"
+ ]
+}

@@ -41,7 +41,9 @@ do not derive it, guess, or scan the filesystem for it.
   slug or an alias: per paper a `## <paper-id> — <title>` heading, an identity
   line (`year`, `source`, `full_text`, `arxiv_id`, `extraction_warning`), the
   one-liners and the summary's body sections, without `## Code notes`. It may
-  list 0 papers; see step 5.
+  list 0 papers; see step 5. It may end with `## Mentioned but not tagged`:
+  summaries that name the topic without carrying its slug, one sentence each
+  (step 2c).
 - **paper vault path** — the directory holding the full-text papers.
 - **problem profile** — a confirmed research-problem-profile note, per
   `templates/research-problem-profile-format-spec.md`.
@@ -105,6 +107,23 @@ added since, or both. Build on the existing note; do not start over.
   prose and 400 for core technical details, growing with the material actually
   added. A note that gained no new papers and no focus should not grow much —
   that rewrite is for flow.
+
+## 2c. Candidates: mentioned but not tagged
+
+Summarizers tag papers in separate batches, and tags drift: a paper that says
+"events per variable" on every page can end up filed under
+`sample-size-determination`. The digest's `## Mentioned but not tagged` list is
+every such summary, with the first sentence that names the topic.
+
+Take a candidate — add it to the note's `papers` and draw on it like a tagged
+paper — only when it really **covers** the subtopic: the paper is about it, or
+reports a method or finding on it. Leave it when the sentence merely mentions
+it: a limitation that names it, a design the paper did not use, or a summary's
+own remark on the profile's terms. Judge from the sentence; `Read` that
+paper's summary (`<paper vault path>/summaries/<id>_summary.md`) only when the
+sentence leaves it unclear, and never more than three. A taken candidate counts
+as a digest paper for the step 3 budget. Vault-build links it back to this
+topic from the `papers` list, so do not ask for its summary to be re-tagged.
 
 ## 3. Then read the full text, on a budget
 
@@ -267,8 +286,9 @@ heading guidance as instruction, never copy it into the output).
 
 ## 5. Edge cases
 
-- **No matching papers** (a digest with 0 papers — expected for a profile
-  keyword the literature search didn't hit): still write the note. Set
+- **No matching papers** (a digest with 0 papers and no candidate you took —
+  expected for a profile keyword the literature search didn't hit): still
+  write the note. Set
   `paper_count: 0` and empty `papers`, and state plainly in the body that no
   papers in this vault carry the keyword, so the reader sees a real gap in
   either the literature or the search terms. Do not write a synthesis from
@@ -307,6 +327,8 @@ after the last section.
 Reply in a short fixed form:
 
 - first line: `OK <output path> — <n> papers`, or `FAIL <reason>`;
+- when the digest listed candidates, a second line: `candidates: <k> of <m>
+  taken` and the ids taken;
 - then at most five lines, one per anomaly: a note you overwrote without being
   given it as the existing note; a matched paper whose full text was missing,
   or that barely touched the subtopic; a formulation you could not read
