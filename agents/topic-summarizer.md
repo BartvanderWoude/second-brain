@@ -108,8 +108,13 @@ Full extractions run 20–140 KB each. Reading every matched paper end to end
 will overflow your context and mostly load text irrelevant to this subtopic, so
 do not do it.
 
+**Skip papers with no full text.** A summary whose `full_text` is
+`abstract-only` was written from the abstract alone; its saved paper file holds
+nothing more, so there is nothing to search. Work from that summary and do not
+open the file.
+
 Build your query terms first, from step 2: the keyword's own words, plus the
-synonyms and method names the summaries gave you. Then, per paper, take
+synonyms and method names the summaries gave you. Then, per remaining paper, take
 **whichever of the two routes below applies** — the arXiv route when the paper
 came from arXiv, the generic route otherwise.
 
@@ -145,10 +150,10 @@ whichever appears in your tool list.
 
 This route reads the server's own stored copy under
 `~/.arxiv-mcp-server/papers/<arxiv_id>.md` — the same extraction the vault copy
-was made from, since the downloader creates the vault file by copying it, so
-the two routes see the same text. If the server reports it does not hold that
-id, fall through to Route B rather than downloading anything: this agent does
-no fetching.
+was made from, since the downloader creates the vault file by copying it under
+a small metadata header, so the two routes see the same text. If the server
+reports it does not hold that id, fall through to Route B rather than
+downloading anything: this agent does no fetching.
 
 ### Route B — everything else (fallback)
 
@@ -219,14 +224,18 @@ heading guidance as instruction, never copy it into the output).
   ids, matching the order of your `## Papers` section. `status`: `draft`.
   `created`: today's date — or, in deepen mode, the existing note's `created`,
   keeping `status` too if the researcher changed it from `draft`.
-- Identify each paper by the `id` field in its own summary frontmatter — not by
-  its filename. Write the `## Papers` links as
-  `[[<problem-id>/papers/<paper-id>|<paper title>]]`, taking `<problem-id>`
-  from the profile's `id`, so the frontmatter `papers` list and the body links
-  agree and the vault materializer can place them without rewriting. The link
-  is a full path from the Obsidian vault root, whose top level holds problem
-  folders — a bare `[[<paper-id>]]` or a `[[papers/...]]` prefix will not
-  resolve once two problems exist in the same vault.
+- Identify each paper by the `id` field in its own summary frontmatter — the
+  saved paper's filename stem, per `templates/paper-identity-spec.md`. Write
+  the `## Papers` links as `[[papers/<paper-id>|<paper title>]]`, so the
+  frontmatter `papers` list and the body links agree and the vault
+  materializer can place them without rewriting.
+- **Every** wikilink in the note uses that same form — including inline
+  attributions in the prose (`From [[papers/<paper-id>|the EVSI paper]], …`)
+  and in the core-technical-details section. The link is a path from the
+  Obsidian vault root, which is this problem's own folder: never prefix it with
+  the problem id. The vault writer regenerates the `## Papers` list but copies
+  your prose verbatim, so an inline link written in the wrong form stays dead in
+  the vault.
 - **The synthesis is the point.** Say what the papers collectively establish,
   where they disagree or use setups that aren't comparable, and what's
   conspicuously absent. A sequence of per-paper recaps is a failure — those
@@ -269,8 +278,18 @@ heading guidance as instruction, never copy it into the output).
 
 Write the note to the supplied output path with `Write` (it creates missing
 parent directories). Use `Glob` first to check whether that file already
-exists; if it does and you were not given it as the existing note, you are
-overwriting it — note that in your report.
+exists. If it does, `Read` it before you `Write` — `Write` refuses to overwrite
+a file you have not read in this run — and if you were not given it as the
+existing note, you are overwriting it: note that in your report.
+
+Write only to the output path. Never write a side file (`.tmp`, `.new`, a
+backup) as a workaround for a failed write: you have no tool that can delete
+it, and it would be carried into the vault. If the write genuinely cannot be
+made, stop and report why.
+
+The file holds the note and nothing else — frontmatter, then the sections. No
+tool-call markup (`</content>`, `</invoke>`, parameter tags) and no commentary
+after the last section.
 
 In your final response state: the keyword, how many papers you drew on, the
 output path, whether you overwrote an existing note, any matched paper whose

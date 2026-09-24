@@ -79,6 +79,10 @@ The path to a research-problem-profile note, per
   worked out in other literatures. `review_scope` still binds: a hit the scope
   rules out is dropped even if the mechanism matches.
 
+You may also be given the path to the plugin's full-text fetcher,
+`scripts/fetch_fulltext.py`, which step 4 runs on every saved record. Without
+it, the records stay abstract-only; say so in your reply.
+
 ## 2. Search paper bodies
 
 Use `snippet_search` as your primary tool. It matches ~500-word excerpts from
@@ -131,14 +135,40 @@ Cap this pass at **10** papers. It is additive to the other legs, not a
 replacement for them, and cross-field candidates are speculative by nature — a
 flood of weak transfer hits buries the strong ones.
 
-Asta returns metadata and snippets, not full text. For a hit with an arXiv id,
-record it so the arXiv leg's fetch path can be reused; otherwise write the note
-from the snippet and metadata and set `paywalled:` honestly. Never present a
-snippet as if it were the full paper.
+Asta returns metadata and snippets, not full text. Save each paper as a record
+in the "Saved paper file" format of `templates/paper-identity-spec.md`:
+
+- **The header**, from `get_paper`'s metadata — never from the snippet text.
+  Take `doi`, `pmid` and `arxiv_id` from its `externalIds` (`DOI`, `PubMed`,
+  `ArXiv`), and set `source: semantic_scholar`, `url` to the Semantic Scholar
+  paper page, `full_text: abstract-only`, `full_text_source: none`, and leave
+  `paywalled:` blank for the fetcher to settle. These ids are what everything
+  downstream resolves the paper by — the fetcher, the linker, the summary — so
+  fill every one the metadata has.
+- **The body**: a `## Abstract` heading with the abstract verbatim, and, if it
+  helps the researcher see why the hit was kept, a
+  `## Matched passage (Asta snippet)` heading with the snippet verbatim. Nothing
+  summary-shaped — no keywords, no relevance notes, no transfer assessment; that
+  goes in your reply, and the summary is `paper-summarizer`'s job. Never present
+  a snippet as if it were the full paper.
+
+Then run the fetcher on each saved record:
+
+```bash
+python3 <fetch_fulltext.py path> --record <paper_vault_path>/<file>.md
+```
+
+It finds an open-access copy (Europe PMC or PMC full text, the arXiv PDF,
+Semantic Scholar's open-access PDF, Unpaywall), validates and converts it, and
+upgrades the record in place — `full_text: full` plus the source — or reports
+why not in its JSON output. A record it cannot upgrade stays in the vault,
+abstract-only.
 
 ## Output
 
 Write no report file — saved paper files are the only output. Reply with what
 was saved (titles, filenames, and for each one the concrete transfer gap you
-identified), what was dropped at the cap, and an explicit note that this pass is
-not date-bounded. If you stopped at either pre-flight check, say only that.
+identified), which saved records have full text and which stayed abstract-only
+(with the fetcher's reason), what was dropped at the cap, and an explicit note
+that this pass is not date-bounded. If you stopped at either pre-flight check,
+say only that.

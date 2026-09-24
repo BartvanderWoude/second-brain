@@ -37,7 +37,8 @@ The load-bearing technical content, taken from the papers' own text: the key
 equations, objectives or losses, update rules, and any assumption or
 hyperparameter the result hinges on. Write equations in LaTeX as `$$…$$` blocks
 and define their symbols. Attribute each item with a wikilink to the paper it
-comes from. Where papers formulate the same thing differently, put the
+comes from, in the same `[[papers/<paper-id>|<display text>]]` form as the
+`## Papers` section. Where papers formulate the same thing differently, put the
 formulations side by side and say what differs, since that comparison is the
 synthesis. Every equation is copied from a paper, never reconstructed from
 background knowledge. If the papers carry no such content (purely empirical or
@@ -55,7 +56,9 @@ connection.
 ## Papers
 
 Wikilinks to the paper notes this topic draws on, as
-`[[<problem-id>/papers/<paper-id>|<paper title>]]` — a full path from the
-Obsidian vault root, whose top level holds problem folders. Use each paper's
-own `id` frontmatter field rather than its filename: the same ids listed in
-`papers` above, in the same order.
+`[[papers/<paper-id>|<paper title>]]` — a path from the Obsidian vault root,
+which is this problem's own folder (`obsidian_vault/<problem-id>/`). Never
+prefix it with the problem id: that form resolves only from a vault opened one
+level up, and is dead in the vault the researcher actually opens. Every other
+wikilink in the note, including inline attributions in the prose, uses the same
+form. `<paper-id>` is the id listed in `papers` above, in the same order.

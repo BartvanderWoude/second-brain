@@ -1,0 +1,99 @@
+{
+ "mode": "records",
+ "problem_id": "fixture-problem-20260924",
+ "papers": 5,
+ "full_text": {
+  "full": 2,
+  "abstract-only": 2,
+  "unset": 1
+ },
+ "topics": 1,
+ "repos": 1,
+ "error_count": 11,
+ "errors": {
+  "paper_no_header": [
+   "2022_no_header.md"
+  ],
+  "paper_id_mismatch": [
+   {
+    "file": "2023_bad_id.md",
+    "id": "bad-id-20260924"
+   }
+  ],
+  "summary_without_paper": [
+   "summaries/2019_orphan_summary.md"
+  ],
+  "summary_id_mismatch": [
+   {
+    "file": "summaries/2021_full_paper_summary.md",
+    "id": "full-paper-slug-20260924",
+    "expected": "2021_full_paper"
+   }
+  ],
+  "dead_links": [
+   {
+    "file": "topics/good-topic.md",
+    "link": "fixture-problem-20260924/papers/2021_full_paper",
+    "reason": "problem-id prefix"
+   },
+   {
+    "file": "topics/good-topic.md",
+    "link": "papers/nonexistent_paper",
+    "reason": "no such note"
+   }
+  ],
+  "unknown_paper_ids": [
+   {
+    "file": "summaries/2021_full_paper_summary.md",
+    "field": "related_notes",
+    "id": "automl-pvr-prediction-20260924"
+   },
+   {
+    "file": "topics/good-topic.md",
+    "field": "papers",
+    "id": "ghost_paper"
+   },
+   {
+    "file": "repos/foo-bar.md",
+    "field": "related_papers",
+    "id": "pvr-risk-factors-20260924"
+   }
+  ],
+  "tool_markup": [
+   {
+    "file": "topics/good-topic.md",
+    "lines": [
+     26,
+     27
+    ]
+   }
+  ],
+  "stray_files": [
+   "topics/good-topic.md.tmp"
+  ]
+ },
+ "warnings": {
+  "summary_missing_identifier": [
+   "summaries/2021_full_paper_summary.md"
+  ],
+  "full_text_suspect": [
+   {
+    "file": "2024_fake_full.md",
+    "reasons": [
+     "body 91 bytes",
+     "body is summary-shaped"
+    ]
+   }
+  ],
+  "extraction_warnings": [
+   {
+    "file": "2021_full_paper.md",
+    "warning": "garbled-digits"
+   }
+  ],
+  "non_markdown_in_vault_root": [
+   "2024_fake_full.pdf"
+  ]
+ },
+ "fixed": []
+}

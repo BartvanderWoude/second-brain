@@ -80,14 +80,29 @@ output.
 
 ## 4. Populate the frontmatter from the paper
 
-For each frontmatter field from the format file, try to fill it from the
-paper's actual content (its own metadata block if it has one, its title,
-byline, abstract, references, stated venue/year/links, etc.):
+**Identity fields come from the paper file's header first.** A saved paper
+begins with a YAML header written by the discovery leg from the source's own
+metadata — `id`, `title`, `authors`, `year`, `venue`, `source`, `url`, `doi`,
+`pmid`, `paywalled`, `full_text` and a few more (the format is defined in
+`templates/paper-identity-spec.md`). For every header field whose name also
+appears in the format file's frontmatter, copy the header's value verbatim.
+Only when the header leaves a field blank, or the file has no header, fill it
+from the body text. Never overwrite a header value with one read from the body:
+a body can carry a masthead from another version of the paper, or a date the
+HTML renderer stamped on the page, while the header came from the index. A
+summary that drops the header's `url` or `doi` because the body did not repeat
+them cannot be linked to anything downstream.
 
-- Fields you can determine from the paper (e.g. title, authors, year, venue,
-  url, doi, code_link, source, domain, data_modality, task, method, result) —
-  fill them in with what the paper actually states. If a field isn't stated
-  in the paper, leave it blank — do not guess or fabricate.
+For each remaining frontmatter field from the format file, try to fill it from
+the paper's actual content (its title, byline, abstract, references, stated
+venue/year/links, etc.):
+
+- Fields you can determine from the paper (e.g. code_link, domain,
+  data_modality, task, method, result, and any identity field the header left
+  blank) — fill them in with what the paper actually states. If a field isn't
+  stated in the paper, leave it blank — do not guess or fabricate.
+- A `pdf_local_path` field, if present: the paper file's own path when
+  `full_text` is `full`, blank when it is `abstract-only`.
 - Fields tied to an upstream "problem profile" (`related_problem`,
   `matched_terms.close_field`, `matched_terms.generalized`):
   - If no problem profile was given, leave these present in the output but
@@ -131,14 +146,12 @@ byline, abstract, references, stated venue/year/links, etc.):
   the output, regardless of what default/placeholder the format file shows —
   this is a first-pass, unreviewed summary.
 - A `created` field, if present, is set to today's date (`yyyy-mm-dd`).
-- An `id` field: if the format file's placeholder value for `id` looks like
-  a slug-plus-date pattern (e.g. `<slug>-<yyyymmdd>`), derive a short
-  kebab-case slug from the paper's title (lowercase, hyphen-separated, a
-  handful of the most salient words, no stopwords) and today's date in
-  `yyyymmdd` form, e.g. `sarcopenia-ct-embedding-20260825`. Otherwise, if
-  `id` has no evident slug convention, use the paper's own filename (without
-  extension) as the id. This `id` value is used only for the frontmatter
-  `id` field — it never affects the output filename (see step 6).
+- An `id` field: the paper's id, which is the paper file's own filename
+  without extension (`2023_fung_john.md` → `2023_fung_john`). The header
+  carries the same value; if the two ever differ, use the filename and say so
+  in your report. Never coin an id from the title — the id was fixed when the
+  paper was saved, and every topic, repo and related-paper link in the vault
+  targets it. The output filename is set separately in step 6.
 
 ## 5. Populate the body from the paper
 
@@ -146,6 +159,16 @@ For each section extracted in step 3, write content drawn from the paper —
 using the guidance text as instruction for what belongs there, not as
 literal output. Keep sections concise and grounded in what the paper
 actually says; do not pad with generic filler.
+
+If the header's `full_text` is `abstract-only`, the file holds only the
+abstract: write every section from it and say plainly, where a section needs
+more (method details, equations), that only the abstract was available.
+
+If the header carries an `extraction_warning` (e.g. `garbled-digits`: the PDF
+extraction substituted glyphs for numerals), do not quote numbers from the
+garbled regions — take them from a clean passage such as the abstract, or leave
+them out — and name the warning in the skeptical note, so a reader knows the
+figures were not checked against clean text.
 
 For any sub-section whose guidance explicitly ties back to a linked problem
 or matched terms (e.g. a "Why relevant" bullet keyed to `matched_terms`):
@@ -212,7 +235,13 @@ or matched terms (e.g. a "Why relevant" bullet keyed to `matched_terms`):
 Write the completed markdown (frontmatter + body) to the computed output
 path using `Write`. `Write` creates any missing parent directories
 (including `summaries/` itself if it doesn't exist yet), so no separate
-directory-creation step is needed.
+directory-creation step is needed. If the file already exists, `Read` it
+first — `Write` refuses to overwrite a file you have not read in this run.
+
+Write only to that path — never to a side file (`.tmp`, `.new`) as a
+workaround, since you have no tool that can delete it. The file holds the
+summary and nothing else: no tool-call markup and no commentary after the last
+section.
 
 ## 8. Report back
 

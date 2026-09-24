@@ -179,7 +179,12 @@ the same way `paper-summarizer` treats its template.
 
 - `status: draft`, always. These are first-pass, unreviewed notes.
 - Fill `related_papers` from the mapping you recorded in step 2, using each
-  paper's `id` from its summary frontmatter — not its filename.
+  paper's id: its saved filename stem (`2024_sadatsafavi_vickers.md` →
+  `2024_sadatsafavi_vickers`), which is also the `id` in the file's header, per
+  `templates/paper-identity-spec.md`. Every later stage uses that same id, so
+  never substitute a slug of your own or one from a summary.
+- Write the `## Papers` links in the template's form,
+  `[[papers/<paper-id>|<paper title>]]`, never prefixed with the problem id.
 - Never invent a field the API did not give you. An absent `homepage` stays
   blank; an unknown license is `none`, not a guess.
 - **Relevance and caveats are the sections that earn the note.** Anyone can read

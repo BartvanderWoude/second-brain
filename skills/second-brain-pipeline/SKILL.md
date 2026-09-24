@@ -15,6 +15,8 @@ description: >
   experiment plan — those stages of the pipeline spec are not built yet.
   Paper-to-paper linking runs as a script (`scripts/link_papers.py`), with
   content similarity from SPECTER2 title+abstract embeddings, not full text.
+  Full text is fetched by `scripts/fetch_fulltext.py`, and
+  `scripts/check_vault.py` checks the records and the vault's links.
 ---
 
 # Second-brain pipeline
@@ -44,11 +46,35 @@ Also note its `profile_type`: `problem` (a concrete problem with data) or
 profile and handles both types itself — but the reports at stage 4 and at the
 end state it, and the final report has one topic-only line.
 
+## Before stage 3: resolve the plugin root
+
+The plugin's `templates/` and `scripts/` directories are needed from here on —
+the fetcher at stage 3, the templates, linker and checker at stage 5. A
+repo-root-relative path like `templates/paper-page-template.md` only resolves
+when this skill happens to be running from a checkout of this repo — it does
+not resolve once the plugin is installed and invoked from an unrelated project.
+Resolve the plugin root once, now, in this order:
+
+1. `${CLAUDE_PLUGIN_ROOT}`, if that variable is set.
+2. The current working directory, if it has `templates/` and `scripts/` — the
+   local-dev case (`claude --plugin-dir .` run from inside a checkout of this
+   repo).
+3. `~/.claude/plugins/marketplaces/*/`, keeping only a match whose
+   `.claude-plugin/plugin.json` names `second-brain-researcher` (an unrelated
+   installed plugin could also ship a `templates/` folder) — the real
+   installed-plugin case.
+
+Note `<plugin root>/scripts/fetch_fulltext.py` for stage 3. If no root
+resolves, discovery still runs — dispatch the legs without the fetcher path;
+they then save abstract-only records and say so — but say it in the stage-4
+report, since it is the cause of every abstract-only paper that run.
+
 ## Stage 3: discovery
 
 Dispatch all three discovery agents **in parallel**, each with the confirmed
-profile's file path and nothing else. Each reads `paper_vault_path` itself
-and save into it directly — do not pass or compute that path separately, and do
+profile's file path and the fetcher path
+`<plugin root>/scripts/fetch_fulltext.py` — nothing else. Each reads
+`paper_vault_path` itself and save into it directly — do not pass or compute that path separately, and do
 not pre-create the directory (the agents handle that).
 
 - `second-brain-paper-downloader` — the arXiv leg.
@@ -82,9 +108,13 @@ before the researcher reviews anything:
 2. Apply the key ladder in `templates/paper-identity-spec.md` — DOI, then
    source-native id, then normalized title. A normalized-title match with
    different DOIs is the preprint/published pair, not a collision.
-3. Keep **one** file per paper, preferring the copy with usable full text, then
-   the published version. Delete the redundant file rather than leaving both:
-   two files for one paper double-count it in every topic note downstream.
+3. Keep **one** file per paper, preferring the copy with usable full text
+   (`full_text: full` in its header), then the published version. Delete the
+   redundant file rather than leaving both: two files for one paper
+   double-count it in every topic note downstream. Never rename the kept file —
+   its filename stem is the paper's id (`templates/paper-identity-spec.md`).
+   Add the deleted copy's source to the kept header's `source` field, and any
+   id it carried that the kept header lacks (an `arxiv_id`, a `pmid`).
 
 Report what was merged. A silent merge looks like a paper went missing.
 
@@ -120,13 +150,35 @@ skipped, what was merged as duplicates, what was skipped, dropped, or saved
 abstract-only because it is paywalled, and which repositories were found) to the
 researcher and **stop here**.
 
+State **full-text coverage** as numbers, from the headers rather than from the
+legs' prose: one `Grep` for `^full_text:` over `<paper_vault_path>/*.md` gives
+`full` versus `abstract-only`, and one for `^extraction_warning: \S` names the
+records whose extracted text is known to be damaged. Split the abstract-only
+count by leg. A vault whose clinical core is abstracts caps the quality of
+everything downstream, and this is the last point where that is cheap to fix.
+
 If the biomedical leg returned a **needs-manual-download** list — papers that
 resolved neither open-access nor via the Sci-Hub rung — present it verbatim,
 with title, DOI and PMID per paper. This is the one point in the run where the
-researcher can drop those files into `paper_vault_path` by hand; once
-vault-build starts, an absent full text silently becomes an abstract-only note.
-Do not fold that list into the general "skipped" tally, and do not proceed past
-it without an explicit decision.
+researcher can supply those files by hand; once vault-build starts, an absent
+full text silently becomes an abstract-only note. Do not fold that list into
+the general "skipped" tally, and do not proceed past it without an explicit
+decision.
+
+Tell the researcher how to supply one: save the PDF as
+`<paper_vault_path>/<id>.pdf`, next to the record `<id>.md` of the same name.
+When they say they have, run for each such PDF:
+
+```
+python3 <plugin root>/scripts/fetch_fulltext.py --source manual \
+  --record <paper_vault_path>/<id>.md --from-pdf <paper_vault_path>/<id>.pdf
+```
+
+It validates the file, converts it and upgrades the record in place. Delete the
+PDF once the report says `full_text: full` — the vault holds Markdown, not PDFs.
+If the report says the file is not a PDF (a browser often saves a publisher's
+HTML page under a `.pdf` name), tell the researcher that rather than deleting
+anything.
 
 Report the repositories as their own section, not folded into the paper counts:
 how many came from the papers versus from topic search, and — named individually
@@ -146,28 +198,13 @@ an explicit go-ahead in a follow-up message.
 
 Only after the researcher confirms:
 
-0. **Resolve the template paths.** Two templates are needed this stage:
-   `paper-page-template.md` (step 1) and `topic-note-template.md` (step 2).
-   A repo-root-relative path like `templates/paper-page-template.md` only
-   resolves when this skill happens to be running from a checkout of this
-   repo — it does not resolve once the plugin is installed and invoked from
-   an unrelated project. Resolve the `templates/` directory once, before
-   dispatching anything, in this order:
-   1. `${CLAUDE_PLUGIN_ROOT}/templates/`, if that variable is set.
-   2. `./templates/` relative to the current working directory — the
-      local-dev case (`claude --plugin-dir .` run from inside a checkout of
-      this repo).
-   3. `~/.claude/plugins/marketplaces/*/templates/`, keeping only a match
-      whose sibling `.claude-plugin/plugin.json` names
-      `second-brain-researcher` (an unrelated installed plugin could also
-      ship a `templates/` folder) — the real installed-plugin case.
-
-   Take both template paths from whichever directory resolves. If neither
-   template exists there, stop and report the gap plainly rather than
+0. **Take the template paths** from the plugin root resolved before stage 3.
+   Two templates are needed this stage:
+   `<plugin root>/templates/paper-page-template.md` (step 1) and
+   `<plugin root>/templates/topic-note-template.md` (step 2). If
+   the root did not resolve then, try the same three places again now. If
+   either template does not exist, stop and report the gap plainly rather than
    guessing a path or dispatching an agent without a valid format file.
-
-   The directory that holds `templates/` is the plugin root. Note it: step 3
-   runs `<plugin root>/scripts/link_papers.py` from it.
 
 1. **Papers.** `Glob` `<paper_vault_path>/*.md` (the saved papers
    themselves — not any `summaries/` subdirectory, which won't exist yet on
@@ -257,8 +294,8 @@ Only after the researcher confirms:
    - **aliases** — the slugs merged into this topic;
    - **existing note** — for a topic that already has a note, which puts the
      agent in deepen mode: it builds on the note rather than starting over.
-     Pass the Obsidian copy `<vault>/<problem-id>/topics/<keyword>.md` when it
-     exists (that copy carries the researcher's edits; `<vault>` is the path
+     Pass the Obsidian copy `<vault>/topics/<keyword>.md` when it exists (that
+     copy carries the researcher's edits; `<vault>` is the problem's vault
      derived in step 4), else `<paper_vault_path>/topics/<keyword>.md`;
    - **focus** — any deepening direction the researcher gave for this topic.
 
@@ -321,15 +358,41 @@ Only after the researcher confirms:
    cause was rate limiting, and carry on to step 4 with whatever links the
    summaries already hold. Never write links by hand instead.
 
+3b. **Check the records** before they reach the vault — one Bash call, no
+   model:
+
+   ```
+   python3 <plugin root>/scripts/check_vault.py records <paper_vault_path> --fix
+   ```
+
+   It checks that every paper file has its identity header and that the header
+   `id` is the filename stem; that every summary's `id` is its paper's id; that
+   every wikilink in the summaries, topic notes and repo notes resolves inside
+   the problem's vault layout (`papers/<id>`, `topics/<slug>`, `repos/<id>`,
+   `<problem-id>`) and that none carries a `<problem-id>/` prefix; and that
+   every id in a topic's `papers` or a repo's `related_papers` is a real
+   paper. `--fix` repairs only the two mechanical defects — tool-call markup
+   an agent leaked at the end of a file, and stray side files such as
+   `*.tmp` — and reports each one. It never changes a link or an id.
+
+   Relay its JSON report: what it fixed, then each error by file. Errors do not
+   block step 4, but they go into the final report by name. **Never repair a
+   link or an id by hand, and never by matching titles** — ids are fixed at
+   download so that nothing has to match titles, and a mismatch is a bug in the
+   agent that wrote it. Its warnings — summaries with no resolvable identifier,
+   "full texts" that are not, extraction warnings — go in the report too.
+
 4. **Vault.** Dispatch the `obsidian-vault-writer` agent with: the confirmed
    profile path, the paper collection from step 1, the topic collection
    (`Glob` `<paper_vault_path>/topics/*.md`), the repo collection (`Glob`
    `<paper_vault_path>/repos/*.md`, empty if the code leg was skipped), and an
-   explicit vault path —
-   the parent directory of `paper_vault_path` (i.e. strip the trailing
-   `paper_vault/<id>/` and replace with `obsidian_vault/`), so it is never
-   left to guess a default. All five inputs are required by the agent — it
-   derives nothing and guesses nothing, so pass all five explicitly.
+   explicit vault path — the problem's own Obsidian vault,
+   `<root>/obsidian_vault/<id>/`: strip the trailing `paper_vault/<id>/` from
+   `paper_vault_path` and append `obsidian_vault/<id>/`. Each problem is its own
+   vault, and that folder is what the researcher opens in Obsidian, so every
+   wikilink is written relative to it. Pass it explicitly so it is never left
+   to guess a default. All five inputs are required by the agent — it derives
+   nothing and guesses nothing, so pass all five explicitly.
 
    Also pass the **rebuilt topics**: the slugs dispatched in step 2d this run
    (empty if none). On a re-run the agent otherwise leaves a topic note's
@@ -345,6 +408,16 @@ Only after the researcher confirms:
    agent reports it couldn't proceed (a missing field, an unusable vault path),
    fix the named input and dispatch it again — never write the vault notes
    yourself instead.
+
+5. **Check the vault's links** — one more Bash call:
+
+   ```
+   python3 <plugin root>/scripts/check_vault.py vault <vault>
+   ```
+
+   It resolves every wikilink in the vault against the vault root, exactly as
+   Obsidian will, and lists each dead one with the note it sits in. Expect
+   zero. Report any it finds by name; do not edit the notes to fix them.
 
 ## Report back
 
@@ -363,6 +436,10 @@ unanswered review question is the topic-review counterpart of an empty topic
 note, and it is the finding the researcher most needs. If anything failed at any stage (a summarizer call errored, a paper
 had no matches to the profile's terms, etc.), name it plainly rather than
 reporting a clean run.
+
+Report both `check_vault.py` results: the record errors from step 3b and the
+dead-link count from step 5, with each dead link named. A clean run says "0 dead
+links" in so many words.
 
 Report the paper-to-paper links separately from the topic notes:
 - the split between direct citations, shared references and similar content;
@@ -408,8 +485,9 @@ straight to the launch attempt.
 Only if they say yes, check whether Obsidian is actually present — a
 platform-appropriate check (on Linux/WSL, an `obsidian` binary on `PATH` or a
 Flatpak install; on Windows, the standard install locations). If it is, launch
-it against the verified vault path and report any launch failure plainly
-without touching the created files.
+it against the problem's vault, `<root>/obsidian_vault/<id>/` — the folder
+whose links step 5 checked, not its parent `obsidian_vault/` — and report any
+launch failure plainly without touching the created files.
 
 If Obsidian isn't installed, say so plainly — the vault path is already in the
 report above, so they can open it themselves. **Do not offer or run an install

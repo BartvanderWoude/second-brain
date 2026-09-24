@@ -1,0 +1,16 @@
+{
+ "mode": "vault",
+ "notes": 3,
+ "links": 10,
+ "dead_count": 2,
+ "dead_links": [
+  {
+   "file": "topics/good-topic.md",
+   "link": "fixture-problem-20260924/papers/2020_abstract_only"
+  },
+  {
+   "file": "topics/good-topic.md",
+   "link": "papers/missing_paper"
+  }
+ ]
+}

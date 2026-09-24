@@ -22,7 +22,7 @@ Works identically whether invoked from Claude app or Claude Code — same questi
 
    ```
    <root>/
-   ├── obsidian_vault/   # Obsidian vault root — owned by the Obsidian group after creation; this skill only ensures the folder exists, never writes into it
+   ├── obsidian_vault/   # one Obsidian vault per problem (obsidian_vault/<id>/ is the vault the researcher opens) — owned by the Obsidian group after creation; this skill only ensures the folder exists, never writes into it
    ├── paper_vault/      # downloaded paper PDFs, one subfolder per problem
    └── code_vault/       # cloned repos, one subfolder per problem
    ```

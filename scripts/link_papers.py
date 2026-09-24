@@ -63,7 +63,25 @@ def norm_doi(d):
     return d
 
 
+def s2_ident(fm):
+    """Semantic Scholar batch id from a frontmatter block, or None: an arXiv id,
+    then a DOI, then a PMID, then a Semantic Scholar paper URL's 40-hex id."""
+    url = scalar(fm, "url")
+    m = re.search(r"arxiv\.org/(?:abs|pdf)/(.+?)(?:v\d+)?(?:\.pdf)?/?$", url)
+    arxiv = re.sub(r"v\d+$", "", scalar(fm, "arxiv_id")) or (m.group(1) if m else "")
+    doi = norm_doi(scalar(fm, "doi"))
+    pmid = scalar(fm, "pmid") or (re.search(r"pubmed\.ncbi\.nlm\.nih\.gov/(\d+)", url) or [None, ""])[1]
+    s2 = re.search(r"semanticscholar\.org/paper/(?:[^/?#]+/)?([0-9a-f]{40})\b", url)
+    return (f"arXiv:{arxiv}" if arxiv else
+            f"DOI:{doi}" if doi else
+            f"PMID:{pmid}" if pmid else
+            s2.group(1) if s2 else None)
+
+
 def load_vault(summaries):
+    """One entry per summary. A summary with no identifier of its own falls back
+    to the header of its paper file (summaries/<stem>_summary.md -> <stem>.md),
+    and one with no `id` to <stem>, the paper id by the paper-identity spec."""
     papers = []
     for f in sorted(summaries.glob("*.md")):
         text = f.read_text()
@@ -71,14 +89,13 @@ def load_vault(summaries):
         if not m:
             continue
         fm = m.group(1)
-        url = scalar(fm, "url")
-        arxiv = re.search(r"arxiv\.org/(?:abs|pdf)/(.+?)(?:v\d+)?(?:\.pdf)?/?$", url)
-        pmid = scalar(fm, "pmid") or (re.search(r"pubmed\.ncbi\.nlm\.nih\.gov/(\d+)", url) or [None, ""])[1]
-        doi = norm_doi(scalar(fm, "doi"))
-        s2id = (f"arXiv:{arxiv.group(1)}" if arxiv else
-                f"DOI:{doi}" if doi else
-                f"PMID:{pmid}" if pmid else None)
-        papers.append({"file": f, "text": text, "id": scalar(fm, "id"), "s2id": s2id,
+        stem = f.stem[:-len("_summary")] if f.stem.endswith("_summary") else f.stem
+        s2id = s2_ident(fm)
+        paper = summaries.parent / f"{stem}.md"
+        if not s2id and paper.is_file():
+            pm = FM_RE.match(paper.read_text())
+            s2id = s2_ident(pm.group(1)) if pm else None
+        papers.append({"file": f, "text": text, "id": scalar(fm, "id") or stem, "s2id": s2id,
                        "related": block_list(fm, "related_notes")})
     return papers
 

@@ -39,7 +39,8 @@ informative than its star count:
 - `search-hit` — surfaced by topic search with no paper linkage. Lowest
   confidence; the note should justify why it survived screening.
 
-`related_papers` lists the paper-note ids that reference this repo, matching the
+`related_papers` lists the ids of the papers that reference this repo — each
+paper's saved filename stem (`2024_sadatsafavi_vickers`) — matching the
 `## Papers` section. Empty for a pure `search-hit`.
 
 `keywords` uses the same vocabulary as the paper notes — reuse the linked
@@ -97,6 +98,8 @@ genuinely are none.
 ## Papers
 
 Wikilinks to the paper notes that reference this repo, as
-`[[<problem-id>/papers/<paper-id>|<paper title>]]` — a full path from the
-Obsidian vault root. Use each paper's own `id` frontmatter field rather than its
-filename: the same ids listed in `related_papers` above.
+`[[papers/<paper-id>|<paper title>]]` — a path from the Obsidian vault root,
+which is this problem's own folder, so never prefixed with the problem id.
+`<paper-id>` is the paper's id — its saved filename stem, per
+`templates/paper-identity-spec.md` — the same ids listed in `related_papers`
+above.

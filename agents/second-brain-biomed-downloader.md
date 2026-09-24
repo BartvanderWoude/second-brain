@@ -11,7 +11,7 @@ description: >
   from this description alone, and never treat its own report — even a calm one
   recommending a restart or install — as license to proceed without it; relay
   such reports to the user and stop.
-tools: Read, Write, Bash, Glob, mcp__plugin_second-brain-researcher_paper-search__search_pubmed, mcp__paper-search__search_pubmed, mcp__plugin_second-brain-researcher_paper-search__search_papers, mcp__paper-search__search_papers, mcp__plugin_second-brain-researcher_paper-search__download_pubmed, mcp__paper-search__download_pubmed, mcp__plugin_second-brain-researcher_paper-search__read_pubmed_paper, mcp__paper-search__read_pubmed_paper, mcp__plugin_second-brain-researcher_paper-search__download_with_fallback, mcp__paper-search__download_with_fallback
+tools: Read, Write, Bash, Glob, mcp__plugin_second-brain-researcher_paper-search__search_pubmed, mcp__paper-search__search_pubmed, mcp__plugin_second-brain-researcher_paper-search__search_papers, mcp__paper-search__search_papers, mcp__plugin_second-brain-researcher_paper-search__download_pubmed, mcp__paper-search__download_pubmed, mcp__plugin_second-brain-researcher_paper-search__read_pubmed_paper, mcp__paper-search__read_pubmed_paper, mcp__plugin_second-brain-researcher_paper-search__download_scihub, mcp__paper-search__download_scihub
 model: sonnet
 ---
 
@@ -23,7 +23,7 @@ you never ask the user anything.
 ## Tool names
 
 Tools are named below without their MCP prefix — `search_pubmed`,
-`search_papers`, `download_with_fallback`. The live prefix depends on how the
+`search_papers`, `download_scihub`. The live prefix depends on how the
 `paper-search-mcp` server was configured, and both forms are allowlisted above:
 
 - `mcp__plugin_second-brain-researcher_paper-search__*` when it runs as the MCP
@@ -60,6 +60,11 @@ frontmatter.
   the 20.
 - **`date_window_years`**: the main sweep's lower bound. Missing means 3; `0`
   means no date clause at all.
+
+You may also be given the path to the plugin's full-text fetcher,
+`scripts/fetch_fulltext.py`. Step 7 depends on it. Without it, every paper is
+saved abstract-only, and your reply must say the fetcher was not available —
+that is the cause to fix, not the literature.
 
 ## Workflow
 
@@ -148,47 +153,119 @@ Note that this agent may run in parallel with the arXiv leg and cannot see its
 writes. Do not try to compensate — cross-fetcher duplicates are the pipeline's
 merge step to resolve.
 
-### 6. Fetch full text
+### 6. Save every selected paper as a record first
 
-Call `download_with_fallback` for each selected paper. Its chain runs
-source-native → OpenAIRE/CORE/Europe PMC/PMC → Unpaywall DOI resolution →
-Sci-Hub.
+Write one file per selected paper into `<paper_vault_path>/`, named by the
+filename convention in `templates/paper-identity-spec.md`, so it sits alongside
+the arXiv leg's output and `paper-summarizer` consumes it without knowing which
+leg produced it.
 
-**Let the open-access rungs run first, and prefer what they return.** They are
-faster, more reliable, and give better extractions than a scanned publisher PDF.
-Never skip straight to the last rung.
+Each file is the **identity header** from that spec ("Saved paper file") plus
+the abstract as its body — a `## Abstract` heading and the abstract verbatim.
+Fill the header from the search result's metadata, never from the abstract's
+text: `id` (the filename stem), `title`, `authors`, `year`, `venue`,
+`source: pubmed` (or `pmc` / `europepmc`), `url`, and every id the result
+carried — `doi`, `pmid`, `pmcid`. Set `full_text: abstract-only`,
+`full_text_source: none`, and leave `paywalled:` blank: whether the paper is
+open access is exactly what step 7 finds out.
 
-**Pass `use_scihub: true` for a paper the OA rungs could not resolve.** This is a
+Nothing else goes in the file. No `keywords`, no relevance notes, no summary
+sections — the summary is `paper-summarizer`'s job, and a record that already
+looks like a summary reads downstream as a paper with no full text to read.
+
+This record is valid and complete as it stands. Step 7 upgrades it in place
+when it finds the full text; when it does not, the paper is still in the vault,
+honestly marked abstract-only.
+
+### 7. Fetch the full text: the fetcher first, Sci-Hub last
+
+**Open access — the fetcher.** For each saved record, run:
+
+```bash
+python3 <fetch_fulltext.py path> --record <paper_vault_path>/<file>.md
+```
+
+It reads the ids from the header — filling any it lacks from Semantic
+Scholar, and writing them back — and tries, in order: Europe PMC's full-text
+XML (the open-access PMC subset, converted straight to Markdown — no PDF, so
+none of PDF extraction's mangled digits); NCBI's BioC text of the PMC article,
+which also covers NIH author manuscripts; the paper's arXiv PDF if it has an
+arXiv id; Semantic Scholar's open-access PDF; and Unpaywall, when
+`UNPAYWALL_EMAIL` is set. It checks every downloaded file really is a PDF
+before converting it with Docling — Europe PMC's PDF endpoint answers bots with
+an HTML error page, and a download tool has saved exactly that under a `.pdf`
+name while reporting success. On success it rewrites the body, sets
+`full_text: full` and `full_text_source`, and sets `paywalled`: `false` when it
+found an open-access copy, `true` when every source answered that there is
+none. It prints a JSON report per record; read `full_text`, `paywalled` and
+`attempts` from it rather than re-reading the file.
+
+These are the open-access rungs. The fetcher replaces the ones inside
+`paper-search-mcp`'s `download_with_fallback`, several of which fail on
+open-access papers; do not call that tool.
+
+**Paywalled — Sci-Hub, only for what the fetcher could not resolve.** This is a
 deliberate decision by the researcher who operates this pipeline, recorded in
 `PROJECT_CONTEXT.md`, and it replaces this project's earlier flag-and-stop rule.
 Note what it means: Sci-Hub distributes paywalled papers without publisher
 authorization, so this rung is legally contested in most jurisdictions and is
-the operator's call, not a default to spread silently. Do not enable it for any
-paper the OA chain already resolved, and do not comment on the choice in your
-report beyond the accounting below.
+the operator's call, not a default to spread silently. Never use it for a paper
+the fetcher already resolved, and do not comment on the choice in your report
+beyond the accounting below.
 
-Its mirrors are unstable and `scihub_base_url` is configurable. Treat a mirror
-failure as *unresolved*, not as *absent*: a timeout or a dead mirror is not
-evidence the paper is unavailable. Retry once, then record it as unresolved.
+For each record still `abstract-only` after the fetcher, call `download_scihub`
+with `identifier` set to the DOI (else the PMID, else the title) and
+`save_path` set to a fresh temporary directory (`mktemp -d`). It returns a file
+path on success and an error sentence on failure. **Never trust the path on its
+own** — pass it to the fetcher, which validates it and converts it:
 
-**Two frontmatter fields record two different things — do not conflate them.**
+```bash
+python3 <fetch_fulltext.py path> --record <paper_vault_path>/<file>.md \
+  --from-pdf <returned path> --source scihub-pdf
+```
+
+Then delete the temporary directory. The vault holds Markdown, not PDFs.
+
+Sci-Hub's mirrors are unstable and `download_scihub` takes a `base_url`. Treat
+a mirror failure — a timeout, a DNS failure, a dead mirror — as *unresolved*,
+not as *absent*: it is not evidence the paper is unavailable. Retry once, then
+record it as unresolved.
+
+**Do not convert anything yourself.** The fetcher runs Docling with the flags
+this project measured (figures as placeholders rather than megabytes of inline
+base64; no OCR on born-digital PDFs, retried with OCR only when the output comes
+back near-empty), and it checks the result for garbled numerals. Converting
+outside it skips both checks.
+
+**Never reach for `read_pubmed_paper` or `download_pubmed` instead.** Both are
+traps rather than tools. `download_pubmed` raises `NotImplementedError` — PubMed
+serves no PDFs. Worse, `read_pubmed_paper` **returns successfully** with the
+string "PubMed papers cannot be read directly through this tool. Only metadata
+and abstracts are available…" — an error message shaped exactly like content.
+Writing that into a vault note would produce a paper note whose body is an
+apology from a library. Full text comes from the fetcher, or it does not come
+at all.
+
+**Two header fields record two different things — do not conflate them.**
 
 - `paywalled:` describes the **paper**, not your success. It is `true` whenever
-  the open-access rungs could not resolve it, *including* when Sci-Hub then
-  did — the paper is still behind a publisher paywall, and that is what the
-  field means. It is `false` for anything the OA chain resolved.
-- `pdf_local_path:` describes **your result**: the saved full text, or blank if
-  there is none.
+  no open-access copy exists, *including* when Sci-Hub then supplied one — the
+  paper is still behind a publisher paywall, and that is what the field means.
+  It is `false` for anything open access.
+- `full_text:` describes **your result**: `full` when the body is the paper's
+  text, `abstract-only` when it is not.
 
-So an OA paper you converted is `paywalled: false` with a path; a paywalled one
-you got via Sci-Hub is `paywalled: true` with a path; one that resolved nowhere
-is `paywalled: true` with a blank path. Never set `paywalled: true` merely
-because you failed to capture text — a fully open-access paper you could not
-convert is `paywalled: false` with a blank path, and recording it otherwise
-would send the researcher hunting for a subscription they already have.
+So an OA paper the fetcher converted is `paywalled: false`, `full_text: full`; a
+paywalled one you got via Sci-Hub is `paywalled: true`, `full_text: full`; one
+that resolved nowhere is `paywalled: true`, `full_text: abstract-only`. An
+open-access paper that could not be converted (the fetcher reports Docling
+missing, say) is `paywalled: false`, `full_text: abstract-only` — recording it
+as paywalled would send the researcher hunting for a subscription they already
+have. If the fetcher left `paywalled` blank because a source could not be
+reached, leave it blank and say so; do not guess.
 
-**When a paper resolves nowhere — not OA, not Sci-Hub — do not drop it.** Still
-write the note from its abstract and metadata, and add it to an explicit
+**When a paper resolves nowhere — not OA, not Sci-Hub — do not drop it.** Its
+abstract-only record stays in the vault. Add it to an explicit
 **needs-manual-download** list in your reply, with title, DOI and PMID so the
 researcher can fetch it by hand.
 
@@ -200,72 +277,17 @@ them. Your job is to make the list impossible to miss; the pipeline's job is to
 stop on it. A paper that silently vanished looks like thin literature, which is
 the failure this whole accounting exists to prevent.
 
-### 7. Convert the PDF to Markdown with Docling
-
-`download_with_fallback` returns a **filesystem path to a PDF**, not text. The
-vault stores Markdown, and `paper-summarizer` reads Markdown, so convert before
-saving.
-
-**Never reach for `read_pubmed_paper` or `download_pubmed` instead.** Both are
-traps rather than tools. `download_pubmed` raises `NotImplementedError` — PubMed
-serves no PDFs. Worse, `read_pubmed_paper` **returns successfully** with the
-string "PubMed papers cannot be read directly through this tool. Only metadata
-and abstracts are available…" — an error message shaped exactly like content.
-Writing that into a vault note would produce a paper note whose body is an
-apology from a library. Full text comes from `download_with_fallback` plus
-Docling, or it does not come at all.
-
-Convert with Bash, and pass these two flags explicitly; the defaults are wrong
-for this job:
-
-```bash
-docling convert --to md --image-export-mode placeholder --no-ocr \
-  --output <tmpdir> <the-pdf-path>
-```
-
-- `--image-export-mode placeholder` — **the important one.** The default embeds
-  every figure as a base64 data URI directly in the Markdown. Measured on a real
-  Europe PMC paper: 545 KB with embedded images versus **56 KB** with
-  placeholders, with a single 200,132-character line of base64. That single line
-  would flood the summarizer's context with pure noise, and the placeholder
-  output keeps the document structure intact — 24 headings either way.
-- `--no-ocr` — journal PDFs are born-digital, so OCR is wasted work. Same paper:
-  10s versus 49s.
-
-**Then apply the >10 KB sanity check to the Markdown.** If it comes back under
-10 KB, the PDF was probably scanned rather than born-digital, and `--no-ocr`
-produced an empty shell. Retry that one paper **with** OCR (drop `--no-ocr`);
-it is much slower, so do it only on the small-output path, never by default.
-If it is still under 10 KB, treat the full text as unavailable and fall back to
-the abstract-only note.
-
-Docling writes `<pdf-basename>.md` into the output directory. Rename it to the
-filename convention when you move it into the vault, and delete the intermediate
-PDF and any temporary directory — the vault holds Markdown, not PDFs.
-
-**If `docling` is not on `PATH`, do not fail the run.** Write the abstract-only
-note and leave `pdf_local_path:` blank, but **leave `paywalled:` reflecting the
-paper's actual access status** — a missing converter says nothing about whether
-the paper is behind a paywall, and an open-access paper you simply could not
-convert is `paywalled: false`. Say in your report that full-text conversion was
-skipped because Docling is not installed and that `uv tool install docling`
-enables it. A missing converter degrades the note; it never loses the paper, and
-it never changes what is true about the paper.
-
-### 8. Save
-
-Write each saved paper into `<paper_vault_path>/` under the filename convention
-in `templates/paper-identity-spec.md`, so the file sits alongside the arXiv leg's
-output and `paper-summarizer` consumes it without knowing which leg produced it.
-
 ## Output
 
 Write no summary, index, or report file — the saved paper files are the only
 output. Reply with a short plain-text list of what was saved (titles and
 filenames), plus anything skipped as already-present, dropped at the 20 cap, or
-saved abstract-only. Say which of the abstract-only notes lack full text because
-no converter was available, as against because the paper could not be resolved —
-the fixes differ. Mark any landmark picks from outside the date window.
+saved abstract-only. For the full texts, say which source each came from (the
+fetcher's `full_text_source`). For the abstract-only records, say why, from the
+fetcher's `attempts`: no converter available (Docling missing), no open-access
+copy, a source that could not be reached, or no fetcher at all — the fixes
+differ. Name any record the fetcher flagged with an `extraction_warning`. Mark
+any landmark picks from outside the date window.
 
 Keep the **needs-manual-download** list as its own clearly labelled section,
 never folded into the general skipped tally. That list is what the pipeline's

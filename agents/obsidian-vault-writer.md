@@ -7,7 +7,9 @@ description: >
   topics, topics ↔ papers). Invoke with five things in the prompt: the
   problem-profile path, the paper record paths (or their directory), the
   topic record paths (may be empty), the repo record paths (may be empty), and
-  the target vault path — all five are required, this agent does not derive or
+  the target vault path — the problem's own folder,
+  `<root>/obsidian_vault/<problem-id>/`, which is the Obsidian vault the
+  researcher opens. All five are required; this agent does not derive or
   guess them. Optionally also the rebuilt topics: slugs whose topic notes were
   (re)written this run. Writes one problem
   note, one note per paper and one per topic, adds the wikilinks between
@@ -50,12 +52,17 @@ guess a default, or scan the filesystem looking for it.
 - **Repo collection** — records following `templates/repo-note-template.md`, one
   per repository. May be empty, in which case skip every repo step below and
   create no `repos/` folder. Materialize one note per record.
-- **Vault path** — the target vault root, supplied by the caller. Note that a
-  vault is conventionally at `<root>/obsidian_vault/` (underscore), a sibling of
-  `paper_vault/` and `code_vault/`, but that convention is the caller's to
-  apply, not yours to reconstruct. If the supplied path is unusable (for
-  example it exists as a file rather than a directory), stop and report that
-  rather than writing somewhere else.
+- **Vault path** — the target vault root, supplied by the caller. Each problem
+  is its own Obsidian vault: the path is conventionally
+  `<root>/obsidian_vault/<problem-id>/`, next to `paper_vault/<problem-id>/`
+  and `code_vault/<problem-id>/`, and it is the folder the researcher opens in
+  Obsidian. That convention is the caller's to apply, not yours to reconstruct
+  — but check the one part of it you can: the path's **final segment must equal
+  the profile's `id`**. If it does not (for example a caller passed
+  `obsidian_vault/` itself), stop and report it; writing there would nest the
+  notes one folder below the vault root and every link would be dead. Likewise,
+  if the supplied path is unusable (it exists as a file rather than a
+  directory), stop and report that rather than writing somewhere else.
 
 One more input is optional:
 
@@ -76,11 +83,14 @@ One more input is optional:
    `id` related to the supplied problem, such as
    `sarcopenia-ct-embedding-20260825`; report a missing or generic ID instead
    of inventing one.
-2. Name the problem folder exactly `<problem-id>` and create it at
-   `<vault>/<problem-id>/`. Use no generic folder names. Put the problem note
-   at `<problem-id>.md`, paper notes under `papers/`, topic notes under `topics/`,
-   and repo notes under `repos/`. `Write` creates any missing parent directories, so no separate
-   directory-creation step is needed. On a re-run these files already exist —
+2. Write directly into the vault path — it already is the problem's folder, so
+   create no further `<problem-id>/` level inside it. Use no generic folder
+   names. Put the problem note at `<vault>/<problem-id>.md`, paper notes under
+   `<vault>/papers/`, topic notes under `<vault>/topics/`, and repo notes under
+   `<vault>/repos/`. Name each paper note by its record's `id`, which is the
+   saved paper's filename stem (`papers/2024_catania_chapron.md`). `Write`
+   creates any missing parent directories, so no separate directory-creation
+   step is needed. On a re-run these files already exist —
    see step 3, which governs how they are updated. Never overwrite one
    wholesale.
 3. **Before writing anything: on a re-run, merge — never overwrite.** A vault
@@ -102,7 +112,7 @@ One more input is optional:
       the link line and leave any prose around it untouched. **Regenerating a link list
       still preserves each link's `|Display text` alias** — `topic-summarizer`
       writes its `## Papers` links as
-      `[[<problem-id>/papers/<paper-id>|<paper title>]]`, and dropping those
+      `[[papers/<paper-id>|<paper title>]]`, and dropping those
       titles would turn a readable topic note into a list of slugs. These
       sections are derived, so regenerating them is correct — and it is also
       why a hand-edit *inside* one of them will not survive. Say so in your
@@ -141,29 +151,28 @@ One more input is optional:
    running.
 
 4. Preserve the supplied content. Add to the problem note a `## Papers` list
-   linking every paper as `[[<problem-id>/papers/<paper-id>]]`, and a
-   `## Topics` list linking every topic as
-   `[[<problem-id>/topics/<keyword>]]`, and — when the repo collection is
-   non-empty — a `## Repos` list linking every repo as
-   `[[<problem-id>/repos/<owner>-<name>]]`.
+   linking every paper as `[[papers/<paper-id>|<paper title>]]`, and a
+   `## Topics` list linking every topic as `[[topics/<keyword>]]`, and — when
+   the repo collection is non-empty — a `## Repos` list linking every repo as
+   `[[repos/<owner>-<name>]]`.
 5. In each paper note, preserve `related_problem: <problem-id>` and add a
    `## Links` entry linking `[[<problem-id>]]`, plus a
-   `[[<problem-id>/topics/<keyword>]]` link to each topic note that both
+   `[[topics/<keyword>]]` link to each topic note that both
    exists in the supplied topic collection and whose `keyword` **or** one of
    whose `aliases` appears in that paper's own `keywords` list — a merged topic
    collects the papers tagged with any of its slugs. A keyword with no topic note gets no link — do not invent
    one.
 6. In each topic note, preserve `keyword`, `aliases` and `related_problem`, and make its
    `## Papers` section link every paper it drew on as
-   `[[<problem-id>/papers/<paper-id>]]`.
+   `[[papers/<paper-id>|<paper title>]]`.
 
 7. In each repo note, preserve `related_problem` and `provenance`, and make its
    `## Papers` section link every paper in `related_papers` as
-   `[[<problem-id>/papers/<paper-id>|<paper title>]]`.
+   `[[papers/<paper-id>|<paper title>]]`.
 
    Then close the loop in the other direction: in each paper note whose id
    appears in some repo's `related_papers`, add that repo to the paper's
-   `## Code notes` section as `[[<problem-id>/repos/<owner>-<name>]]`. The link
+   `## Code notes` section as `[[repos/<owner>-<name>]]`. The link
    has to exist on both sides or the graph only walks one way — from a repo you
    could find its papers, but sitting on a paper note you would never discover
    its implementation, which is the direction a researcher actually reads in.
@@ -172,15 +181,25 @@ One more input is optional:
    normally empty at this stage; add the link without disturbing any prose
    `paper-summarizer` put there.
 
-**Wikilink form.** Every link is a full path from the vault root, and the vault
-root holds problem folders — so a link must start with `<problem-id>/`, never
-with `papers/` or `topics/`. Bare `[[<paper-id>]]` / `[[<keyword>]]` links are
-also wrong here: topic notes are named after their keyword, so two problems
-both investigating `distribution-shift` produce two files with that basename
-and Obsidian resolves the bare link to whichever it finds first. The one
-exception is the problem note itself, `[[<problem-id>]]`, whose id is unique
-vault-wide. Preserve any `|Display text` alias already present on a supplied
+**Wikilink form.** Every link is a path from the vault root, and the vault root
+is this problem's folder — so a link starts with `papers/`, `topics/` or
+`repos/`, and **never** with `<problem-id>/`. A `<problem-id>/`-prefixed link
+resolves only in a vault opened one level up, at `obsidian_vault/`, which is not
+the vault the researcher opens: a run that wrote that form produced a vault in
+which every one of ~800 links was dead. Keep the folder prefix rather than a
+bare `[[<paper-id>]]`, so a link says which kind of note it points at. The one
+exception is the problem note itself, `[[<problem-id>]]`, which sits at the
+vault root. Preserve any `|Display text` alias already present on a supplied
 link.
+
+**Link targets are ids, never guesses.** Every paper link targets a paper
+record's `id`, exactly. If a topic or repo record names a paper id that no
+record in the paper collection carries, leave that entry out of the list you
+regenerate and name it in your report — do **not** re-target it at a paper
+whose title looks like a match. Ids are fixed at download precisely so that no
+stage has to match titles; a mismatch is an upstream bug for the caller to fix,
+and a title-matched repair hides it.
+
 8. Add a `## Citation` section to each paper note holding that paper's BibTeX
    entry, in a ```bibtex fenced block.
 
@@ -208,7 +227,7 @@ link.
    bibliography never blocks vault-build.
 
 9. Render each paper note's `related_notes` into a `## Related` section, one
-   `[[<problem-id>/papers/<paper-id>]]` link per entry, using the same full-path
+   `[[papers/<paper-id>|<paper title>]]` link per entry, using the same
    wikilink form as everywhere else. Group the links by their reason in the
    note's `related_basis`, as `###` sub-headings in this order, omitting any
    empty group:

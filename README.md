@@ -30,33 +30,59 @@ The second command adds the marketplace for `arxiv-mcp-server`, a separate plugi
 
 Because Claude Code's own plugin loader already refuses to load this plugin at all when `arxiv-mcp-server` is missing — confirmed in both the real install path and local dev below — none of this plugin's own agents/skills need to re-check that dependency themselves; there's no scenario where they'd run with it actually absent.
 
+### Then run the arXiv server with its `[pdf]` extra, at user scope
+
+One more step, in a terminal rather than inside Claude Code:
+
+```bash
+claude mcp add -s user arxiv -- uvx --from "arxiv-mcp-server[pdf]" arxiv-mcp-server
+```
+
+The `arxiv-mcp-server` plugin that the commands above install launches plain `uvx arxiv-mcp-server`, without the `[pdf]` extra, and that launch command lives in its plugin, outside this repo. Without the extra the server cannot extract any arXiv paper that has no HTML version; one real run lost 17 papers that way, several of them central to the review. This command adds a second copy of the server that has the extra. The agents allow both copies' tools (`mcp__arxiv__*` and `mcp__plugin_arxiv-mcp-server_arxiv__*`) and may call either one. A paper the plain copy cannot extract still reaches the vault, through `scripts/fetch_fulltext.py`'s arXiv-PDF route, so this step is recommended rather than required.
+
+- **`-s user` matters.** Without it `claude mcp add` defaults to *local* scope: the server exists only for the directory you ran the command in, so running it from inside one research project silently leaves every other project without it.
+- **If you already have a user-level server named `arxiv`**, the command fails with "already exists". Remove the old one first: `claude mcp remove arxiv -s user`.
+- **Check it:** `claude mcp get arxiv` should show `Scope: User config`, `Args: --from arxiv-mcp-server[pdf] arxiv-mcp-server` and `✔ Connected`. Claude Code sessions that were already open keep the old server until restarted.
+
 ### The PubMed leg needs `uv` on your PATH
 
 `second-brain-biomed-downloader` uses [`paper-search-mcp`](https://github.com/openags/paper-search-mcp) (MIT) for PubMed/PMC/Europe PMC. Unlike `arxiv-mcp-server` this is **not** a Claude Code plugin — it has no marketplace, so it cannot be a `dependencies` entry, which accepts marketplace plugins only. This plugin therefore bundles it as its own MCP server in `.mcp.json`:
 
 ```json
-{ "mcpServers": { "paper-search": { "command": "uvx", "args": ["paper-search-mcp"] } } }
+{ "mcpServers": { "paper-search": { "command": "uvx", "args": ["paper-search-mcp"],
+                                    "env": { "UNPAYWALL_EMAIL": "${UNPAYWALL_EMAIL:-}" } } } }
 ```
 
 That means there is nothing extra to install *if you have [`uv`](https://docs.astral.sh/uv/) on your PATH* — `uvx` fetches and runs the server on demand. If `uv` is missing, the arXiv leg still works and only the biomedical leg goes unavailable; the agent reports that plainly rather than silently skipping PubMed.
 
-Optional API keys (CORE, DOAJ, Unpaywall email) go in `~/.config/paper-search-mcp/.env`. None are required — without them those sources are rate-limited, not broken.
+Optional API keys (CORE, DOAJ) go in `~/.config/paper-search-mcp/.env`. The Unpaywall contact email is `UNPAYWALL_EMAIL` in this repo's `.env`, which `.mcp.json` passes through to the server and `scripts/fetch_fulltext.py` reads too. None are required — without them those sources are rate-limited or skipped, not broken.
 
 Note the tool-prefix consequence: a bundled server's tools are named `mcp__plugin_<plugin-name>_<server-name>__<tool>`, so these arrive as `mcp__plugin_second-brain-researcher_paper-search__*`. If you instead configure `paper-search-mcp` yourself as a user-level server named `paper-search`, they arrive as `mcp__paper-search__*`. The agent allowlists both, for the same reason the arXiv agents do — an allowlist naming a prefix that doesn't exist fails silently, leaving an agent with no tools rather than an error.
 
-### Full text for non-arXiv papers needs Docling (optional)
+### Full text comes from `scripts/fetch_fulltext.py` (Docling optional)
 
-The arXiv leg gets clean Markdown from `arxiv-mcp-server`'s own extraction. Nothing equivalent exists for PubMed/PMC, where `download_with_fallback` returns a **PDF**. `second-brain-biomed-downloader` converts it with [Docling](https://github.com/docling-project/docling) (MIT):
+Every discovery leg saves a paper as a small record first — an identity header plus the abstract (`templates/paper-identity-spec.md`) — and then runs `scripts/fetch_fulltext.py` on it, which upgrades the record to full text in place when it finds an open-access copy. It tries, in order:
+
+1. **Europe PMC full-text XML** — the open-access PMC subset, converted from JATS straight to Markdown. No PDF is involved, so tables come out as tables and numbers come out as numbers.
+2. **NCBI BioC** — the same for NIH author manuscripts, which Europe PMC's XML endpoint answers with an HTTP 500.
+3. **The arXiv PDF** — for arXiv papers the arXiv MCP server could not extract (see below).
+4. **Semantic Scholar's open-access PDF**, and 5. **Unpaywall** (needs `UNPAYWALL_EMAIL`).
+
+It also fills in any DOI, PMID or PMCID the record lacks from Semantic Scholar, and writes them back into the header; `SEMANTIC_SCHOLAR_API_KEY` in `.env` keeps those lookups off the shared public quota.
+
+This replaces `paper-search-mcp`'s `download_with_fallback` for open access, and the reason is measured. On a 42-paper run, 16 of 20 clinical papers ended up abstract-only: its PMC lookup reported open-access papers as closed, Europe PMC's PDF endpoint returned 403 — and twice an HTML error page saved as a `.pdf` while the tool reported success — CORE failed on every DOI, and the Sci-Hub mirror did not resolve. The fetcher reaches the same papers through APIs rather than scraped pages, and refuses any download that does not start with `%PDF-`. Sci-Hub is still the biomedical leg's last rung for paywalled papers, through `download_scihub`, and its result is validated by the same script.
+
+PDFs are converted with [Docling](https://github.com/docling-project/docling) (MIT):
 
 ```bash
 uv tool install docling
 ```
 
-Optional. Without it the biomedical leg still saves every paper it found — just as abstract-only notes, flagged as such, rather than full text.
-
-Two flags matter and the agent always passes them. `--image-export-mode placeholder` stops Docling embedding every figure as a base64 data URI: on a real Europe PMC paper that was **545 KB versus 56 KB**, including one 200,132-character line, with identical document structure either way. `--no-ocr` skips OCR on born-digital journal PDFs — 10s versus 49s on the same paper. If the converted Markdown comes back under 10 KB the PDF was probably scanned, and the agent retries that one paper with OCR enabled.
+Optional: without it the two XML routes still work, and a paper that only has a PDF stays abstract-only, with the reason in the report. The script passes two flags that matter. `--image-export-mode placeholder` stops Docling embedding every figure as a base64 data URI: on a real Europe PMC paper that was **545 KB versus 56 KB**, including one 200,132-character line. `--no-ocr` skips OCR on born-digital journal PDFs — 10s versus 49s. Output under 10 KB is retried with OCR (a scanned PDF). Output whose digits came out as substituted glyphs — one paper rendered `0.90` as `Ͷ.ͿͶ` — is retried with full-page OCR, and flagged `extraction_warning: garbled-digits` in the header if that does not fix it.
 
 First run downloads layout models (a few hundred MB), so expect the first paper to be slow.
+
+**arXiv papers without an HTML version.** `arxiv-mcp-server` extracts those from the PDF only when it runs with its `[pdf]` extra — set up in [Install](#then-run-the-arxiv-server-with-its-pdf-extra-at-user-scope). Without the extra it fails for them outright, and the arXiv leg treats that error as permanent: it does not retry, and hands the paper to the fetcher's arXiv-PDF route instead.
 
 ### Code discovery needs the GitHub CLI (optional)
 
@@ -86,9 +112,11 @@ Request a free key at [share.hsforms.com/1L4hUh20oT3mu8iXJQMV77w3ioxm](https://s
 
 **Without a key the pipeline still works.** The arXiv and PubMed legs are unaffected; the cross-field pass reports that it was skipped and the run continues. What you must *not* do is run that pass unauthenticated and hope: Ai2's docs describe the key as enabling "higher rate limits", but the search tools are gated outright — `snippet_search` and `search_papers_by_relevance` hang for ~271 seconds and then fail with a misleading `ConnectionRefusedError` rather than a clean 401. That is why the agent checks for the key before it searches instead of letting the call fail. (Identifier lookups like `search_paper_by_title` do work without a key, which is what makes the docs' framing so easy to believe.)
 
-For local development, run Claude Code straight from a checkout of this repo with `claude --plugin-dir .` — it loads the plugin live from the working tree, no install step, no re-running anything after an edit. Verified directly: this enforces the same `arxiv-mcp-server` dependency as a real install — with it missing, none of this plugin's agents/skills appear at all; with it present, everything loads normally. So it still needs to be installed (via the marketplace commands above) for local testing to work, same as for a real user.
+For local development, run Claude Code straight from a checkout of this repo with `claude --plugin-dir .` — it loads the plugin live from the working tree, no install step, no re-running anything after an edit. Verified directly: this enforces the same `arxiv-mcp-server` dependency as a real install — with it missing, none of this plugin's agents/skills appear at all; with it present, everything loads normally. So it still needs to be installed (via the marketplace commands above, plus the user-level `[pdf]` server) for local testing to work, same as for a real user.
 
 Once installed, running the pipeline against a real research problem happens in *your own* project — that's where `research-problem-intake` sets up `paper_vault/`, `code_vault/`, and `obsidian_vault/` as working directories, and where the resulting notes live.
+
+**Each problem is its own Obsidian vault.** Open `obsidian_vault/<problem-id>/` in Obsidian — not `obsidian_vault/` itself. Every wikilink is written from that folder (`[[papers/<id>|Title]]`, `[[topics/<keyword>]]`), and `scripts/check_vault.py vault` checks them against it after each run.
 
 ## Structure
 
@@ -105,7 +133,12 @@ second-brain-researcher/
 ├── skills/
 │   ├── research-problem-intake/SKILL.md           # stage 1–2: Q&A that produces the problem-profile note
 │   └── second-brain-pipeline/SKILL.md              # orchestrator: runs stages 1–5 end to end, holds the stage-4 checkpoint
+├── scripts/
+│   ├── fetch_fulltext.py                          # stage 3: upgrades a saved paper record to full text (open access)
+│   ├── link_papers.py                             # stage 5: paper-to-paper links from Semantic Scholar
+│   └── check_vault.py                             # stage 5: checks records before the vault, and the vault's links after
 ├── templates/
+│   ├── paper-identity-spec.md                    # shared contract: paper identity, filenames, ids, saved-file format
 │   ├── paper-page-template.md                    # stage 5: structure for a discovered-paper note
 │   ├── topic-note-template.md                    # stage 5: structure for a per-subtopic topic note
 │   └── research-problem-profile-format-spec.md   # shared contract: exact schema the intake skill outputs

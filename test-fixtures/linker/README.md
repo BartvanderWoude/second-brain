@@ -23,3 +23,15 @@ the failure cases:
 
 CALM and CANDI have no citation relation to each other. They must be linked
 by `similar-content` (0.961).
+
+Two more made-up entries cover identifier resolution:
+
+- `2024_s2_only` has no DOI, only a Semantic Scholar paper URL, and an empty
+  `id`. It must resolve by the URL's 40-hex paper id (cache key
+  `0123456789abcdef…`), take its id from the filename stem, and get a
+  `direct-citation` link to CALM.
+- `2022_header_fallback` is a summary with no identifier at all. The linker
+  must take the DOI from its paper file's header, `../2022_header_fallback.md`,
+  and link it to CANDI by `direct-citation`.
+
+Neither may appear under `no_identifier`.

@@ -81,7 +81,7 @@ Intake also ensures three shared local directories exist (Claude Code sessions o
 
 ```
 <root>/
-├── obsidian_vault/   # Obsidian vault root — Obsidian group owns everything inside it
+├── obsidian_vault/   # one Obsidian vault per problem id (obsidian_vault/<id>/ is the vault you open) — Obsidian group owns everything inside it
 ├── paper_vault/      # downloaded PDFs, one subfolder per problem id
 └── code_vault/       # cloned repos, one subfolder per problem id
 ```

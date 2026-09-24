@@ -26,6 +26,8 @@ scraping arXiv over Bash or WebFetch.
 
 You will be given the path to an `.md` file describing a research problem/domain (a research-problem-profile note, per `templates/research-problem-profile-format-spec.md`). Read it and parse its YAML frontmatter for a `paper_vault_path:` field — this is the target folder for downloaded papers.
 
+You may also be given the path to the plugin's full-text fetcher, `scripts/fetch_fulltext.py`. It is optional: without it, a paper the arXiv server cannot extract is saved abstract-only (step 7), and you say in your reply that the fetcher was not available.
+
 - If `paper_vault_path:` is absent, empty, or malformed, stop and report that clearly rather than guessing a location.
 - If `paper_vault_path:` is well-formed but the directory doesn't exist yet, that is fine — create it. A nonexistent path is not an invalid one.
 - Only proceed if the profile's `status:` field is `confirmed`. If it is `draft`, stop and report that discovery should not run against an unconfirmed profile.
@@ -74,15 +76,49 @@ Everything else in the file (frontmatter body and prose) describes the research 
 
 6. **Fetch**: For each remaining paper, call `download_paper`. Pass a small `max_chars` (e.g. 200) — the call still fetches and caches the **complete** paper server-side regardless of how much text it returns, and you do not need the text in context.
 
-   If a download errors or returns `status: rate_limited`, retry that paper once. If it fails again, skip it and name it in your final reply. Never leave a truncated or zero-byte file behind in `<paper_vault_path>/`.
+   If a download errors or returns `status: rate_limited`, retry that paper once. If it fails again, save it through the fallback in step 7 — never drop it. Never leave a truncated or zero-byte file behind in `<paper_vault_path>/`.
 
-7. **Save by copying the cache**: The MCP server writes its full extraction to `~/.arxiv-mcp-server/papers/<arxiv_id>.md`. Copy that file to `<paper_vault_path>/<filename>.md` with `cp`, creating the directory first if needed.
+   **One error is permanent — do not retry it.** For a paper arXiv publishes no HTML version of, the server falls back to PDF extraction, and if it was installed without its `[pdf]` extra it fails with an error naming that extra (`pip install arxiv-mcp-server[pdf]`). Retrying cannot change that; it only burns calls. Go straight to the step 7 fallback for that paper, and say in your reply how many papers hit it, since installing the server with the extra fixes it at the source.
 
-   Do this rather than passing `return_full_text=true` and re-writing the text yourself: copying keeps the saved bytes identical to the server's extraction, avoids transcription drift on long papers, and keeps ~50–150 KB per paper out of your context.
+7. **Save: a header, then the server's extraction.** Every saved paper starts with the identity header defined in `templates/paper-identity-spec.md` ("Saved paper file"), filled from the `get_abstract` metadata — never from the extraction's text. Without it the paper's arXiv id and DOI exist nowhere but the filename, and every later stage (the summary, the paper-to-paper linker, the citation export) loses them.
 
-   Verify each copy landed at **more than 10 KB** — real extractions run 20–140 KB, so anything smaller means the fetch didn't complete. If the cache file is missing or implausibly small, re-call `download_paper` without `max_chars` and check again.
+   The MCP server writes its full extraction to `~/.arxiv-mcp-server/papers/<arxiv_id>.md`. First verify that file is **more than 10 KB** — real extractions run 20–140 KB, so anything smaller means the fetch didn't complete; if it is missing or implausibly small, re-call `download_paper` without `max_chars` and check again. Then write the header and append the extraction unchanged, in one Bash call, creating the directory first if needed:
+
+   ```bash
+   out="<paper_vault_path>/<filename>.md"
+   cat > "$out" <<'HEADER'
+   ---
+   id: <filename without .md>
+   title: "<title, with any " escaped>"
+   authors: ["<First Author>", "<Second Author>"]
+   year: <year of the published (v1) date>
+   venue: "<journal_ref, if any>"
+   source: arxiv
+   url: https://arxiv.org/abs/<arxiv_id, no version suffix>
+   doi: <doi, if the metadata has one>
+   arxiv_id: <arxiv_id, no version suffix>
+   pmid:
+   pmcid:
+   paywalled: false
+   full_text: full
+   full_text_source: arxiv-mcp
+   extraction_warning:
+   ---
+   HEADER
+   cat ~/.arxiv-mcp-server/papers/<arxiv_id>.md >> "$out"
+   ```
+
+   Do this rather than passing `return_full_text=true` and re-writing the text yourself: appending the cache keeps the body byte-identical to the server's extraction (which `topic-summarizer` later searches through the same server), avoids transcription drift on long papers, and keeps ~50–150 KB per paper out of your context.
 
    If the cache file isn't where you expect (a custom `ARXIV_STORAGE_PATH` changes it), locate it before falling back to `return_full_text=true` + `Write` — treat retyping as the last resort, not the default.
+
+   **Fallback — the server could not extract the paper** (the permanent `[pdf]`-extra error in step 6, or a download that failed twice). Save the paper anyway, as an abstract-only record: the same header with `full_text: abstract-only` and `full_text_source: none`, and as the body a `## Abstract` heading followed by the abstract from `get_abstract`, verbatim. Then, if you were given the fetcher, run it on that record:
+
+   ```bash
+   python3 <fetch_fulltext.py path> --record "$out"
+   ```
+
+   It downloads the paper's PDF from arxiv.org, checks that it really is a PDF, converts it with Docling, and upgrades the record in place — setting `full_text: full` and `full_text_source: arxiv-pdf` in the header. It prints a JSON report; read its `full_text` to know which case you are in. A paper that stays abstract-only is still kept: report it with the reason the script gave.
 
 ## Filename convention
 
@@ -93,4 +129,4 @@ paper being saved twice under two names.
 
 ## Output
 
-Don't write any summary, index, or report file — the saved paper files are the only output. After downloads complete, reply with a short plain-text list of what was saved (titles and filenames), plus anything you skipped as already-present, dropped at the 20 cap, or failed to download. Mark any landmark picks that came from outside the date window. That reply is a response to the user, not a file.
+Don't write any summary, index, or report file — the saved paper files are the only output. After downloads complete, reply with a short plain-text list of what was saved (titles and filenames), plus anything you skipped as already-present or dropped at the 20 cap. Say which papers came through the PDF fallback and which ended up abstract-only, with the fetcher's reason for each. Mark any landmark picks that came from outside the date window. That reply is a response to the user, not a file.

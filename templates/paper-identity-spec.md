@@ -1,9 +1,10 @@
 # Paper identity, deduplication, and filenames
 
-The single definition of **when two search hits are the same paper** and **what
-the saved file is called**. Every discovery agent cites this file rather than
-restating it — per the "one copy of each schema" rule in `PROJECT_CONTEXT.md`,
-a second copy that drifts breaks dedup silently.
+The single definition of **when two search hits are the same paper**, **what
+the saved file is called**, **what its id is**, and **what a saved file
+contains**. Every discovery agent cites this file rather than restating it — per
+the "one copy of each schema" rule in `PROJECT_CONTEXT.md`, a second copy that
+drifts breaks dedup silently.
 
 This began as arXiv-only rules inside `second-brain-paper-downloader.md`. It is
 now shared, because once several sources run in parallel the same paper
@@ -94,14 +95,98 @@ and take the part **before** it instead; applying the final-space rule to
 3. A file whose normalized title *matches* is the same paper. That is a skip,
    never a collision.
 
+## Paper id
+
+A paper's id is its **filename stem**: `2024_catania_chapron.md` has the id
+`2024_catania_chapron`. It is fixed the moment the file is saved and never
+re-derived by any later stage. The same string is:
+
+- the `id` in the saved file's header (below) and in its summary;
+- the paper note's filename in the Obsidian vault (`papers/<id>.md`);
+- the entries in a topic note's `papers` and a repo note's `related_papers`;
+- the entries the linker script writes into `related_notes`.
+
+Every stage can compute it from a path alone, so no stage has to look it up and
+no two stages can disagree about it. Before this rule each stage coined its own
+id — the downloader from the authors, the summarizer from the title, the code
+leg from the filename — and links written in one namespace pointed at notes
+named in another.
+
+Never rename a saved file: renaming changes the id. The pipeline's merge step
+keeps one file per paper and deletes the other, and the kept file keeps its
+name.
+
+## Saved paper file
+
+Every file a discovery leg saves into `<paper_vault_path>/` has two parts.
+
+**A header** — YAML frontmatter holding the paper's identity and nothing else:
+
+```yaml
+---
+id: 2024_catania_chapron
+title: "Deep learning to predict late recurrence of retinal detachment"
+authors: ["Fanny Catania", "Pierre Chapron"]
+year: 2024
+venue: "Acta Ophthalmologica"
+source: pubmed
+url: https://pubmed.ncbi.nlm.nih.gov/38682863/
+doi: 10.1111/aos.16693
+arxiv_id:
+pmid: "38682863"
+pmcid:
+paywalled: false
+full_text: abstract-only
+full_text_source: none
+extraction_warning:
+---
+```
+
+- `id` — the filename stem, per above.
+- `source` — `arxiv`, `pubmed`, `pmc`, `europepmc` or `semantic_scholar`;
+  after a merge, the merged sources comma-joined (`arxiv, pubmed`).
+- `url` — for an arXiv paper always `https://arxiv.org/abs/<arxiv_id>`, without
+  a version suffix; otherwise the source's landing page.
+- `doi`, `arxiv_id`, `pmid`, `pmcid` — every id the source returned, blank when
+  it returned none. These are what the linker script and the full-text fetcher
+  resolve the paper by, so fill every one you have.
+- `paywalled` — whether the **paper** is behind a publisher paywall. It says
+  nothing about whether you captured its text.
+- `full_text` — `full` when the body is the paper's extracted text,
+  `abstract-only` when it is only the abstract.
+- `full_text_source` — where the body came from: `arxiv-mcp` (the arXiv MCP
+  server's extraction), `europepmc-xml`, `pmc-bioc`, `arxiv-pdf`, `s2-oa-pdf`,
+  `unpaywall-pdf`, `scihub-pdf`, `manual`, or `none` for an abstract-only
+  record. `scripts/fetch_fulltext.py` sets it when it upgrades a record.
+- `extraction_warning` — blank, or a known defect in the extracted text, such as
+  `garbled-digits` (a PDF whose numerals came out as substituted glyphs).
+
+Every value comes from the **source's metadata** (the API response), never from
+the paper's body text. A body can carry a masthead from a different version, or
+a date the HTML renderer stamped on the page; one saved paper dated 2023 by
+every index had "August 24, 2026" in its body for exactly that reason.
+
+**A body** — the paper's extracted text, or, when there is none, a
+`## Abstract` heading followed by the abstract verbatim. The body is **never
+summary-shaped**: no `keywords`, `matched_terms`, relevance assessment or
+`## Synthesis`. Writing the summary is `paper-summarizer`'s job, and a saved
+file that already looks like a summary is indistinguishable downstream from a
+paper that has no full text — later stages then burn their effort discovering
+that there is nothing to read.
+
+Write the header when you save the file, even for an abstract-only record: an
+abstract-only record is valid and complete, and `scripts/fetch_fulltext.py`
+upgrades it in place when it finds the full text.
+
 ## Idempotency on re-runs
 
 Build the index of what is already saved **once per run**, before fetching
-anything: glob `<paper_vault_path>/*.md`, read each file's first line (the saved
-extraction begins with the title), and normalize it. Do not glob per candidate,
-and do not narrow the glob to a candidate's expected filename — the same paper
-can be sitting under a different year (v1 vs. v2 dates) or a differently-slugged
-second author.
+anything: glob `<paper_vault_path>/*.md`, read each file's header `title:` field
+(the first ~20 lines) and normalize it. A file with no header — saved before
+headers existed — begins with its title, so fall back to its first line. Do not
+glob per candidate, and do not narrow the glob to a candidate's expected
+filename — the same paper can be sitting under a different year (v1 vs. v2
+dates) or a differently-slugged second author.
 
 When several fetchers run in parallel they cannot see each other's writes, so
 each one dedups against what was on disk when it started. Cross-fetcher

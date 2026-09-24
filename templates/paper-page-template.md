@@ -1,19 +1,21 @@
 ---
-id: <slug>-<yyyymmdd>
+id: <paper filename stem, e.g. 2023_fung_john>
 created: <yyyy-mm-dd>
 status: draft
 type: paper
-source: arxiv | pubmed | semantic_scholar
+source: arxiv | pubmed | pmc | europepmc | semantic_scholar
 title:
 authors: []
 year:
 venue:
 url:
 doi:
+pmid:
 code_link:
 pdf_local_path:
 code_local_path:
 paywalled: false
+full_text: full | abstract-only
 related_problem: <id of the problem-profile note this was discovered for — must have status: confirmed>
 matched_terms:
   close_field: []
@@ -29,7 +31,9 @@ related_notes: []
 related_basis: {}
 ---
 
-`pdf_local_path` and `code_local_path` point inside the linked problem's `paper_vault_path`/`code_vault_path` (from the problem-profile note) — save downloads/clones there, not somewhere ad hoc, so the two vaults stay organized per problem. Leave either blank if that vault path wasn't available when this note was created.
+`id` is the saved paper's filename stem (`2023_fung_john.md` → `2023_fung_john`), per `templates/paper-identity-spec.md` — never a slug coined from the title. The same string names the vault note and appears in every topic, repo and related-paper link to it. The identity fields — `id`, `source`, `title`, `authors`, `year`, `venue`, `url`, `doi`, `pmid`, `paywalled`, `full_text` — are copied from the saved paper file's header, which carries the source's own metadata; the body text only fills what the header leaves blank.
+
+`pdf_local_path` is the path of the saved paper file when its `full_text` is `full`, and blank when the record is abstract-only. `code_local_path` points inside the linked problem's `code_vault_path` (from the problem-profile note) — clone there, not somewhere ad hoc, so the vaults stay organized per problem. Leave it blank until a repo is cloned.
 
 `keywords` are the subtopics *this paper* actually covers, as lowercase kebab-case slugs (e.g. `contrastive-pretraining`). Where the paper covers a concept the linked problem profile already names in its `keywords_of_interest`, reuse that slug **verbatim** — that exact-string reuse is what lets a topic note find its papers. Keywords beyond the profile's list are expected and wanted: they describe the paper itself, not its relation to this problem, so a later project searching a different topic can still pick this paper up. Distinct from `matched_terms`, which records which of the profile's *search queries* surfaced it. Populated even when no problem profile is linked.
 
