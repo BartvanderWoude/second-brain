@@ -20,9 +20,12 @@ bots with an HTML page, and a download tool has saved exactly that as a .pdf.
 Docling output under 10 KB is retried with OCR; output with substituted glyphs
 for digits is retried with full-page OCR, and flagged if that does not help.
 
-  --record FILE                  try the rungs for one record
+  --record FILE [FILE ...]       try the rungs for these records
   --record FILE --from-pdf PDF   convert a PDF already on disk (Sci-Hub, manual)
   --vault DIR                    every abstract-only record in DIR
+
+One --record prints that record's report; several, or --vault, print
+{"records": [...], "upgraded": [...], "still_abstract_only": [...]}.
 
 Stdlib only (Docling runs as a subprocess). Prints a JSON report. Exit 0 whether
 or not full text was found -- that is a result, not an error -- and 2 on bad input.
@@ -589,7 +592,7 @@ def process(path, force=False, from_pdf=None, from_xml=None, source="manual"):
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     g = ap.add_mutually_exclusive_group(required=True)
-    g.add_argument("--record", type=Path, help="one saved paper record")
+    g.add_argument("--record", type=Path, nargs="+", help="saved paper record(s)")
     g.add_argument("--vault", type=Path, help="every abstract-only record in this paper vault")
     ap.add_argument("--from-pdf", type=Path, help="with --record: convert this PDF instead of fetching")
     ap.add_argument("--source", default="manual", choices=["manual", "scihub-pdf"],
@@ -600,27 +603,38 @@ def main():
 
     try:
         if a.record:
-            if not a.record.is_file():
-                raise ValueError(f"no such record: {a.record}")
+            for r in a.record:
+                if not r.is_file():
+                    raise ValueError(f"no such record: {r}")
+            if (a.from_pdf or a.from_xml) and len(a.record) > 1:
+                raise ValueError("--from-pdf and --from-xml take one --record")
             for extra in (a.from_pdf, a.from_xml):
                 if extra and not extra.is_file():
                     raise ValueError(f"no such file: {extra}")
-            print(json.dumps(process(a.record, a.force, a.from_pdf, a.from_xml, a.source), indent=1))
-            return 0
-        if a.from_pdf or a.from_xml:
+            if len(a.record) == 1:
+                print(json.dumps(process(a.record[0], a.force, a.from_pdf, a.from_xml, a.source), indent=1))
+                return 0
+        elif a.from_pdf or a.from_xml:
             raise ValueError("--from-pdf and --from-xml take one --record, not --vault")
-        if not a.vault.is_dir():
+        elif not a.vault.is_dir():
             raise ValueError(f"not a directory: {a.vault}")
     except ValueError as e:
         print(json.dumps({"error": str(e)}))
         return 2
 
     reports = []
-    for f in sorted(a.vault.glob("*.md")):
-        m = FM_RE.match(f.read_text())
-        if not m or (scalar(m.group(1), "full_text") == "full" and not a.force):
-            continue
-        reports.append(process(f, a.force))
+    if a.record:
+        for f in a.record:  # one record's bad header must not cost the others theirs
+            try:
+                reports.append(process(f, a.force))
+            except ValueError as e:
+                reports.append({"record": f.name, "id": f.stem, "full_text": "unchanged", "error": str(e)})
+    else:
+        for f in sorted(a.vault.glob("*.md")):
+            m = FM_RE.match(f.read_text())
+            if not m or (scalar(m.group(1), "full_text") == "full" and not a.force):
+                continue
+            reports.append(process(f, a.force))
     print(json.dumps({
         "records": reports,
         "upgraded": [r["id"] for r in reports if r.get("changed") and r["full_text"] == "full"],

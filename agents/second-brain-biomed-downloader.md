@@ -179,10 +179,10 @@ honestly marked abstract-only.
 
 ### 7. Fetch the full text: the fetcher first, Sci-Hub last
 
-**Open access — the fetcher.** For each saved record, run:
+**Open access — the fetcher.** Run it once, on every saved record:
 
 ```bash
-python3 <fetch_fulltext.py path> --record <paper_vault_path>/<file>.md
+python3 <fetch_fulltext.py path> --record <paper_vault_path>/<file>.md ...
 ```
 
 It reads the ids from the header — filling any it lacks from Semantic

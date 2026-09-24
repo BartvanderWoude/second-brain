@@ -112,13 +112,13 @@ Everything else in the file (frontmatter body and prose) describes the research 
 
    If the cache file isn't where you expect (a custom `ARXIV_STORAGE_PATH` changes it), locate it before falling back to `return_full_text=true` + `Write` — treat retyping as the last resort, not the default.
 
-   **Fallback — the server could not extract the paper** (the permanent `[pdf]`-extra error in step 6, or a download that failed twice). Save the paper anyway, as an abstract-only record: the same header with `full_text: abstract-only` and `full_text_source: none`, and as the body a `## Abstract` heading followed by the abstract from `get_abstract`, verbatim. Then, if you were given the fetcher, run it on that record:
+   **Fallback — the server could not extract the paper** (the permanent `[pdf]`-extra error in step 6, or a download that failed twice). Save the paper anyway, as an abstract-only record: the same header with `full_text: abstract-only` and `full_text_source: none`, and as the body a `## Abstract` heading followed by the abstract from `get_abstract`, verbatim. Then, if you were given the fetcher, run it once, after the last save, on every such record:
 
    ```bash
-   python3 <fetch_fulltext.py path> --record "$out"
+   python3 <fetch_fulltext.py path> --record <paper_vault_path>/<file>.md ...
    ```
 
-   It downloads the paper's PDF from arxiv.org, checks that it really is a PDF, converts it with Docling, and upgrades the record in place — setting `full_text: full` and `full_text_source: arxiv-pdf` in the header. It prints a JSON report; read its `full_text` to know which case you are in. A paper that stays abstract-only is still kept: report it with the reason the script gave.
+   It downloads the paper's PDF from arxiv.org, checks that it really is a PDF, converts it with Docling, and upgrades the record in place — setting `full_text: full` and `full_text_source: arxiv-pdf` in the header. It prints a JSON report per record; read its `full_text` to know which case you are in. A paper that stays abstract-only is still kept: report it with the reason the script gave.
 
 ## Filename convention
 

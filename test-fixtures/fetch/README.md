@@ -19,7 +19,17 @@ python3 scripts/fetch_fulltext.py --record $T/rec.md \
   && cmp $T/rec.md $F/2020_antaki_kahwati.md && echo "2 passes"
 ```
 
-Test 1 passes when `diff` prints nothing; test 2 prints `2 passes`.
+```
+# 3. Several records in one call; one bad record does not stop the others.
+#    Needs test 1's output in $T. Offline: that record is already full.
+printf 'no header\n' > $T/bad.md
+python3 scripts/fetch_fulltext.py --record $T/2020_antaki_kahwati.md $T/bad.md \
+  | python3 -c 'import json,sys; r=json.load(sys.stdin); \
+      assert [x["id"] for x in r["records"]] == ["2020_antaki_kahwati", "bad"]; \
+      assert r["still_abstract_only"] == ["bad"] and "error" in r["records"][1]; print("3 passes")'
+```
+
+Test 1 passes when `diff` prints nothing; tests 2 and 3 print `2 passes` and `3 passes`.
 
 - `2020_antaki_kahwati.md` — an abstract-only record in the "Saved paper file"
   format of `templates/paper-identity-spec.md`.

@@ -1,0 +1,14 @@
+2 summaries, 4 distinct keywords
+
+Profile keywords_of_interest:
+  survival-analysis  2 papers  (note exists, +1 new)  e.g. "Legacy Paper With No Header"; "Deep Survival Models for Recurrence"
+  external-validation  0 papers
+
+Other keywords on >= 2 papers (0):
+  (none)
+
+Keywords below 2 papers (3; not offered alone, but can merge into a topic above as an alias): calibration, legacy-methods, time-to-event-prediction
+Profile keywords on 0 papers: external-validation
+
+Review questions cited by summaries: Q1 2, Q2 0
+Uncited review questions: Q2

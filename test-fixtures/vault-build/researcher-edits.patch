@@ -1,0 +1,121 @@
+diff -ruN a/fixture-vault-20260924/fixture-vault-20260924.md b/fixture-vault-20260924/fixture-vault-20260924.md
+--- a/fixture-vault-20260924/fixture-vault-20260924.md
++++ b/fixture-vault-20260924/fixture-vault-20260924.md
+@@ -31,11 +31,10 @@
+ - [[papers/2022_wu_chen|Time-to-Event Learning / A Review of (Deep) Methods]]
+ - [[papers/2023_lee_park|Deep Survival Models for Recurrence]]
+ 
+-## Topics
+-
+-- [[topics/calibration]]
+-- [[topics/survival-analysis]]
+-
+ ## Repos
+ 
+ - [[repos/acme-survkit]]
++
++## My notes
++
++Researcher's own notes on the problem.
+diff -ruN a/fixture-vault-20260924/papers/2021_smith_jones.md b/fixture-vault-20260924/papers/2021_smith_jones.md
+--- a/fixture-vault-20260924/papers/2021_smith_jones.md
++++ b/fixture-vault-20260924/papers/2021_smith_jones.md
+@@ -32,13 +32,3 @@
+ 
+ - [[fixture-vault-20260924]]
+ - [[topics/calibration]]
+-
+-## Related
+-
+-### Cites / cited by
+-
+-- [[papers/2023_lee_park|Deep Survival Models for Recurrence]]
+-
+-### Shared references
+-
+-- [[papers/2022_wu_chen|Time-to-Event Learning / A Review of (Deep) Methods]] (3 shared)
+diff -ruN a/fixture-vault-20260924/papers/2023_lee_park.md b/fixture-vault-20260924/papers/2023_lee_park.md
+--- a/fixture-vault-20260924/papers/2023_lee_park.md
++++ b/fixture-vault-20260924/papers/2023_lee_park.md
+@@ -1,10 +1,11 @@
+ ---
+ id: 2023_lee_park
+-status: draft
++status: reviewed
+ title: "Deep Survival Models for Recurrence"
+-year: 2023
++year: 2022
+ url: https://arxiv.org/abs/2301.00001
+ related_problem: fixture-vault-20260924
++my_rating: 4
+ keywords:
+   - survival-analysis
+   - time-to-event
+@@ -22,6 +23,10 @@
+ 
+ From "Methods": $$h(t)=h_0(t)\exp(\beta^\top x)$$
+ 
++## My notes
++
++Keep an eye on this one.
++
+ ## Synthesis
+ 
+ **Why relevant** — Relevant.
+@@ -32,11 +37,14 @@
+ 
+ - [[repos/acme-survkit]]
+ 
++Tried it locally: works.
++
+ ## Links
+ 
+ - [[fixture-vault-20260924]]
+ - [[topics/survival-analysis]]
+ - [[topics/calibration]]
++- [[topics/my-own-topic]]
+ 
+ ## Citation
+ 
+diff -ruN a/fixture-vault-20260924/topics/calibration.md b/fixture-vault-20260924/topics/calibration.md
+--- a/fixture-vault-20260924/topics/calibration.md
++++ b/fixture-vault-20260924/topics/calibration.md
+@@ -15,7 +15,7 @@
+ 
+ ## Summary
+ 
+-Calibration, as written by topic-summarizer.
++Calibration, edited by the researcher.
+ 
+ ## Core technical details
+ 
+diff -ruN a/fixture-vault-20260924/topics/my-own-topic.md b/fixture-vault-20260924/topics/my-own-topic.md
+--- a/fixture-vault-20260924/topics/my-own-topic.md
++++ b/fixture-vault-20260924/topics/my-own-topic.md
+@@ -0,0 +1,5 @@
++---
++type: topic
++---
++
++A note the researcher made by hand.
+diff -ruN a/fixture-vault-20260924/topics/survival-analysis.md b/fixture-vault-20260924/topics/survival-analysis.md
+--- a/fixture-vault-20260924/topics/survival-analysis.md
++++ b/fixture-vault-20260924/topics/survival-analysis.md
+@@ -6,7 +6,7 @@
+ keyword: survival-analysis
+ aliases: [time-to-event]
+ related_problem: fixture-vault-20260924
+-paper_count: 2
++paper_count: 99
+ papers:
+   - 2023_lee_park
+   - 2022_wu_chen
+@@ -14,7 +14,7 @@
+ 
+ ## Summary
+ 
+-Survival analysis, as written by topic-summarizer.
++A researcher edit that the rebuild replaces.
+ 
+ ## Core technical details
+ 

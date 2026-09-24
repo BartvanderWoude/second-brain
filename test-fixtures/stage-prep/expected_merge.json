@@ -1,0 +1,87 @@
+{
+ "papers": 5,
+ "dry_run": true,
+ "merged": [
+  {
+   "kept": "2021_smith_jones_2",
+   "removed": [
+    "2021_smith_jones"
+   ],
+   "key": [
+    "doi"
+   ],
+   "added_to_header": {
+    "source": "europepmc, pubmed",
+    "pmid": "12345678"
+   }
+  },
+  {
+   "kept": "2023_lee_park",
+   "removed": [
+    "2024_lee_park"
+   ],
+   "key": [
+    "title (preprint/published)"
+   ],
+   "added_to_header": {
+    "source": "arxiv, pubmed",
+    "pmid": "38000001",
+    "doi": "10.1000/jrec.2024.1"
+   }
+  }
+ ],
+ "possible_duplicates": [
+  {
+   "files": [
+    "2020_hand_a",
+    "2020_hand_b"
+   ],
+   "reason": "same title, different doi"
+  }
+ ],
+ "full_text": {
+  "full": 2,
+  "abstract-only": 2,
+  "unset": 1
+ },
+ "by_source": {
+  "unknown": {
+   "full": 0,
+   "abstract-only": 0,
+   "unset": 1
+  },
+  "pubmed": {
+   "full": 0,
+   "abstract-only": 1,
+   "unset": 0
+  },
+  "semantic_scholar": {
+   "full": 0,
+   "abstract-only": 1,
+   "unset": 0
+  },
+  "europepmc": {
+   "full": 1,
+   "abstract-only": 0,
+   "unset": 0
+  },
+  "arxiv": {
+   "full": 1,
+   "abstract-only": 0,
+   "unset": 0
+  }
+ },
+ "abstract_only": [
+  "2020_hand_a",
+  "2020_hand_b"
+ ],
+ "extraction_warnings": [
+  {
+   "id": "2021_smith_jones_2",
+   "warning": "garbled-digits"
+  }
+ ],
+ "no_header": [
+  "2019_legacy"
+ ]
+}

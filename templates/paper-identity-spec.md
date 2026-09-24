@@ -113,8 +113,8 @@ leg from the filename — and links written in one namespace pointed at notes
 named in another.
 
 Never rename a saved file: renaming changes the id. The pipeline's merge step
-keeps one file per paper and deletes the other, and the kept file keeps its
-name.
+keeps one file per paper and moves the other into `.merged/`, and the kept file
+keeps its name.
 
 ## Saved paper file
 

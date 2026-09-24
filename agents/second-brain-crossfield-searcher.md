@@ -152,10 +152,10 @@ in the "Saved paper file" format of `templates/paper-identity-spec.md`:
   goes in your reply, and the summary is `paper-summarizer`'s job. Never present
   a snippet as if it were the full paper.
 
-Then run the fetcher on each saved record:
+Then run the fetcher once, on every saved record:
 
 ```bash
-python3 <fetch_fulltext.py path> --record <paper_vault_path>/<file>.md
+python3 <fetch_fulltext.py path> --record <paper_vault_path>/<file>.md ...
 ```
 
 It finds an open-access copy (Europe PMC or PMC full text, the arXiv PDF,
