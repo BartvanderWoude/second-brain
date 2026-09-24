@@ -32,6 +32,10 @@ You will be given the path to an `.md` file describing a research problem/domain
 
 Everything else in the file (frontmatter body and prose) describes the research problem, domain, and relevant keywords/subfields/methods — use it to guide search. Respect any section that rules topics out of scope.
 
+- **`profile_type: topic`** (a literature review with no problem or dataset behind it; a missing `profile_type` means `problem`): there is no failure mode or cohort to search around. Derive queries from `close_field_terms` and `review_questions`, screen against `review_scope`, and pick `categories` from the topic itself or `domain` if given.
+- **`seed_papers`**, if present: look each one up directly (by arXiv id, or by title with `search_papers`) and treat it as a query anchor — its title terms and categories are strong signals. Save a seed paper only if it is on arXiv and passes the same screening as everything else; it counts toward the 20, not on top of them.
+- **`date_window_years`**: the main sweep's lower bound. Missing means 3; `0` means no `date_from` at all.
+
 ## Workflow
 
 1. **Derive queries**: Build several distinct search queries/keyword combinations from the research problem — don't rely on a single query. Aim to cover each distinct sub-ask in the problem description, not just its dominant topic.
@@ -42,15 +46,15 @@ Everything else in the file (frontmatter body and prose) describes the research 
    - `max_results`: 25–50. The default is **5** (the cap is 50), so leaving it unset starves the 20-paper selection down to a handful of candidates per query.
    - `categories`: an explicit array derived from the problem's domain, e.g. `["cs.LG", "stat.ML", "cs.AI"]`. This is the single biggest relevance lever the tool has.
    - `abstract_mode`: leave at the `snippet` default. Step 3 pulls full abstracts for the shortlist only; `full` here would bloat your context and duplicates what `get_abstract` does.
-   - `date_from`: 3 years before today. Compute it at run time with Bash — `date -d '3 years ago' +%F` — never hardcode a year. `date_to` can be omitted.
+   - `date_from`: `date_window_years` before today (3 if the field is missing). Compute it at run time with Bash — e.g. `date -d '3 years ago' +%F` — never hardcode a year. If `date_window_years` is `0`, omit `date_from` entirely. `date_to` can be omitted.
 
    If a response comes back with `has_more: true` and your candidate pool is still thin, re-call the same query with `start:` set to the returned `next_start`. Page **once**, not indefinitely.
 
    arXiv enforces roughly 3s between requests server-side, so keep the total call count bounded — on the order of 4–8 queries plus the shortlist's `get_abstract` calls. If a response has `status: rate_limited`, wait and retry that one query once before moving on.
 
-   **Landmark exception to the date window**: the 3-year window governs the main sweep. If the problem description explicitly asks for foundational, critique, benchmark-methodology, or survey work — e.g. a section arguing that a standard evaluation protocol is misleading — run one additional query with **no** `date_from`, to catch the papers that argument is actually referring to. At most **3** of the 20 slots may come from this unrestricted pass. Label them as landmark picks in your final reply.
+   **Landmark exception to the date window**: the profile's window (3 years by default) governs the main sweep; with `date_window_years: 0` there is no window and this exception is moot. If the problem description explicitly asks for foundational, critique, benchmark-methodology, or survey work — e.g. a section arguing that a standard evaluation protocol is misleading — run one additional query with **no** `date_from`, to catch the papers that argument is actually referring to. At most **3** of the 20 slots may come from this unrestricted pass. Label them as landmark picks in your final reply.
 
-3. **Screen for relevance**: For candidates that look promising from the search snippet, call `get_abstract` to get the full abstract and metadata (title, authors, published date, categories). Judge relevance against the research problem and discard weak matches.
+3. **Screen for relevance**: For candidates that look promising from the search snippet, call `get_abstract` to get the full abstract and metadata (title, authors, published date, categories). Judge relevance against the research problem — or, on a topic profile, against `review_scope` and `review_questions` — and discard weak matches.
 
    Before selecting a paper, actively re-check it against the problem file's "out of scope"/exclusion section and confirm the abstract violates none of it. Snippets are often misleading about scope, and exclusions are exactly what topical similarity fails to catch — a paper can read as squarely on-topic and turn out to be univariate-only, or on the wrong modality, or to assume the rich labeled set the problem says it doesn't have.
 

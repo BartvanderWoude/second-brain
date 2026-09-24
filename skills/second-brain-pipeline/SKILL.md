@@ -5,14 +5,16 @@ description: >
   problem intake, parallel paper discovery across arXiv and PubMed/PMC, a
   checkpoint pause for researcher review, paper vault-build (structured
   summaries plus per-subtopic topic notes), and Obsidian vault materialization. Use this whenever a researcher
-  wants to go from a raw problem description all the way to a populated,
-  linked Obsidian vault in one flow, rather than invoking
+  wants to go from a raw problem description — or a topic they want a
+  literature review of, with no specific problem or dataset — all the way to
+  a populated, linked Obsidian vault in one flow, rather than invoking
   research-problem-intake, second-brain-paper-downloader,
   second-brain-biomed-downloader, paper-summarizer, topic-summarizer, and
   obsidian-vault-writer separately. Does not implement GitHub code discovery,
-  the Semantic Scholar cross-field pass, code/repo vault-build, embedding
-  cross-linking, or an experiment plan — those stages of the pipeline spec are
-  not built yet.
+  the Semantic Scholar cross-field pass, code/repo vault-build, or an
+  experiment plan — those stages of the pipeline spec are not built yet.
+  Paper-to-paper linking runs as a script (`scripts/link_papers.py`), with
+  content similarity from SPECTER2 title+abstract embeddings, not full text.
 ---
 
 # Second-brain pipeline
@@ -36,6 +38,12 @@ unconfirmed profile.
 Note its `id`, `paper_vault_path`, and `code_vault_path` fields — every
 later stage needs these.
 
+Also note its `profile_type`: `problem` (a concrete problem with data) or
+`topic` (a literature review with no problem behind it); a missing field means
+`problem`. This skill does not branch on it — every agent below reads the
+profile and handles both types itself — but the reports at stage 4 and at the
+end state it, and the final report has one topic-only line.
+
 ## Stage 3: discovery
 
 Dispatch all three discovery agents **in parallel**, each with the confirmed
@@ -53,7 +61,8 @@ not pre-create the directory (the agents handle that).
 
 **The legs are independent — one failing never discards another's results.** In
 particular, the cross-field pass is *additive*: if it reports that `ASTA_API_KEY`
-is unset, that is a skipped enhancement, not a failed run. Say so in the stage-4
+is unset, or that a topic profile has no methodology terms because the
+researcher declined the pass, that is a skipped enhancement, not a failed run. Say so in the stage-4
 report, in one line, and carry on with the arXiv and PubMed results. Never
 present a run as failed because the optional leg was skipped, and never re-run
 discovery to "fix" a missing key.
@@ -65,7 +74,11 @@ preprint from arXiv and the published version from PubMed, or a cross-field hit
 that is also an arXiv paper. Resolve that here,
 before the researcher reviews anything:
 
-1. `Glob` `<paper_vault_path>/*.md` for everything the legs saved.
+1. `Glob` `<paper_vault_path>/*.md` for everything the legs saved. Read only
+   each file's **header** — `Read` with `limit: 40`, or `head -n 40` via Bash —
+   which is where the title, DOI and source ids sit. Never read a full paper
+   here: they run 20–140 KB each, and this step runs in the main conversation,
+   where 40 full texts would dwarf the cost of every other stage's dispatch.
 2. Apply the key ladder in `templates/paper-identity-spec.md` — DOI, then
    source-native id, then normalized title. A normalized-title match with
    different DOIs is the preprint/published pair, not a collision.
@@ -102,7 +115,7 @@ missing Asta key: report it in one line and carry on.
 ## Stage 4: checkpoint — stop and wait
 
 After every discovery leg has reported and the merge above is done, relay a
-combined summary (what was saved per leg, which legs ran and which were
+combined summary (the profile type, what was saved per leg, which legs ran and which were
 skipped, what was merged as duplicates, what was skipped, dropped, or saved
 abstract-only because it is paywalled, and which repositories were found) to the
 researcher and **stop here**.
@@ -153,6 +166,9 @@ Only after the researcher confirms:
    template exists there, stop and report the gap plainly rather than
    guessing a path or dispatching an agent without a valid format file.
 
+   The directory that holds `templates/` is the plugin root. Note it: step 3
+   runs `<plugin root>/scripts/link_papers.py` from it.
+
 1. **Papers.** `Glob` `<paper_vault_path>/*.md` (the saved papers
    themselves — not any `summaries/` subdirectory, which won't exist yet on
    a first run). For each one, dispatch `paper-summarizer`, passing three
@@ -167,9 +183,11 @@ Only after the researcher confirms:
    counterpart unless the researcher asked to regenerate.
 
 2. **Topics.** Build the keyword index **once**, here in the pipeline — the
-   agents do not each re-derive it. `Glob` `<paper_vault_path>/summaries/*.md`
-   and read the `keywords` block from each one (block style, one `  - slug`
-   per line), inverting it into a map of keyword → the summaries carrying it.
+   agents do not each re-derive it. Extract the `keywords` block from every
+   `<paper_vault_path>/summaries/*.md` with a single `Grep` (or `grep -A` via
+   Bash) rather than reading each summary in full — the field is block style,
+   one `  - slug` per line, precisely so it can be grepped. Invert the result
+   into a map of keyword → the summaries carrying it.
 
    Then select which keywords get a topic note:
    - **every** `keywords_of_interest` entry from the confirmed profile, even
@@ -191,32 +209,60 @@ Only after the researcher confirms:
    run, regenerate the topics they touch — a stale topic note that predates
    half its papers is worse than none.
 
-3. **Similarity edges.** Dispatch `similarity-linker` once, passing three
-   paths: the summaries directory (`<paper_vault_path>/summaries/`), the
-   `paper_vault_path`, and the confirmed profile. It adds paper-to-paper
-   `related_notes` edges built from the citation graph, so papers link directly
-   rather than only through shared-keyword topic notes.
+3. **Paper-to-paper links.** Run the linker script once with Bash — no agent
+   dispatch; this step involves no model:
+
+   ```
+   python3 <plugin root>/scripts/link_papers.py \
+     --summaries <paper_vault_path>/summaries/ \
+     --state <paper_vault_path>/.linker/
+   ```
+
+   It fetches every paper's reference list and SPECTER2 embedding from
+   Semantic Scholar in one batch request, then writes three kinds of link into
+   each summary's `related_notes`, with the reason for each in
+   `related_basis`:
+   - **direct citation**: one vault paper cites the other;
+   - **shared references**: the two share 2 or more references outside the
+     vault;
+   - **similar content**: their title+abstract embeddings are close (cosine
+     ≥ 0.90), for pairs with no citation relation at all.
+
+   Each paper gets at most 5 citation links and 3 content links. Every link is
+   written on both papers.
 
    Run it **after** step 1, since it reads the summaries, and **before** step 4,
-   since the vault writer renders the edges it produces. It is a single
-   dispatch, not a fan-out — it needs to see every paper at once to find shared
-   references between them.
+   since the vault writer renders the links. It needs every paper at once, so
+   it is one run, not a fan-out.
 
-   This step is **not** the spec's stage 6. Citation-based linking is a
-   different mechanism from embedding similarity: it is factual and
-   interpretable, but it cannot connect two papers that solve the same problem
-   in different literatures with no shared bibliography. Relay the agent's
-   report as it stands and do not upgrade its language.
+   The script tracks which entries it wrote, in `.linker/owned.json`. That is
+   what makes re-runs safe:
+   - Entries a researcher added by hand are never touched.
+   - A regenerated summary whose id changed has its old links removed and
+     re-added under the new id.
+   - A re-run with nothing new changes no files and fetches nothing.
 
-   If it reports a missing `ASTA_API_KEY`, that is a partial result, not a
-   failure: arXiv papers still get edges via the keyless citation graph, and
-   only non-arXiv papers go unlinked. Carry on to step 4.
+   It prints a JSON report. Relay it as it stands and do not upgrade its
+   language:
+   - link counts by kind;
+   - `zero_edge_papers`;
+   - `not_in_s2` (no links possible);
+   - `no_content_links_possible` (citation links only: Semantic Scholar has no
+     embedding for them);
+   - `embedding_coverage`.
 
-   **On a re-run, tell it which summaries were regenerated.** Paper ids are a
-   title slug plus the date the summary was written, so regenerating a summary
-   on a later day changes its id and silently breaks every edge pointing at it.
-   If step 1 regenerated anything, say so in the dispatch so the linker
-   recomputes those edges rather than leaving dead links behind.
+   Name the papers in each of those lists. An empty link list must not read as
+   "nothing related exists". If `embedding_coverage` is below ~70%, say so
+   prominently: content linking then covers only part of the vault.
+
+   **If it can't run, skip the step; it never blocks the vault.** That covers:
+   - `python3` missing;
+   - a non-zero exit with `{"error": ...}`, for example Semantic Scholar
+     rate-limiting for the whole 10-minute retry window.
+
+   Report it in one line, suggest setting `SEMANTIC_SCHOLAR_API_KEY` if the
+   cause was rate limiting, and carry on to step 4 with whatever links the
+   summaries already hold. Never write links by hand instead.
 
 4. **Vault.** Dispatch the `obsidian-vault-writer` agent with: the confirmed
    profile path, the paper collection from step 1, the topic collection
@@ -240,37 +286,53 @@ Only after the researcher confirms:
 
 ## Report back
 
-State the profile id, how many papers were found/summarized/vaulted, how many
+State the profile id and type, how many papers were found/summarized/vaulted, how many
 topic notes and repo notes were written, and the final vault path. Name any topic note that
 came back with zero matching papers — that's a gap in the literature or in the
 search terms, and it's the kind of thing that's easy to miss in a folder
-listing. If anything failed at any stage (a summarizer call errored, a paper
+listing. For a topic profile, do the same for `review_questions`: name any
+question that no paper summary cites. Summaries cite review questions by
+position as `Q1`, `Q2`, …, so the check is one `Grep` over `summaries/` for
+`\bQ[0-9]+\b`, not a re-read. An
+unanswered review question is the topic-review counterpart of an empty topic
+note, and it is the finding the researcher most needs. If anything failed at any stage (a summarizer call errored, a paper
 had no matches to the profile's terms, etc.), name it plainly rather than
 reporting a clean run.
 
-Report the paper-to-paper edges separately from the topic notes: how many
-`related_notes` edges were written, the split between direct citations and
-bibliographic couplings, and how many papers ended with none.
+Report the paper-to-paper links separately from the topic notes:
+- the split between direct citations, shared references and similar content;
+- embedding coverage;
+- which papers ended with no links, and why (not in Semantic Scholar, or
+  genuinely unrelated to the rest of the vault).
 
 Close by reminding the researcher which stages of the original pipeline spec
 this run does not cover, so they don't assume those happened silently: repos
 were catalogued but **never cloned, run, or tested** — there is no code
 vault-build and no Docker sandbox — and there is no experiment plan.
 
-**Be precise about cross-linking**, because it is now the easiest thing in this
-pipeline to overstate. Papers are linked to each other two ways — through
-shared-keyword topic notes, and through citation-graph edges in
-`related_notes`. Neither is the spec's stage 6, which specifies
-**embedding-similarity** linking, and that remains unimplemented. The
-distinction is not pedantic: citation edges cannot connect two papers that solve
-the same problem in different literatures with no shared bibliography, and that
-cross-field case is the entire motivation for this project. Report what ran, not
-what the spec asked for.
+**Be precise about cross-linking**, because it is the easiest thing in this
+pipeline to overstate. Papers are linked three ways:
+- through shared-keyword topic notes;
+- through citation links (direct citations and shared references);
+- through content links.
+
+Citation links are facts: a researcher can check "A cites B" or "A and B share
+5 references". Content links are estimates, and narrower than the spec's
+stage 6 in two ways:
+- they compare **title and abstract only**, not full text;
+- they exist only for papers Semantic Scholar knows and has an embedding for.
+
+They are what connects two papers that solve the same problem in different
+literatures with no shared bibliography, which is the case this project exists
+for. So report them, with their coverage, and never present a missing content
+link as evidence that no such connection exists. Report what ran, not what
+the spec asked for.
 
 ## Finally: offer to open the vault
 
-Not a pipeline-spec stage — the spec's stages 6 and 7 are cross-linking and the
-experiment plan, neither of which is implemented. This is a convenience step
+Not a pipeline-spec stage — the spec's stage 6 (cross-linking) is implemented
+only in the reduced form described above, and stage 7 (the experiment plan)
+not at all. This is a convenience step
 that runs once vault-build is already complete and reported, and nothing here
 can turn a finished run into a failed one.
 

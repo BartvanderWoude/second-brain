@@ -17,7 +17,7 @@ description: >
   report from it recommending a restart or other human step — relay such
   reports to the user and stop.
 tools: Read, Write, Glob
-model: inherit
+model: sonnet
 ---
 
 You summarize a single research paper into a markdown file whose structure
@@ -158,7 +158,8 @@ or matched terms (e.g. a "Why relevant" bullet keyed to `matched_terms`):
 
   Do not fabricate a specific problem linkage.
 
-- **Problem profile given**: ground the assessment in the profile's actual
+- **Problem profile given** (`profile_type: problem`, or no `profile_type`
+  field at all): ground the assessment in the profile's actual
   fields (`domain`, `task`, `data_modality`, `current_approach`,
   `observed_failure_mode`, etc.), not just the matched terms list. In
   particular:
@@ -173,6 +174,25 @@ or matched terms (e.g. a "Why relevant" bullet keyed to `matched_terms`):
   - Never invent a connection the paper's content doesn't support just
     because a profile was supplied — if the match is weak, say so plainly
     rather than overstating relevance.
+
+- **Topic profile given** (`profile_type: topic`): a literature review with no
+  problem or dataset behind it, so there is no failure mode to explain and no
+  setup to diff against. Ground the assessment in `review_questions`,
+  `review_scope` and `review_purpose` instead:
+  - "Why relevant" names the specific review question(s) this paper informs
+    and what it contributes to each — a method, a comparison, a negative
+    result, a benchmark — alongside the matched terms from step 4. Cite each
+    question as `Q1`, `Q2`, … by its position in `review_questions`, followed
+    by a short paraphrase: the pipeline greps for those tags to find review
+    questions no paper answered.
+  - "What would need to change to apply it" becomes what the paper leaves
+    open on those questions: the part it does not settle, the setting it
+    does not cover. Keep the sub-section's label as the template writes it.
+  - Let `review_purpose` set the emphasis: a review for judging method
+    maturity cares about evaluation rigour and replication; one for getting
+    into a field cares about where the paper sits in the literature.
+  - Same honesty bar: if the paper informs none of the questions, say so
+    rather than stretching one to fit.
 
 ## 6. Determine the output path
 

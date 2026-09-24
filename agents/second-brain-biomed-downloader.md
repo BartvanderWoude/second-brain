@@ -51,6 +51,15 @@ frontmatter.
   sets; treat them separately, not as one merged list. `keywords_of_interest`
   is **not** search input.
 - Respect any out-of-scope/exclusion section.
+- **`profile_type: topic`** (missing means `problem`): a literature review with
+  no problem or dataset. Screen against `review_scope` and `review_questions`
+  rather than a failure mode or cohort.
+- **`seed_papers`**, if present: look each up (by DOI/PMID, or title) and use it
+  as a query anchor — its MeSH terms and title wording are strong signals. Save
+  it only if it passes the same screening as everything else; it counts toward
+  the 20.
+- **`date_window_years`**: the main sweep's lower bound. Missing means 3; `0`
+  means no date clause at all.
 
 ## Workflow
 
@@ -89,14 +98,16 @@ query language is available to you. Append the window to the query string:
 <your terms> AND ("2023"[Date - Publication] : "2026"[Date - Publication])
 ```
 
-Compute the lower bound at run time with Bash — `date -d '3 years ago' +%Y` —
-never hardcode a year. This mirrors the 3-year window in
-`second-brain-paper-downloader`, so the two legs stay comparable.
+Compute the lower bound at run time with Bash — `date -d "${N} years ago" +%Y`
+with `N` = `date_window_years` (3 if missing) — never hardcode a year. If
+`date_window_years` is `0`, leave the date clause off entirely. This mirrors the
+window in `second-brain-paper-downloader`, so the two legs stay comparable.
 
 **Landmark exception**, matching the arXiv leg: if the problem explicitly asks
 for foundational, critique, benchmark-methodology, or survey work, run one
 additional query with no date clause. At most 3 of the 20 slots may come from
-it; label them as landmark picks in your reply.
+it; label them as landmark picks in your reply. With `date_window_years: 0`
+there is no window and this exception is moot.
 
 ### 3. Search
 
@@ -121,7 +132,10 @@ modality, or to assume the rich labeled set the problem says it lacks.
 Biomedical results skew clinical. This pipeline usually wants **method** papers.
 A cohort study reporting that sarcopenia predicts an outcome is not the same as
 a paper about how to measure it from CT, and only the latter is usually
-relevant. Prefer the methodological paper unless the problem asks otherwise.
+relevant. Prefer the methodological paper unless the problem asks otherwise —
+and on a topic profile, let `review_questions` decide: a review asking what is
+known clinically about a condition wants exactly the cohort studies a method
+problem would skip.
 
 ### 5. Deduplicate, cap, and skip what exists
 

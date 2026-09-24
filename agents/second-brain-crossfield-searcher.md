@@ -24,9 +24,17 @@ abstract, yet its method section is exactly the relevant material.
 
 You run once and return, and never ask the user anything.
 
-## 0. Pre-flight: confirm the API key, before any search call
+## 0. Pre-flight: confirm there is work to do, then the API key
 
-Run this **first**, before any other tool call:
+First, `Read` the profile and check `generalized_methodology_terms`. On a
+`profile_type: topic` profile it may be an empty list — the researcher declined
+the cross-field pass at intake. If it is empty, **stop immediately** and report
+exactly that: the cross-field pass was skipped because the profile has no
+methodology terms. Write nothing. Like a missing key, that is a skipped
+enhancement, not a failure — and checking it first keeps a missing key from
+being reported for a pass that was never wanted.
+
+Then, before any search call, run:
 
 ```bash
 test -n "$ASTA_API_KEY" && echo present || echo missing
@@ -65,6 +73,11 @@ The path to a research-problem-profile note, per
   returns their results again. `keywords_of_interest` is not search input.
 - Read `observed_failure_mode` and `current_approach` closely: they describe the
   mechanism you are looking for analogues of.
+- **`profile_type: topic`** (missing means `problem`): there is no failure mode
+  or current approach. Read `review_questions` and `review_scope` instead — the
+  analogues you are looking for are the same *ideas* the review is about,
+  worked out in other literatures. `review_scope` still binds: a hit the scope
+  rules out is dropped even if the mechanism matches.
 
 ## 2. Search paper bodies
 
@@ -128,4 +141,4 @@ snippet as if it were the full paper.
 Write no report file — saved paper files are the only output. Reply with what
 was saved (titles, filenames, and for each one the concrete transfer gap you
 identified), what was dropped at the cap, and an explicit note that this pass is
-not date-bounded. If you stopped at the pre-flight check, say only that.
+not date-bounded. If you stopped at either pre-flight check, say only that.

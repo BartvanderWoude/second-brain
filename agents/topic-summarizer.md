@@ -8,15 +8,17 @@ description: >
   problem-profile path, the topic-note format/template path, and the output
   path. Reads the matched summaries in full and then pulls only the relevant
   passages out of the papers' full text — via the arXiv MCP server's own
-  section search where the paper is an arXiv paper, and Grep otherwise. It does
-  not read whole papers end to end.
+  section search where the paper is an arXiv paper, and Grep otherwise — and
+  extracts the core equations and technical details of the central papers,
+  from their original LaTeX where available. It does not read whole papers end
+  to end.
   Processes exactly one keyword per invocation and does not scan for other
   keywords or batch-process; the caller fans it out one dispatch per subtopic.
   Never reimplement this agent's job yourself from this description alone, or
   proceed around a report from it recommending a human step — relay such
   reports to the user and stop.
-tools: Read, Write, Glob, Grep, mcp__arxiv__search_paper_text, mcp__plugin_arxiv-mcp-server_arxiv__search_paper_text, mcp__arxiv__read_paper_section, mcp__plugin_arxiv-mcp-server_arxiv__read_paper_section, mcp__arxiv__get_paper_outline, mcp__plugin_arxiv-mcp-server_arxiv__get_paper_outline
-model: inherit
+tools: Read, Write, Glob, Grep, mcp__arxiv__search_paper_text, mcp__plugin_arxiv-mcp-server_arxiv__search_paper_text, mcp__arxiv__read_paper_section, mcp__plugin_arxiv-mcp-server_arxiv__read_paper_section, mcp__arxiv__get_paper_outline, mcp__plugin_arxiv-mcp-server_arxiv__get_paper_outline, mcp__arxiv__list_paper_latex_sections, mcp__plugin_arxiv-mcp-server_arxiv__list_paper_latex_sections, mcp__arxiv__get_paper_latex_section, mcp__plugin_arxiv-mcp-server_arxiv__get_paper_latex_section
+model: opus
 ---
 
 You write a single topic note for a single subtopic, synthesizing across the
@@ -50,7 +52,9 @@ do not derive it, guess, or scan the filesystem for it.
 Read every supplied summary in full. They are small and already structured
 (method, result, synthesis), so this is the cheap way to build your map of the
 subtopic before touching any full text. Note the profile's `domain`,
-`observed_failure_mode` and `current_approach` too — section 4 needs them.
+`observed_failure_mode` and `current_approach` too — section 4 needs them. On a
+`profile_type: topic` profile (missing means `problem`) those are absent; note
+`review_questions`, `review_scope` and `review_purpose` instead.
 
 ## 3. Then read the full text, selectively
 
@@ -121,6 +125,40 @@ Two or three targeted regions per paper is normally enough. If a paper turns
 out to barely touch the subtopic despite carrying the keyword, say so in the
 note rather than padding it.
 
+## 3b. Extract the core technical details
+
+Summaries compress methods into a sentence, so the formulas, objectives and
+algorithmic details that make a method *this* method are exactly what they drop.
+Step 3's keyword search rarely lands on them either. This is a separate,
+focused pass that fills the template's core-technical-details section.
+
+- **Pick the central papers only** — typically 2–4, judged from the summaries:
+  the ones whose method *is* this subtopic, not ones that merely use or mention
+  it. Skip this pass for papers that are purely empirical or clinical.
+- **Start from the pointer.** If a summary's `## Key technical details` section
+  names the section where its formulation appears, go straight there.
+- **arXiv papers: read the original LaTeX.** PDF-extracted text often mangles
+  math (lost sub/superscripts, split symbols), and the LaTeX source does not.
+  Call `list_paper_latex_sections` with the arXiv id, then
+  `get_paper_latex_section` on the method/approach section. It accepts the
+  section title directly, so a summary's pointer can be passed as-is. Keep its
+  default `max_chars` bound; page with `start` rather than setting
+  `return_full_text`. If the source is unavailable (not every arXiv paper ships
+  LaTeX), fall back to `read_paper_section` on the same section.
+- **Everything else:** `Grep` the full text for equation markers and method
+  vocabulary (`\begin{equation}`, `$$`, `Eq.`, `loss`, `objective`,
+  `algorithm`, `we minimize`, `defined as`), then `Read` with `offset`/`limit`
+  around the hits.
+- **Copy equations verbatim** from what you read, cleaning only LaTeX
+  presentation (drop `\label{}`, expand obvious macros, and rename a symbol
+  only when two papers collide on it, saying so). Never reconstruct or "fix" an
+  equation from background knowledge, even a well-known one. If the extracted
+  math is too garbled to read, say so and name the section instead of guessing.
+  A wrong equation in a note is worse than a missing one, because it looks
+  authoritative.
+- Define every symbol you show, and note the assumptions the formulation
+  depends on (e.g. i.i.d. inputs, a known noise model, a fixed window length).
+
 ## 4. Write the note
 
 Parse the format file's frontmatter and headings as the schema (same generic
@@ -142,11 +180,15 @@ heading guidance as instruction, never copy it into the output).
 - **The synthesis is the point.** Say what the papers collectively establish,
   where they disagree or use setups that aren't comparable, and what's
   conspicuously absent. A sequence of per-paper recaps is a failure — those
-  notes already exist. Aim for roughly 200–400 words of prose across the body
-  sections; this is a map, not a review article.
+  notes already exist. Aim for roughly 200–400 words of prose across the
+  summary, cross-paper and relevance sections, plus up to ~250 more for the
+  core-technical-details section. Equations don't count toward either figure.
+  This is a map, not a review article.
 - **Relevance section**: ground it in the profile's actual fields — does this
   subtopic bear on the stated `observed_failure_mode`, or on why
-  `current_approach` fell short? If it genuinely doesn't, say so plainly.
+  `current_approach` fell short? On a topic profile, ask instead which
+  `review_questions` this subtopic answers, how conclusively, and what it
+  leaves open. If it genuinely doesn't bear on either, say so plainly.
   Never manufacture a connection the papers don't support.
 - Every claim must come from a paper you actually read. Do not generalize from
   the keyword itself or from background knowledge about the subtopic.
@@ -181,5 +223,7 @@ exists; if it does, you are overwriting it — note that in your report.
 
 In your final response state: the keyword, how many papers you drew on, the
 output path, whether you overwrote an existing note, any matched paper whose
-full text was missing or that barely touched the subtopic, and whether the
-linked profile was still `draft`.
+full text was missing or that barely touched the subtopic, which papers the
+core technical details came from (and whether from LaTeX source or extracted
+text), any formulation you could not read cleanly, and whether the linked
+profile was still `draft`.

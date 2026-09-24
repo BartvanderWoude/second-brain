@@ -29,6 +29,7 @@ task: skeletal muscle cross-sectional area segmentation for sarcopenia screening
 method: contrastive-pretrained lightweight 3D convolutional encoder + compact segmentation head
 result: Dice 0.91 vs. 0.92 for a 5x larger baseline, 8x faster on CPU (0.4s vs 3.2s/slice), n=412 single-site test set
 related_notes: []
+related_basis: {}
 ---
 
 ## Problem addressed
@@ -46,6 +47,11 @@ A compact 3D encoder is trained on L3-level abdominal CT slices with a
 contrastive pretraining objective, then paired with a lightweight segmentation
 head fine-tuned on annotated masks. The encoder has roughly 1/5th the
 parameters of comparable 3D U-Net baselines, enabling CPU-only inference.
+
+## Key technical details
+
+The paper states no equations or explicit objective (the contrastive
+pretraining loss is named in "2. Method" but not written out).
 
 ## Result
 

@@ -1,0 +1,25 @@
+{
+ "papers": 6,
+ "no_identifier": [],
+ "not_in_s2": [
+  "a-paper-semantic-scholar-20260924"
+ ],
+ "no_content_links_possible": [
+  "when-model-meets-new-20260924"
+ ],
+ "embedding_coverage": "4/6",
+ "edges": {
+  "direct-citation": 1,
+  "shared-references": 6,
+  "similar-content": 2
+ },
+ "zero_edge_papers": [
+  "a-paper-semantic-scholar-20260924"
+ ],
+ "similarity_floor": 0.9,
+ "stale_entries_removed": 0,
+ "files_changed": 6,
+ "papers_fetched": 0,
+ "fetch_seconds": 0.0,
+ "dry_run": true
+}

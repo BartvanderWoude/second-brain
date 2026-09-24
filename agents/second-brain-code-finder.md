@@ -128,7 +128,10 @@ and no extra API calls.
 - **Forks.** `isFork` — resolve to the canonical repo and keep one note. Several
   hits that are forks of one upstream are one repo, not several.
 - **Relevance.** Re-check each candidate against the profile's out-of-scope
-  section, exactly as the paper legs do.
+  section, exactly as the paper legs do. On a `profile_type: topic` profile
+  (missing means `problem`), that is `review_scope`, and there is no dataset
+  or failure mode to fit a repo to — keep repos that implement methods the
+  `review_questions` ask about, reference implementations first.
 
 **Cap at 15 repos.** Paper-mentioned repos first, in full; then the best
 screened search hits. If you drop notable candidates, name them in your report.

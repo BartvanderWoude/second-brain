@@ -59,7 +59,13 @@ guess a default, or scan the filesystem looking for it.
 ## Task
 
 1. Validate the problem profile's required fields and each paper and topic
-   record's required structure. Require a descriptive, filesystem-safe problem
+   record's required structure. Which profile fields are required depends on
+   its `profile_type` — the spec's "Required" column says which apply to
+   `problem` and which to `topic`, and a missing `profile_type` means
+   `problem`. A topic profile has no `cohort_description`,
+   `reference_standard` or `observed_failure_mode`, by design; do not report
+   those as missing on one. Everything below — folder layout, note names,
+   wikilinks, merge rules — is identical for both types. Require a descriptive, filesystem-safe problem
    `id` related to the supplied problem, such as
    `sarcopenia-ct-embedding-20260825`; report a missing or generic ID instead
    of inventing one.
@@ -99,12 +105,14 @@ guess a default, or scan the filesystem looking for it.
       `## My notes` or `## Questions for the group` that a researcher added is
       exactly the content worth protecting, and its position carries meaning.
       The content sections `paper-summarizer` and `topic-summarizer` produce —
-      `## Problem addressed`, `## Method`, `## Result`, `## Synthesis`,
-      `## Code notes`, `## Summary`, `## Across the papers`, `## Relevance to
+      `## Problem addressed`, `## Method`, `## Key technical details`,
+      `## Result`, `## Synthesis`, `## Code notes`, `## Summary`,
+      `## Across the papers`, `## Core technical details`, `## Relevance to
       the problem` — are theirs, not yours: leave them exactly as found.
    4. **In frontmatter, update only the fields you own** and keep every other
-      key, including ones no template defines. `related_notes` is
-      `similarity-linker`'s (step 9 renders it, never rewrites it), and a
+      key, including ones no template defines. `related_notes` and
+      `related_basis` belong to the linker script (step 9 renders them, never
+      rewrites them), and a
       `status:` the researcher promoted from `draft` to something else is a
       deliberate act — do not reset it.
 
@@ -183,11 +191,24 @@ link.
 
 9. Render each paper note's `related_notes` into a `## Related` section, one
    `[[<problem-id>/papers/<paper-id>]]` link per entry, using the same full-path
-   wikilink form as everywhere else.
+   wikilink form as everywhere else. Group the links by their reason in the
+   note's `related_basis`, as `###` sub-headings in this order, omitting any
+   empty group:
+   - **Cites / cited by**: `direct-citation`.
+   - **Shared references**: `shared-references (N)`. Append "(N shared)" to
+     each link.
+   - **Similar content**: `similar-content (cosine)`. Append the score, and
+     put a one-line note under the heading: "Estimated from title and abstract
+     similarity; not a citation."
+   - **Other**: ids in `related_notes` with no basis entry, which are links a
+     researcher added by hand.
+
+   Keep the groups visible. A content link is an estimate, and it must not
+   read like a citation fact.
 
    This matters for a reason that is easy to miss: Obsidian does not build graph
    edges from a plain list of ids in frontmatter. Left unrendered, the edges
-   `similarity-linker` computed would exist in the file but not in the graph —
+   the linker script computed would exist in the file but not in the graph —
    invisible exactly where they are meant to be useful. Keep the frontmatter
    field itself unchanged; this step adds a body section, it does not replace or
    rewrite the field.
@@ -205,7 +226,7 @@ The graph for this version is problem ↔ papers, problem ↔ topics, and topics
 papers — the topic notes are what connect papers to each other, via the
 keywords they share. Leave paper-to-paper similarity edges, cross-project
 edges, deduplication, lifecycle changes, and source discovery untouched. Keep
-each paper note's `related_notes` field unchanged — add only the wikilinks
+each paper note's `related_notes` and `related_basis` fields unchanged — add only the wikilinks
 required by steps 5, 6 and 7, the citation block from step 8, and the
-`## Related` rendering from step 9. Paper-to-paper edges are `similarity-linker`'s to compute;
+`## Related` rendering from step 9. Paper-to-paper edges are the linker script's to compute;
 yours only to display.

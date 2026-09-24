@@ -14,29 +14,48 @@ One `.md` file per problem, YAML frontmatter + free-text body. Delivered as a pl
 
 **Naming — still an open decision.** Current placeholder: `<slug>-<yyyymmdd>.md`, e.g. `sarcopenia-ct-embedding-20260825.md`. Neither group should treat this as final; flag it back to intake if you need it changed.
 
+## Profile types
+
+A profile is one of two types, set by `profile_type`:
+
+- **`problem`** — a concrete research problem with data behind it: a task, a reference standard, something tried, something that failed. Relevance downstream is anchored on `observed_failure_mode` and `current_approach`.
+- **`topic`** — a literature review of a topic, with no specific problem or dataset. Relevance downstream is anchored on `review_questions` and `review_purpose`.
+
+**A missing `profile_type` means `problem`.** Every profile written before this field existed is a problem profile, and must keep working unchanged.
+
+Both types share the id, status, term lists, keywords, linking and vault-path fields, and produce the same vault layout. Only the context fields in between differ — the "Required" column below says which apply to which type.
+
 ## Frontmatter schema
+
+Required: **all** = both types; **problem** / **topic** = required for that type and absent (or ignored) for the other; **no** = optional.
 
 | Field | Type | Required | Description | Primarily used by |
 |---|---|---|---|---|
-| `id` | string | yes | Unique identifier, matches filename slug. This is the key everything links against — papers reference it via `related_problem`, cross-project links reference it directly. | Obsidian group |
-| `created` | date | yes | `yyyy-mm-dd` | Obsidian group |
-| `status` | enum | yes | `draft` (mid-Q&A, not yet confirmed) or `confirmed` (researcher approved, ready for discovery). **Discovery should not run against a `draft` file.** | Paper-search group |
-| `domain` | string | yes | Free-text field/domain, e.g. "sarcopenia CT segmentation" | Paper-search group |
-| `data_modality` | string | yes | Modality + acquisition detail | Paper-search group |
-| `study_design` | string | no | Prospective / retrospective | Paper-search group (context, not a query term) |
-| `data_source` | string | no | Named public dataset, or private/multi-site description | Paper-search group |
-| `cohort_description` | string | yes | Size, subgroups, skew | Both (context) |
-| `inclusion_exclusion_criteria` | string | no | Notable exclusions affecting comparability | Paper-search group |
-| `task` | string | yes | The actual task, e.g. "binary classification from CT slice" | Paper-search group |
-| `reference_standard` | string | yes | What's used as ground truth, plus rationale/annotation notes | Both |
-| `data_partitioning` | string | no | Split strategy, disjoint level | Both (also a failure-mode signal) |
-| `sample_size` | string | no | Intended or actual N | Paper-search group |
-| `current_approach` | string | yes | What's been tried | Both |
-| `observed_failure_mode` | string | yes | What went wrong | Both |
-| `close_field_terms` | list[string] | yes | Direct search terms for pass 1 of discovery | **Paper-search group — this is a primary input** |
-| `generalized_methodology_terms` | list[string] | yes | Abstracted terms for pass 2 (cross-field transfer search) | **Paper-search group — this is a primary input** |
-| `keywords_of_interest` | list[string] | yes | Subtopic taxonomy for this problem — the buckets papers get filed under. Lowercase kebab-case slugs. Not search input; see "Keyword vocabulary" below. | Obsidian group (topic notes) + `paper-summarizer` (preferred vocabulary) |
-| `cross_project_linking` | bool | yes | Whether this note should link to other active projects | Obsidian group |
+| `id` | string | all | Unique identifier, matches filename slug. This is the key everything links against — papers reference it via `related_problem`, cross-project links reference it directly. | Obsidian group |
+| `created` | date | all | `yyyy-mm-dd` | Obsidian group |
+| `status` | enum | all | `draft` (mid-Q&A, not yet confirmed) or `confirmed` (researcher approved, ready for discovery). **Discovery should not run against a `draft` file.** | Paper-search group |
+| `profile_type` | enum | no | `problem` or `topic`. Missing means `problem`. | Everyone — decides which fields below apply |
+| `domain` | string | problem | Free-text field/domain, e.g. "sarcopenia CT segmentation". Optional for topic profiles, but useful for arXiv category choice when given. | Paper-search group |
+| `data_modality` | string | problem | Modality + acquisition detail | Paper-search group |
+| `study_design` | string | no | Prospective / retrospective. Problem profiles only. | Paper-search group (context, not a query term) |
+| `data_source` | string | no | Named public dataset, or private/multi-site description. Problem profiles only. | Paper-search group |
+| `cohort_description` | string | problem | Size, subgroups, skew | Both (context) |
+| `inclusion_exclusion_criteria` | string | no | Notable exclusions affecting comparability. Problem profiles only. | Paper-search group |
+| `task` | string | problem | The actual task, e.g. "binary classification from CT slice". Optional for topic profiles. | Paper-search group |
+| `reference_standard` | string | problem | What's used as ground truth, plus rationale/annotation notes | Both |
+| `data_partitioning` | string | no | Split strategy, disjoint level. Problem profiles only. | Both (also a failure-mode signal) |
+| `sample_size` | string | no | Intended or actual N. Problem profiles only. | Paper-search group |
+| `current_approach` | string | problem | What's been tried | Both |
+| `observed_failure_mode` | string | problem | What went wrong | Both |
+| `review_scope` | string | topic | What the review covers and what it explicitly rules out | Both — discovery screens against it |
+| `review_purpose` | string | topic | Why the review is being done — entering a field, grant background, judging whether a method is mature, etc. | Summarizers (steers relevance) |
+| `review_questions` | list[string] | topic | 1–5 guiding questions the review should answer. The topic-profile counterpart of `observed_failure_mode`: the anchor every relevance section ties back to. | Summarizers + pipeline report |
+| `seed_papers` | list[string] | no | Known key papers (title, DOI or arXiv id) or authors. Extra query anchors for discovery, not an allowlist. Topic profiles mostly, but valid on either type. | Paper-search group |
+| `date_window_years` | integer | no | How many years back the main discovery sweep reaches. Missing means `3`; `0` means no lower bound. Either type. | Paper-search group |
+| `close_field_terms` | list[string] | all | Direct search terms for pass 1 of discovery | **Paper-search group — this is a primary input** |
+| `generalized_methodology_terms` | list[string] | all | Abstracted terms for pass 2 (cross-field transfer search). **May be empty on a topic profile** — the researcher declined the cross-field pass — in which case that pass is skipped, not failed. | **Paper-search group — this is a primary input** |
+| `keywords_of_interest` | list[string] | all | Subtopic taxonomy for this problem — the buckets papers get filed under. Lowercase kebab-case slugs. Not search input; see "Keyword vocabulary" below. | Obsidian group (topic notes) + `paper-summarizer` (preferred vocabulary) |
+| `cross_project_linking` | bool | all | Whether this note should link to other active projects | Obsidian group |
 | `related_projects` | list[string] | no | IDs of other problem-profile notes to check against | Obsidian group |
 | `paper_vault_path` | string | no | Local path for this problem's downloaded PDFs, e.g. `<project-root>/second-brain/paper_vault/<id>/`. Blank if the intake skill didn't have filesystem access when it ran. | **Paper-search group — where to save PDFs** |
 | `code_vault_path` | string | no | Local path for this problem's cloned repos, e.g. `<project-root>/second-brain/code_vault/<id>/`. Blank if the intake skill didn't have filesystem access when it ran. | **Paper-search group — where to clone repos** |
@@ -77,6 +96,8 @@ The root path itself is not yet a settled team convention — treat `<project-ro
 - Don't query against a note with `status: draft` — it means the researcher hasn't confirmed the profile yet.
 - `keywords_of_interest` is **not** search input. It's the vault's subtopic taxonomy — discovery still queries the two term lists only.
 - `domain`, `data_modality`, `task`, `reference_standard`, `data_partitioning` are free text, not enums — expect variation in phrasing across notes, no fixed vocabulary yet.
+- On a `topic` profile, most of those fields are absent. Screen relevance against `review_scope` instead, and treat `seed_papers` as extra query anchors — search for them and their neighbourhood, but don't save a seed paper that falls outside `review_scope` just because it was named.
+- Read `date_window_years` for the main sweep's lower bound: missing → 3 years, `0` → none. Never hardcode the window.
 
 ## Notes for the Obsidian group
 

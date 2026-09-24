@@ -6,15 +6,15 @@ Methods relevant to a problem often already exist in an adjacent field, but find
 
 ## Pipeline overview
 
-1. **Intake** — researcher describes the problem (domain, data, task, reference standard).
+1. **Intake** — researcher describes either a concrete **problem** (domain, data, task, reference standard, what failed) or a **topic** they want a literature review of, with no problem or dataset behind it. The Q&A branches on which; everything downstream handles both.
 2. **Problem profile** — an adaptive Q&A deepens the description into a structured note, including the two term lists discovery searches against.
 3. **Discovery** — parallel search across papers (arXiv, PubMed, Semantic Scholar) and code (GitHub).
 4. **Checkpoint** — pause for researcher review before anything downstream consumes what was found.
 5. **Vault build** — discovered papers and repos become structured notes, materialized into an Obsidian vault.
-6. **Cross-linking** (partly implemented) — papers are linked to each other through per-subtopic topic notes built from their shared keywords. The spec's embedding-similarity linking is still not implemented.
+6. **Cross-linking** (implemented in reduced form). Papers are linked through per-subtopic topic notes built from their shared keywords. `scripts/link_papers.py` also writes direct links: citation links (direct citations and shared references) and content links from SPECTER2 embeddings. The embeddings come from Semantic Scholar and cover **title and abstract only**, not full text.
 7. **Experiment plan** (not implemented) — proposes a baseline + ideas from the vault, optionally adapted into the researcher's existing project repo.
 
-**What's actually wired end to end right now:** stages 1–2 (`research-problem-intake`), stage 3 for **arXiv only** (`second-brain-paper-downloader`), stage 4 as a conversational pause, stage 5 for **papers only** (`paper-summarizer` → `topic-summarizer` → `obsidian-vault-writer`), and keyword-based cross-linking via topic notes. No code/repo discovery or vault-build yet. PubMed, Semantic Scholar, and GitHub discovery, repo cloning/summarization, embedding-similarity cross-linking, and the experiment plan are all still unimplemented. The `second-brain-pipeline` skill is the entry point that runs the wired stages in sequence; the five pieces it calls can also still be invoked individually.
+**What's actually wired end to end right now:** stages 1–2 (`research-problem-intake`), stage 3 for **arXiv only** (`second-brain-paper-downloader`), stage 4 as a conversational pause, stage 5 for **papers only** (`paper-summarizer` → `topic-summarizer` → `obsidian-vault-writer`), and keyword-based cross-linking via topic notes. No code/repo discovery or vault-build yet. PubMed, Semantic Scholar, and GitHub discovery, repo cloning/summarization, and the experiment plan are all still unimplemented. (Embedding-similarity cross-linking now runs, based on title and abstract; see stage 6.) The `second-brain-pipeline` skill is the entry point that runs the wired stages in sequence; the five pieces it calls can also still be invoked individually.
 
 ## Install
 

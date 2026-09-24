@@ -82,7 +82,10 @@ Why this repo bears on the linked problem — its `observed_failure_mode`,
 `current_approach`, or `data_modality` — and, concretely, **what would have to
 change to use it here**: different modality, different input dimensionality,
 different supervision, different reference standard. Same bar as the paper
-notes: if you cannot name the gap, the repo is not actually a candidate.
+notes: if you cannot name the gap, the repo is not actually a candidate. For a
+topic profile (`profile_type: topic`) there is no problem to fit it to: say
+which `review_questions` the code bears on — typically as the reference
+implementation of a method the review covers — and how complete it is as one.
 
 ## Caveats
 
