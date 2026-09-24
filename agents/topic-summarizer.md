@@ -6,7 +6,9 @@ description: >
   explicit things in the prompt: the keyword slug, the paper-summary paths that
   carry it, the paper vault path (where the full texts live), the confirmed
   problem-profile path, the topic-note format/template path, and the output
-  path. Reads the matched summaries in full and then pulls only the relevant
+  path. Optionally takes aliases (slugs merged into this topic), an existing
+  note to deepen rather than start over, and a focus for that deepening.
+  Reads the matched summaries in full and then pulls only the relevant
   passages out of the papers' full text — via the arXiv MCP server's own
   section search where the paper is an arXiv paper, and Grep otherwise — and
   extracts the core equations and technical details of the central papers,
@@ -47,6 +49,17 @@ do not derive it, guess, or scan the filesystem for it.
   since the format file is a parameter and may not be that file.
 - **output path** — where to write the finished note.
 
+Three more are optional; the caller passes them only where they apply.
+
+- **aliases** — other slugs merged into this topic because they name the same
+  subtopic (`time-to-event-prediction` merged into `survival-analysis`). The
+  supplied summaries already cover them; aliases matter for step 5's check and
+  for the note's frontmatter.
+- **existing note** — a previous version of this topic's note. When supplied,
+  you are in deepen mode: follow step 2b.
+- **focus** — the researcher's free-text direction for deepening (e.g. "more
+  on recalibration methods"). Only meaningful with an existing note.
+
 ## 2. Read the summaries first
 
 Read every supplied summary in full. They are small and already structured
@@ -55,6 +68,39 @@ subtopic before touching any full text. Note the profile's `domain`,
 `observed_failure_mode` and `current_approach` too — section 4 needs them. On a
 `profile_type: topic` profile (missing means `problem`) those are absent; note
 `review_questions`, `review_scope` and `review_purpose` instead.
+
+## 2b. Deepen mode — only when an existing note is supplied
+
+The researcher chose to revisit this topic, to go deeper, to take in papers
+added since, or both. Build on the existing note; do not start over.
+
+- **Read the existing note first**, before the summaries. It is your starting
+  draft: its claims, its equations and its framing are work already done.
+  Papers whose ids are in its `papers` frontmatter are already covered by it;
+  the other supplied summaries are the **new papers**.
+- **Split the reading effort.** New papers get the full step 3 and 3b
+  treatment. Papers the note already covers do not need re-reading end to end:
+  go back to their full text only where the focus calls for it, or where a new
+  paper bears on one of their claims (to check a contradiction, or to compare
+  formulations side by side).
+- **Keep what the note established.** Every claim and every equation stays
+  unless a paper you actually read contradicts it — and then the note states
+  the disagreement, rather than silently dropping the old claim. The note may
+  carry researcher edits inside its content sections (text no summary or paper
+  would have produced); treat those as established content too, keep their
+  substance, and list them in your report. Sections whose headings the format
+  file doesn't define belong to the researcher: leave them out of your output
+  entirely — the vault writer preserves them in the vault, and copying them
+  here would duplicate them.
+- **Rewrite for flow.** The output is one coherent rewrite that integrates the
+  new material — not the old note with paragraphs appended at the end. Aim for
+  a deeper synthesis: sharper cross-paper comparison, more of the core
+  technical details, and a clearer account of what is still missing. Apply the
+  focus, if one was given, to decide where that depth goes.
+- **Length:** the step 4 word targets become soft caps of roughly 600 words of
+  prose and 400 for core technical details, growing with the material actually
+  added. A note that gained no new papers and no focus should not grow much —
+  that rewrite is for flow.
 
 ## 3. Then read the full text, selectively
 
@@ -165,10 +211,14 @@ Parse the format file's frontmatter and headings as the schema (same generic
 approach `paper-summarizer` uses — preserve field names, order and nesting; use
 heading guidance as instruction, never copy it into the output).
 
-- `keyword` and `id`: the supplied slug. `related_problem`: the profile's `id`.
+- `keyword` and `id`: the supplied slug. `aliases`: the supplied aliases, or
+  `[]`; when non-empty, also say in one line of the summary section that the
+  note covers them, so a reader searching an old slug finds it.
+  `related_problem`: the profile's `id`.
   `paper_count`: how many papers you actually drew on. `papers`: the paper-note
   ids, matching the order of your `## Papers` section. `status`: `draft`.
-  `created`: today's date.
+  `created`: today's date — or, in deepen mode, the existing note's `created`,
+  keeping `status` too if the researcher changed it from `draft`.
 - Identify each paper by the `id` field in its own summary frontmatter — not by
   its filename. Write the `## Papers` links as
   `[[<problem-id>/papers/<paper-id>|<paper title>]]`, taking `<problem-id>`
@@ -203,8 +253,8 @@ heading guidance as instruction, never copy it into the output).
   background knowledge, and ignore the word target in step 4 — a few honest
   sentences is the correct length for a note with no sources.
 
-  First, though, run one cheap check: `Grep` for the keyword slug across
-  `<paper vault path>/summaries/`. An empty input list is supposed to mean "no
+  First, though, run one cheap check: `Grep` for the keyword slug and each of
+  its aliases across `<paper vault path>/summaries/`. An empty input list is supposed to mean "no
   paper carries this keyword", but it is indistinguishable from a caller whose
   keyword index silently dropped the matches — and writing a confident
   "nothing matched" note would launder that bug into a recorded literature
@@ -219,11 +269,14 @@ heading guidance as instruction, never copy it into the output).
 
 Write the note to the supplied output path with `Write` (it creates missing
 parent directories). Use `Glob` first to check whether that file already
-exists; if it does, you are overwriting it — note that in your report.
+exists; if it does and you were not given it as the existing note, you are
+overwriting it — note that in your report.
 
 In your final response state: the keyword, how many papers you drew on, the
 output path, whether you overwrote an existing note, any matched paper whose
 full text was missing or that barely touched the subtopic, which papers the
 core technical details came from (and whether from LaTeX source or extracted
 text), any formulation you could not read cleanly, and whether the linked
-profile was still `draft`.
+profile was still `draft`. In deepen mode, also state: which papers were new,
+which claims you revised or found contradicted (and by which paper), which
+researcher edits you carried over, and the focus you applied.

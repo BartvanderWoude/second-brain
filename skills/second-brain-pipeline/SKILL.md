@@ -4,7 +4,7 @@ description: >
   Runs the second-brain research pipeline end to end, stages 1 through 5:
   problem intake, parallel paper discovery across arXiv and PubMed/PMC, a
   checkpoint pause for researcher review, paper vault-build (structured
-  summaries plus per-subtopic topic notes), and Obsidian vault materialization. Use this whenever a researcher
+  summaries plus researcher-selected topic notes), and Obsidian vault materialization. Use this whenever a researcher
   wants to go from a raw problem description — or a topic they want a
   literature review of, with no specific problem or dataset — all the way to
   a populated, linked Obsidian vault in one flow, rather than invoking
@@ -182,32 +182,89 @@ Only after the researcher confirms:
    On a re-run, skip papers that already have a `summaries/<name>_summary.md`
    counterpart unless the researcher asked to regenerate.
 
-2. **Topics.** Build the keyword index **once**, here in the pipeline — the
-   agents do not each re-derive it. Extract the `keywords` block from every
+2. **Topics.** Topic notes are meant to be a small set of entry points into
+   the vault, not one note per recurring keyword — so the researcher chooses
+   which ones get written. Four substeps: index, propose, select, dispatch.
+
+   **2a. Build the keyword index once**, here in the pipeline — the agents do
+   not each re-derive it. Extract the `keywords` block from every
    `<paper_vault_path>/summaries/*.md` with a single `Grep` (or `grep -A` via
    Bash) rather than reading each summary in full — the field is block style,
    one `  - slug` per line, precisely so it can be grepped. Invert the result
    into a map of keyword → the summaries carrying it.
 
-   Then select which keywords get a topic note:
-   - **every** `keywords_of_interest` entry from the confirmed profile, even
-     one that matched zero papers — an empty topic note is a real signal that
-     either the literature or the search terms have a gap, so don't drop it;
-   - **plus** any other keyword appearing on **2 or more** papers. Keywords the
-     summarizer coined that landed on a single paper are skipped: a one-paper
-     topic note adds nothing over the paper note itself.
+   **2b. Propose candidates.**
+   - The profile's `keywords_of_interest` are the researcher's own topics,
+     confirmed at intake. Every one that has no topic note yet is **always**
+     written, even one that matched zero papers — an empty topic note is a
+     real signal that either the literature or the search terms have a gap.
+     They are not asked about; list them once, above the picker, as "already
+     included".
+   - The candidates offered are every other keyword on **2 or more** papers.
+     This threshold now decides only what is *offered*, not what is written.
+     A keyword on a single paper is not offered: a one-paper topic note adds
+     nothing over the paper note itself.
+   - **Suggest merges.** Working from the slug list alone (no summary reads),
+     group slugs that name the same subtopic — `survival-analysis` /
+     `time-to-event-prediction`, `scleral-buckling` /
+     `scleral-buckling-surgery`. The canonical slug is the profile keyword
+     when the group contains one, otherwise the slug on the most papers; the
+     rest become its **aliases**. A merged topic's paper list is the union of
+     its members' lists. Merge only true synonyms or variants — a narrower
+     concept (`dynamic-survival-prediction` under `survival-analysis`) is a
+     judgment call, so prefer offering it as its own candidate. A profile
+     keyword may absorb synonyms too; show such merges in the "already
+     included" line so the researcher can reject them.
+   - **On a re-run**, nothing from a previous selection is remembered: every
+     candidate is offered again, and none is skipped or pre-rejected because
+     of an earlier choice. A topic that already has a
+     `<paper_vault_path>/topics/<slug>.md` is offered too, marked
+     "(note exists, +N new papers)" — N being the matched summaries whose `id`
+     is not in that note's `papers` frontmatter. Profile keywords that
+     already have a note move into the picker as well, under their own
+     "Your topics" question, so a re-run never regenerates them all
+     automatically.
 
-   Dispatch `topic-summarizer` once per selected keyword, passing six paths:
-   the keyword slug, the matched summary paths (possibly none), the
-   `paper_vault_path`, the confirmed profile, the topic-note template path
-   resolved in step 0, and the output path
-   `<paper_vault_path>/topics/<keyword>.md`. These are independent per
-   keyword — dispatch them in parallel.
+   **2c. The researcher selects.** This is a real pause, like the stage 4
+   checkpoint: dispatch nothing until the selection is answered, and never
+   auto-select. Use `AskUserQuestion` with `multiSelect: true`. It allows at
+   most 4 options per question and 4 questions per call, so:
+   - group the candidates into themed questions of up to 4 options each
+     ("Methods", "Clinical context", "Evaluation", …), ranked by paper count
+     within a theme. The question's `header` is the theme; an option's
+     `label` is the canonical slug with its aliases
+     (`survival-analysis (+ time-to-event-prediction)`), and its
+     `description` gives the paper count, one or two paper titles, and the
+     "(note exists, +N new papers)" marker where it applies;
+   - with more than 16 candidates, run a second call with the rest. Never
+     more than two rounds: whatever is left after 32 is named in one line
+     with "reply to add any";
+   - tell the researcher, in the question text, that the free-text "Other"
+     field can add a keyword that wasn't offered, undo a merge ("split
+     survival-analysis"), or give a focus for deepening an existing note
+     ("deepen model-calibration: more on recalibration methods").
 
-   On a re-run, skip keywords that already have a `topics/<keyword>.md` unless
-   the researcher asked to regenerate. If new papers were saved since the last
-   run, regenerate the topics they touch — a stale topic note that predates
-   half its papers is worse than none.
+   If `AskUserQuestion` isn't available (a non-interactive run), show the
+   same list numbered in chat and wait for a reply naming the numbers.
+
+   **2d. Dispatch** `topic-summarizer` once per selected topic — the
+   researcher's picks plus the profile keywords that have no note yet —
+   passing six paths: the canonical keyword slug, the matched summary paths
+   (the union across aliases; possibly none), the `paper_vault_path`, the
+   confirmed profile, the topic-note template path resolved in step 0, and
+   the output path `<paper_vault_path>/topics/<keyword>.md`. Add the optional
+   inputs where they apply:
+   - **aliases** — the slugs merged into this topic;
+   - **existing note** — for a topic that already has a note, which puts the
+     agent in deepen mode: it builds on the note rather than starting over.
+     Pass the Obsidian copy `<vault>/<problem-id>/topics/<keyword>.md` when it
+     exists (that copy carries the researcher's edits; `<vault>` is the path
+     derived in step 4), else `<paper_vault_path>/topics/<keyword>.md`;
+   - **focus** — any deepening direction the researcher gave for this topic.
+
+   These are independent per topic — dispatch them in parallel. Keep the
+   list of slugs dispatched in this run: step 4 needs it as the rebuilt
+   topics.
 
 3. **Paper-to-paper links.** Run the linker script once with Bash — no agent
    dispatch; this step involves no model:
@@ -274,6 +331,11 @@ Only after the researcher confirms:
    left to guess a default. All five inputs are required by the agent — it
    derives nothing and guesses nothing, so pass all five explicitly.
 
+   Also pass the **rebuilt topics**: the slugs dispatched in step 2d this run
+   (empty if none). On a re-run the agent otherwise leaves a topic note's
+   content sections exactly as they are in the vault, so a new or deepened
+   note would never reach it.
+
    The agent writes markdown files and nothing else. It does not need the
    Obsidian application installed, and vault-build never blocks on it. On a
    re-run it merges rather than overwriting — it regenerates only the link,
@@ -287,7 +349,10 @@ Only after the researcher confirms:
 ## Report back
 
 State the profile id and type, how many papers were found/summarized/vaulted, how many
-topic notes and repo notes were written, and the final vault path. Name any topic note that
+topic notes and repo notes were written, and the final vault path. For topics, say how
+many were offered and how many selected, split into new and deepened notes, and which
+merges were applied; name the unselected slugs in one line, so the researcher knows they
+still exist as paper keywords and can be picked on a later run. Name any topic note that
 came back with zero matching papers — that's a gap in the literature or in the
 search terms, and it's the kind of thing that's easy to miss in a folder
 listing. For a topic profile, do the same for `review_questions`: name any

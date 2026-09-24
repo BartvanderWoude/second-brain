@@ -8,7 +8,8 @@ description: >
   problem-profile path, the paper record paths (or their directory), the
   topic record paths (may be empty), the repo record paths (may be empty), and
   the target vault path — all five are required, this agent does not derive or
-  guess them. Writes one problem
+  guess them. Optionally also the rebuilt topics: slugs whose topic notes were
+  (re)written this run. Writes one problem
   note, one note per paper and one per topic, adds the wikilinks between
   them, attaches an authoritative BibTeX entry to each arXiv paper note,
   reads the files back to verify, and reports. On a re-run it merges rather than
@@ -55,6 +56,12 @@ guess a default, or scan the filesystem looking for it.
   apply, not yours to reconstruct. If the supplied path is unusable (for
   example it exists as a file rather than a directory), stop and report that
   rather than writing somewhere else.
+
+One more input is optional:
+
+- **Rebuilt topics** — the keyword slugs whose topic notes `topic-summarizer`
+  wrote or deepened in this run. Missing means none. It changes only how an
+  existing topic note is merged; see step 3.
 
 ## Task
 
@@ -109,12 +116,22 @@ guess a default, or scan the filesystem looking for it.
       `## Result`, `## Synthesis`, `## Code notes`, `## Summary`,
       `## Across the papers`, `## Core technical details`, `## Relevance to
       the problem` — are theirs, not yours: leave them exactly as found.
+      **The one exception is a topic in the rebuilt topics list.** There,
+      `topic-summarizer` has just rewritten the note on top of the vault copy,
+      carrying the researcher's in-section edits into the rewrite, so replace
+      that note's topic content sections (`## Summary`, `## Across the papers`,
+      `## Core technical details`, `## Relevance to the problem`) with the
+      supplied record's versions. Every other section — including any the
+      researcher added — is still preserved verbatim, in position. Name the
+      rebuilt notes in your report.
    4. **In frontmatter, update only the fields you own** and keep every other
       key, including ones no template defines. `related_notes` and
       `related_basis` belong to the linker script (step 9 renders them, never
       rewrites them), and a
       `status:` the researcher promoted from `draft` to something else is a
-      deliberate act — do not reset it.
+      deliberate act — do not reset it. For a rebuilt topic, also take
+      `paper_count`, `papers` and `aliases` from the supplied record, since
+      they describe the content sections you just replaced.
 
    If an owned section is missing because the researcher deleted it, re-add it:
    it is derived content and its absence is not a preference you can infer.
@@ -132,10 +149,11 @@ guess a default, or scan the filesystem looking for it.
 5. In each paper note, preserve `related_problem: <problem-id>` and add a
    `## Links` entry linking `[[<problem-id>]]`, plus a
    `[[<problem-id>/topics/<keyword>]]` link to each topic note that both
-   exists in the supplied topic collection and appears in that paper's own
-   `keywords` list. A keyword with no topic note gets no link — do not invent
+   exists in the supplied topic collection and whose `keyword` **or** one of
+   whose `aliases` appears in that paper's own `keywords` list — a merged topic
+   collects the papers tagged with any of its slugs. A keyword with no topic note gets no link — do not invent
    one.
-6. In each topic note, preserve `keyword` and `related_problem`, and make its
+6. In each topic note, preserve `keyword`, `aliases` and `related_problem`, and make its
    `## Papers` section link every paper it drew on as
    `[[<problem-id>/papers/<paper-id>]]`.
 

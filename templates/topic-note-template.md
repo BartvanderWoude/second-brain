@@ -4,6 +4,7 @@ created: <yyyy-mm-dd>
 status: draft
 type: topic
 keyword: <keyword-slug>
+aliases: []
 related_problem: <id of the problem-profile note this topic was built for>
 paper_count: <number of papers carrying this keyword>
 papers: []
@@ -13,7 +14,10 @@ One note per subtopic, built from the papers whose `keywords` include this
 note's `keyword`. `id` and `keyword` are the same kebab-case slug that appears
 in the papers — that exact string is what links the two. `papers` lists the
 paper-note ids this synthesis drew on, in the same order as the `## Papers`
-section.
+section. `aliases` lists other slugs merged into this topic because they name
+the same subtopic; a paper carrying an alias belongs to this note too. Write it
+block style, one `  - slug` per line, or `aliases: []` when there are none.
+Obsidian reads `aliases` natively, so searching an old slug finds this note.
 
 ## Summary
 
