@@ -7,7 +7,7 @@
     {
       "name": "second-brain-researcher",
       "source": "./",
-      "description": "Agentic research pipeline for literature and code discovery."
+      "description": "Turns a research problem or review topic into a linked Obsidian vault of papers, topic notes and code repositories."
     }
   ]
 }

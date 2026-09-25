@@ -52,16 +52,16 @@ built, and neither are repo cloning, running, or the Docker sandbox.
 | 1–2 | skill `research-problem-intake` (+ `deep-dive.md`) | adaptive Q&A for a problem or a topic review → profile note: CLAIM-checklist fields, the two term lists, recall probes, keyword taxonomy; sets up the working dirs |
 | all | skill `second-brain-pipeline` (+ `deep-dive.md`) | orchestrator: runs 1–5, holds the stage-4 checkpoint, dispatches agents in waves, reads script reports only |
 | — | skill `second-brain-topic-deep-dive` | resolves vault and note (`stage_prep.py topic`, which also warns about old-style ids), then intake's deep-dive branch and pipeline 3–5 on a `deep_dive_of` profile; new papers go into the vault's own paper vault, summarized against the vault's profile |
-| 3 | `second-brain-paper-downloader` (sonnet) | arXiv leg: close-field then generalized terms, ≤20 papers |
+| 3 | `second-brain-paper-downloader` (sonnet) | arXiv leg: close-field then generalized terms; every core paper, the background capped at 20 |
 | 3 | `second-brain-biomed-downloader` (sonnet) | PubMed/PMC/Europe PMC leg, via `paper-search-mcp` and `find_papers.py pubmed` (whole hit sets) |
 | 3 | `second-brain-crossfield-searcher` (sonnet) | paper bodies via Asta, for methods from adjacent fields |
 | 3 | `second-brain-citation-chaser` (sonnet) | after the legs: the core question exhaustively. Recall probes as whole PubMed hit sets, then OpenAlex one hop both ways from the core papers, round after round until one adds nothing. Screens titles first, abstracts only where a title leaves it unsure |
 | 3 | `second-brain-code-finder` (sonnet) | after the paper legs and the merge (it needs the papers on disk): repos the papers name, plus `gh search repos`; GitHub API only. Notes record the license (`none` = no reuse rights) and whether it is the official implementation |
 | 3 | `scripts/fetch_fulltext.py` | upgrades a saved record to full text in place |
-| 3 | `scripts/find_papers.py` | numbered candidate lists (`pubmed`, `chase`, `show`); `add` saves chosen ones as records and fetches their full text. A query too large to fetch whole is flagged, never silently cut to its top hits |
+| 3 | `scripts/find_papers.py` | the vault's records as chase seeds (`seeds`); numbered candidate lists (`pubmed`, `chase`, `show`); `add` saves chosen ones as records and fetches their full text. A query too large to fetch whole is flagged, never silently cut to its top hits |
 | 3–5 | `scripts/stage_prep.py` | duplicate merge and coverage figures, summarizer fan-out plan, keyword index, topic digests, `topic` report, `digest --since` |
 | 5 | `paper-summarizer` (sonnet) | one long paper, or up to 8 short ones → summaries per `paper-page-template.md`; long papers read up to the references. Given the profile, `related_problem`, `matched_terms` and the relevance synthesis are grounded in that problem |
-| 5 | `topic-summarizer` (opus) | one keyword + its digest → topic note; checks the full text of ≤3 central papers on a fixed budget |
+| 5 | `topic-summarizer` (opus) | one keyword + its digest → topic note; checks the full text of ≤3 central papers (6 in a deep-dive) on a fixed budget |
 | 5 | `scripts/link_papers.py` | citation links and SPECTER2 similarity from Semantic Scholar |
 | 5 | `scripts/check_vault.py` | `records` before the vault, `vault` links after |
 | 5 | `scripts/build_vault.py` | profile, papers, topics, repos → the Obsidian vault, with BibTeX from arXiv's own metadata |
@@ -80,9 +80,10 @@ id, the identity header every saved record carries);
 in `templates/` because there is no `docs/`); `paper-page-template.md`,
 `topic-note-template.md`, `repo-note-template.md` (note formats).
 
-A run writes into the researcher's own project, never into this repo:
-`paper_vault/<id>/` (records, `summaries/`, `topics/`, `repos/`),
-`code_vault/<id>/` (stays empty) and `obsidian_vault/<id>/`. Each problem is
+A run writes into the researcher's own project, never into this repo, under
+`<project>/second-brain/`: `paper_vault/<id>/` (records, `summaries/`,
+`topics/`, `repos/`), `code_vault/<id>/` (stays empty), `obsidian_vault/<id>/`
+and `deep_dives/<vault id>/` (deep-dive profiles). Each problem is
 its own vault, opened at `obsidian_vault/<id>/`. Every wikilink is written from
 that folder (`[[papers/<id>|Title]]`, `[[topics/<slug>]]`,
 `[[repos/<owner>-<name>]]`, `[[<id>]]`) and `check_vault.py vault` checks

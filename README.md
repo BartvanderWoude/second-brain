@@ -108,13 +108,15 @@ To dig deeper into one topic of a vault you already have, say *"dive deeper
 into the survival-analysis note"*, or use
 `/second-brain-researcher:second-brain-topic-deep-dive`.
 
-It creates three folders in your project: `paper_vault/` (the papers it
-found), `code_vault/` (empty for now) and `obsidian_vault/` (the vaults).
+It creates a `second-brain/` folder in your project, holding
+`paper_vault/` (the papers it found), `obsidian_vault/` (the vaults),
+`deep_dives/` (topic deep-dive profiles) and `code_vault/` (empty for now).
 
 ## The vault
 
 Each problem or review gets its own vault. In Obsidian, open the folder
-`obsidian_vault/<id>/` of that one problem, not `obsidian_vault/` itself.
+`second-brain/obsidian_vault/<id>/` of that one problem, not
+`obsidian_vault/` itself.
 
 ```
 obsidian_vault/<id>/
