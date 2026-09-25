@@ -1,6 +1,6 @@
 ---
 name: research-problem-intake
-description: "Runs the interactive Q&A that turns a researcher's initial description — either a concrete research problem or a topic they want reviewed — into a structured research-problem-profile markdown file, ready to hand off to literature/code discovery. Use this whenever a researcher describes a new research problem, method failure, or open question they want to investigate, or wants a literature review of a topic with no specific problem or dataset behind it — including phrases like 'help me define this problem', 'I want to search for related work on X', 'do a literature review on X', 'what's known about X', 'start a new research problem', or 'set up intake for this project'. Also use when the researcher pastes a rough problem description, a failed-experiment writeup, or asks to deepen/finish a partially-filled profile. Also runs the short drafted Q&A of a topic deep-dive when second-brain-topic-deep-dive invokes it; a request to dive deeper into one topic note of an existing vault goes to that skill first, not here. Do not use for general literature search questions that already have a fully specified query — this skill is specifically for turning a vague or partial description into the structured profile that discovery consumes."
+description: "Runs the interactive Q&A that turns a researcher's description of a research problem, or of a topic they want reviewed, into a confirmed research-problem profile that discovery searches against. Use when a researcher describes a problem, a failed method or an open question to investigate, or wants a literature review of a topic ('help me define this problem', 'do a literature review on X', 'what's known about X'), or asks to finish a draft profile. Also runs the short Q&A of a topic deep-dive when second-brain-topic-deep-dive invokes it; a request to dive deeper into a topic of an existing vault goes to that skill first."
 ---
 
 # Research problem intake
@@ -13,30 +13,19 @@ Turns a researcher's initial description into a structured markdown profile note
 
 Only Tier 0 and Tier 1 differ between the first two; Tier 2 is shared.
 
-This is stage 1–2 of the second-brain research pipeline — the output is what stage 3 (paper/code discovery) searches against, so the two term lists it produces (close-field and generalized-methodology) matter more than any other field.
-
-Works identically whether invoked from Claude app or Claude Code — same questions, same schema, same output file. This skill only produces the `.md` file. Writing it into the Obsidian vault, cross-linking, or any vault-side handling is out of scope — a separate part of the system owns that.
+This is stage 1–2 of the second-brain pipeline: discovery searches against its output, so the two term lists (close-field and generalized-methodology) matter more than any other field. This skill only writes the profile; it never runs discovery or writes into a vault.
 
 ## Process
 
-0. **Ensure the shared local vault directories exist.** Only when this skill has filesystem access (Claude Code) — skip silently in Claude app. Before anything else in a session, idempotently create the top-level directory structure the rest of the pipeline reads from, if it doesn't already exist:
-
-   ```
-   <root>/
-   ├── obsidian_vault/   # one Obsidian vault per problem (obsidian_vault/<id>/ is the vault the researcher opens) — owned by the Obsidian group after creation; this skill only ensures the folder exists, never writes into it
-   ├── paper_vault/      # downloaded paper PDFs, one subfolder per problem
-   └── code_vault/       # cloned repos, one subfolder per problem
-   ```
-
-   Default root: `<project-root>/second-brain/` — a `second-brain/` folder created at the root of the current project (the directory Claude Code was invoked in), not the user's home directory. This is a placeholder, not a settled team convention — if the team has already agreed on a root location, use that instead. Use `mkdir -p` semantics: create only what's missing, never touch or delete existing content in any of the three directories. If directory creation fails (e.g. no filesystem access, permission error), don't block the Q&A on it — note the failure plainly at the end and continue.
+0. **Ensure the directories exist.** `<root>` is `<project-root>/second-brain/`, in the directory Claude Code was started in, never the home directory. With `mkdir -p` semantics, create `<root>/obsidian_vault/`, `<root>/paper_vault/`, `<root>/code_vault/` and `<root>/deep_dives/`, and never touch what is in them. If creation fails, do not block the Q&A: say so at the end.
 
 1. **Decide the profile type.** A topic deep-dive is never inferred here: if the researcher asks to go deeper into a topic note of a vault that already exists, hand over to `second-brain-topic-deep-dive`, which resolves the note and comes back. Otherwise, infer the type from the opening message: data, a task, a baseline or a failure means **problem**; "literature review", "what's known about", "overview of", "get into the field of" with no data behind it means **topic**. Only if it is genuinely unclear, ask once: "Is there a specific problem you're trying to solve with your own data, or do you want a review of a topic?" Never walk a topic researcher through the problem questions — cohort, reference standard and failure mode have no honest answer there, and forcing one pollutes every relevance section downstream.
 2. **Take Tier 0 as given.** Problem type: if the researcher already stated domain, data modality, task, and reference standard (e.g. in their opening message), do not re-ask for these — treat them as the seed and move straight to deepening them in Tier 1. If none of this was given yet, ask for it first in one open question: "What's the problem — domain, data you're working with, the task, and what you're using as ground truth?" Topic type: the seed is the topic itself plus whatever framing came with it; if it was a bare phrase, ask one open question: "What's the topic, and what do you want out of the review?"
 3. **Work through Tier 1** for the chosen type (below), one question at a time, adapting to what's already been said. Skip any question already answered by something the researcher volunteered earlier in the conversation.
 4. **Run the Tier 2 abstraction step.** This is the highest-value part of the whole skill — see the dedicated section below. Do not skip or shortcut it even if the researcher seems ready to move on.
 5. **Present the full draft** (every field below, plus both term lists and the recall probes) as a single summary and ask the researcher to confirm or edit. Do not write the file until they confirm.
-6. **Create this profile's subfolders**, if filesystem access is available: `paper_vault/<id>/` and `code_vault/<id>/`, using the `id` about to go into the frontmatter. Skip silently in Claude app, same as step 0.
-7. **Write the `.md` file** using the output format below, setting `status: confirmed` — the researcher approved the draft in step 5, and every downstream stage refuses to run against a `draft` profile. Save it and hand it back to the researcher (e.g. via `present_files` if available). Tell them plainly this is ready for hand-off to discovery/vault-writing — don't perform those steps yourself.
+6. **Create this profile's subfolders**: `<root>/paper_vault/<id>/` and `<root>/code_vault/<id>/`, with the `id` about to go into the frontmatter.
+7. **Write the profile** to `<root>/<id>.md`, in the output format below, with `status: confirmed` (the researcher approved the draft in step 5; every later stage refuses a `draft`). Tell the researcher where it is and that it is ready for discovery.
 
    If the researcher stops partway and asks you to save an unfinished profile, write it with `status: draft` and tell them plainly that discovery won't run against it until it's confirmed.
 
@@ -129,7 +118,7 @@ This is the skill's actual value-add and the part most likely to be shallow if r
 **Recall probes** — 1–3 queries for the core category: on a topic profile the `core_questions`, on a problem profile the papers doing the same task on the same condition. The discovery legs do not use them. After the legs, the pipeline's citation chaser runs them, fetching every hit, and then chases citations from the core papers they and the legs found. Draft them from the core question, `task`, `domain` and the close-field terms, and confirm:
 - "One more thing on search. These queries go after the papers your work would be compared against — [core question, or task on condition] — and everything found from them is followed through its citations: [draft probes]. Would the papers you'd cite as direct comparators match these?"
 
-Write each probe as 2–3 concept blocks joined by AND, a block being an OR-group of synonyms in parentheses with multi-word phrases quoted — `("retinal detachment" OR redetachment) AND (recurren* OR "anatomical success") AND (nomogram* OR "risk score*" OR "logistic regression" OR "prediction model*" OR "machine learning" OR "deep learning")`. For a prediction-type core, the method block always names classical models and machine learning together: a probe with machine learning alone once missed the four classical models its field was built on. Truncate word families (`predict*`, `recurren*`, stem of 4+ characters). Aim for tens of hits, not thousands. If there is no core category (`core_questions: []`, a broad methods survey), record none and do not push for one.
+Write each probe as 2–3 concept blocks joined by AND, a block being an OR-group of synonyms in parentheses with multi-word phrases quoted — `("retinal detachment" OR redetachment) AND (recurren* OR "anatomical success") AND (nomogram* OR "risk score*" OR "logistic regression" OR "prediction model*" OR "machine learning" OR "deep learning")`. For a prediction-type core, the method block always names classical models and machine learning together. Truncate word families (`predict*`, `recurren*`, stem of 4+ characters). Aim for tens of hits, not thousands. If there is no core category (`core_questions: []`, a broad methods survey), record none and do not push for one.
 
 **Generalized methodology terms** — ask explicitly, never infer silently:
 - "Strip away the domain framing for a second. What's the underlying computational or statistical problem — a distribution-shift problem, a small-sample problem, a representation/pooling problem, a label-noise problem, something else?"
@@ -217,10 +206,8 @@ Never write problem-only fields (`cohort_description`, `reference_standard`, `ob
 
 `keywords_of_interest` is the subtopic taxonomy, always lowercase kebab-case. It is a **preferred vocabulary, not a closed one** — paper notes reuse these slugs verbatim when they cover a concept named here (that exact-string reuse is what links a paper to a topic), but they may also carry keywords beyond this list, which is by design rather than an error. It is not search input; discovery queries the two term lists only.
 
-`paper_vault_path` and `code_vault_path` are only populated when directory creation actually succeeded (step 0/7). Leave them blank rather than guessing a path if filesystem access wasn't available — a blank field is a clear signal to the paper-search group that they need to create the folder themselves before writing into it.
+`paper_vault_path` and `code_vault_path` are the absolute paths of the subfolders from step 6.
 
-Followed by a short free-text section underneath restating the problem (or, for a topic profile, the topic and why it is being reviewed) in a paragraph or two — this is for human readability in Obsidian; the frontmatter is what discovery and cross-linking consume.
+Below the frontmatter, a paragraph or two restating the problem (or, for a topic profile, the topic and why it is being reviewed), for reading in Obsidian.
 
-`<slug>` is a short hyphenated tag from the domain/task, or from the topic for a topic profile (e.g. `sarcopenia-ct-embedding`, `ssl-pretraining-ct-review`). File naming and ID conventions beyond this are still an open decision for the team — flag this to the researcher if it comes up rather than inventing a permanent convention unilaterally.
-
-Save the file to the outputs location available in the current environment and hand it back to the researcher. Do not attempt to write into an Obsidian vault, perform cross-linking, or hand off to discovery yourself — those are owned by other parts of the system.
+`<slug>` is a short hyphenated tag from the domain and task, or from the topic (e.g. `sarcopenia-ct-embedding`, `ssl-pretraining-ct-review`).

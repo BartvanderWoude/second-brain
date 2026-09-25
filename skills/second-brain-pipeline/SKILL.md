@@ -1,117 +1,72 @@
 ---
 name: second-brain-pipeline
 description: >
-  Runs the second-brain research pipeline end to end, stages 1 through 5:
-  problem intake, parallel paper discovery across arXiv and PubMed/PMC, a
-  checkpoint pause for researcher review, paper vault-build (structured
-  summaries plus researcher-selected topic notes), and Obsidian vault materialization. Use this whenever a researcher
-  wants to go from a raw problem description — or a topic they want a
-  literature review of, with no specific problem or dataset — all the way to
-  a populated, linked Obsidian vault in one flow, rather than invoking
-  research-problem-intake, second-brain-paper-downloader,
-  second-brain-biomed-downloader, paper-summarizer and topic-summarizer
-  separately. Also runs stages 3–5 of a topic deep-dive (a profile with
-  `deep_dive_of`: a literature search for one topic note of an existing
-  vault) when second-brain-topic-deep-dive hands it one. Does not implement
-  code/repo vault-build (cloning, running) or an experiment plan — those
-  stages of the pipeline spec are not built yet.
-  The deterministic steps run as scripts: `scripts/stage_prep.py` (duplicate
-  merge, fan-out planning, keyword index, topic digests, deep-dive topic
-  reports),
-  `scripts/link_papers.py` (paper-to-paper links, content similarity from
-  SPECTER2 title+abstract embeddings, not full text),
-  `scripts/fetch_fulltext.py` (full text), `scripts/find_papers.py` (whole
-  PubMed hit sets and OpenAlex citation chasing, for the biomedical leg and
-  the `second-brain-citation-chaser` agent's core-coverage stage),
-  `scripts/build_vault.py` (the Obsidian vault) and `scripts/check_vault.py`
-  (records and links).
+  Runs the second-brain research pipeline end to end: problem or topic intake,
+  paper and code discovery (arXiv, PubMed, cross-field, citation chasing,
+  GitHub), a checkpoint for the researcher's review, then summaries,
+  researcher-selected topic notes, paper links and a linked Obsidian vault. Use
+  it when a researcher wants to go from a research problem, or a topic to
+  review, to a populated vault in one flow. Also runs stages 3–5 of a topic
+  deep-dive handed over by second-brain-topic-deep-dive.
 ---
 
 # Second-brain pipeline
 
-Act as the calling agent. This skill does no discovery or vault-writing
-logic itself — it dispatches agents and runs scripts, in order, and carries
-each stage's output forward as the next stage's input. Its only job is getting
-the handoffs right and holding the checkpoint pause.
+Act as the calling agent. This skill dispatches agents and runs scripts in
+order, carries each stage's output into the next, and holds the checkpoint
+pause. It does no discovery or writing itself.
 
 **Keep this conversation lean.** Every turn here re-reads the whole
-conversation, and a 42-paper run takes over a hundred of them, so anything
-pasted in here is paid for again on every later turn. Read the scripts' compact
-reports, never paper files, summaries or topic notes. Give each agent only its
-step's prompt template, filled in; its definition carries the instructions.
-Dispatch every fan-out in **waves**:
+conversation, so read the scripts' compact reports, never paper files,
+summaries or notes. Give each agent only its step's prompt template, filled
+in. Dispatch every fan-out in **waves**:
 
-- All `Agent` calls of a wave go in **one message**, each with
-  `run_in_background: false`, so the wave comes back in one turn rather than
-  one per agent.
-- A wave holds at most the concurrent-subagent cap read before stage 3
-  (`$CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS`, 20 when unset): Claude Code
-  refuses a call past it rather than queueing it. Start the next wave only
-  once the previous one has returned.
+- all `Agent` calls of a wave in **one message**, each with
+  `run_in_background: false`;
+- at most the concurrent-subagent cap per wave (read before stage 3); a call
+  past it is refused, not queued. Start the next wave once the previous one
+  has returned.
 
 Agents reply `OK <path>` or `FAIL <reason>` plus a few anomaly lines; carry
 those to the report.
 
 ## Stage 1–2: problem intake
 
-Delegate to the `research-problem-intake` skill (`skills/research-problem-intake/SKILL.md`)
-and run its Q&A until it writes a `status: confirmed` problem-profile `.md`
-file. If the researcher already has a confirmed profile file in hand (they
-name/attach one, or one already exists in this session), read it directly
-and skip re-running intake — but verify its `status:` field really is
-`confirmed`, not `draft`, before moving on. If it's `draft`, hand it back to
-`research-problem-intake` to finish rather than proceeding against an
-unconfirmed profile.
+Run the `research-problem-intake` skill until it writes a `status: confirmed`
+profile. If the researcher already has a profile, read it: a `draft` goes back
+to intake to finish. Note its `id`, `paper_vault_path` and `profile_type`
+(missing means `problem`); the agents handle both types themselves, and the
+reports state it.
 
-Note its `id`, `paper_vault_path`, and `code_vault_path` fields — every
-later stage needs these.
+**A topic profile needs `core_questions`** (`[]` counts as answered). If a
+confirmed topic profile lacks the field, hand it to intake to ask that one
+question, as for a `draft`.
 
-**A topic profile needs `core_questions`**, the review question whose papers
-are covered completely rather than sampled (see the format spec's "Core
-question"). If a confirmed topic profile has no such field — `[]` counts as
-answered — hand it to `research-problem-intake` to ask that one question and
-add it, exactly as for a `draft`. Every stage from discovery on depends on it,
-and it is the researcher's call, not one to guess.
-
-Also note its `profile_type`: `problem` (a concrete problem with data) or
-`topic` (a literature review with no problem behind it); a missing field means
-`problem`. This skill does not branch on it — every agent below reads the
-profile and handles both types itself — but the reports at stage 4 and at the
-end state it, and the final report has one topic-only line.
-
-**A profile with `deep_dive_of` is a topic deep-dive**: a literature search
-for one topic note of an existing vault. Resolve the plugin root now (next
-section), then read `<plugin root>/skills/second-brain-pipeline/deep-dive.md`.
-Its differences override the stages below; everything it does not mention runs
-as written here.
+**A profile with `deep_dive_of` is a topic deep-dive.** Resolve the plugin
+root (next section), then read
+`<plugin root>/skills/second-brain-pipeline/deep-dive.md`: its differences
+override the stages below.
 
 ## Before stage 3: resolve the plugin root
 
-The plugin's `templates/` and `scripts/` directories are needed from here on —
-the fetcher at stage 3, the templates, linker and checker at stage 5. A
-repo-root-relative path like `templates/paper-page-template.md` only resolves
-when this skill happens to be running from a checkout of this repo — it does
-not resolve once the plugin is installed and invoked from an unrelated project.
-Resolve the plugin root once, now, in this order:
+The plugin's `templates/` and `scripts/` are needed from here on, by absolute
+path. Resolve the root once, in this order:
 
-1. `${CLAUDE_PLUGIN_ROOT}`, if that variable is set.
-2. The current working directory, if it has `templates/` and `scripts/` — the
-   local-dev case (`claude --plugin-dir .` run from inside a checkout of this
-   repo).
+1. `${CLAUDE_PLUGIN_ROOT}`, if set.
+2. The current working directory, if it has `templates/` and `scripts/` (local
+   development with `claude --plugin-dir .`).
 3. `~/.claude/plugins/marketplaces/*/`, keeping only a match whose
-   `.claude-plugin/plugin.json` names `second-brain-researcher` (an unrelated
-   installed plugin could also ship a `templates/` folder) — the real
-   installed-plugin case.
+   `.claude-plugin/plugin.json` names `second-brain-researcher`.
 
 In the same Bash call, read the wave size:
 `echo ${CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS:-20}`.
 
 If no root resolves, stop and tell the researcher the plugin's files could not
-be found: every stage from here on needs them.
+be found.
 
 ## Stage 3: discovery
 
-Dispatch all three discovery agents as **one wave**, each with this prompt and
+Dispatch the three discovery legs as **one wave**, each with this prompt and
 nothing else (the `find_papers` line for the biomedical leg only):
 
 ```
@@ -121,203 +76,112 @@ fetcher: <plugin root>/scripts/fetch_fulltext.py
 find_papers: <plugin root>/scripts/find_papers.py
 ```
 
-Each reads `paper_vault_path` from the profile and creates it if needed; do not
-pass or create it yourself.
+- `second-brain-paper-downloader`: arXiv.
+- `second-brain-biomed-downloader`: PubMed, PMC, Europe PMC.
+- `second-brain-crossfield-searcher`: methods from adjacent fields, via Asta.
+  Dispatch it **unconditionally**; it checks its own key.
 
-- `second-brain-paper-downloader` — the arXiv leg.
-- `second-brain-biomed-downloader` — the PubMed/PMC/Europe PMC leg.
-- `second-brain-crossfield-searcher` — the cross-field methodology pass, over
-  paper bodies via Asta. **Dispatch it unconditionally**; do not pre-check for a
-  key yourself. The agent's own first step is a one-line key check that returns
-  in seconds, and centralizing that check in the agent is what keeps this skill
-  from having to know about anyone's credentials.
+Each leg reads `paper_vault_path` from the profile and creates it. The legs are
+independent: one failing never discards another's results. A leg that reports
+a skip (no `ASTA_API_KEY`, no methodology terms, no `gh`) is an optional leg
+skipped, not a failed run: one line in the stage-4 report. Never re-run
+discovery to fix a missing key.
 
-**The legs are independent — one failing never discards another's results.** In
-particular, the cross-field pass is *additive*: if it reports that `ASTA_API_KEY`
-is unset, or that a topic profile has no methodology terms because the
-researcher declined the pass, that is a skipped enhancement, not a failed run. Say so in the stage-4
-report, in one line, and carry on with the arXiv and PubMed results. Never
-present a run as failed because the optional leg was skipped, and never re-run
-discovery to "fix" a missing key.
+### Then core coverage: the citation chaser
 
-### Then core coverage — the citation chaser
-
-Once the three paper legs have returned, dispatch
-`second-brain-citation-chaser` with:
+Once the three legs have returned, dispatch `second-brain-citation-chaser`:
 
 ```
 profile: <confirmed profile path>
 find_papers: <plugin root>/scripts/find_papers.py
 ```
 
-It runs after the legs, not beside them: it chases citations from the core
-papers they saved, so it needs those on disk.
-
-The legs can report what they found, never what their queries failed to
-retrieve. On the reRD run they found 5 of the 19 papers on its core question,
-while every stage reported a clean run. The chaser covers the core question
-independently of their wording. It runs the profile's `recall_probes` as
-whole PubMed hit sets, then chases citations one hop both ways from the
-vault's core papers through OpenAlex. It screens each round and saves what
-passes, until a round adds nothing. No date window applies.
-
-It replies `OK` with a few lines — the core question, seeds, probes (marked
-when it drafted them), candidates and additions per round, why it stopped,
-OpenAlex gaps — and a **needs-manual-download** list. Keep all of it for
-stage 4. `OK core coverage skipped: …` (the profile names no core question) is
-a skipped stage, not a failure: one line in the report.
+It chases citations from the core papers the legs saved, so it runs after
+them. It replies `OK` with the core question, seeds, probes (drafted ones
+marked), candidates and additions per round, why it stopped, OpenAlex gaps,
+and a **needs-manual-download** list; keep all of it for stage 4.
+`OK core coverage skipped: …` (no core question) is one line in the report.
 
 ### Merge before the checkpoint
 
-The legs run blind to each other, so the same paper can arrive twice — a
-preprint from arXiv and the published version from PubMed, or a cross-field hit
-that is also an arXiv paper. Resolve that here, before the researcher reviews
-anything, with one Bash call — no header reads in this conversation:
+The legs cannot see each other's writes, so one paper can arrive twice.
+Resolve that with one Bash call:
 
 ```
 python3 <plugin root>/scripts/stage_prep.py merge <paper_vault_path>
 ```
 
-It applies the key ladder in `templates/paper-identity-spec.md` and keeps
-**one** file per paper — the one that already has a summary (a re-run), else
-the one with usable full text, else the published version — under its own
-name, adding the other copies' sources and missing ids to its header. The
-other copies move to `<paper_vault_path>/.merged/`, which no later stage
-reads; left in place, they would double-count the paper in every topic note.
+It keeps one file per paper and moves the other copies to `.merged/`. Report
+each merge (a silent one looks like a paper went missing) and its
+`possible_duplicates`, which are the researcher's call. Keep its coverage block
+for stage 4.
 
-Its JSON report lists each merge (`kept`, `removed`, the matching key, what
-was added to the header), `possible_duplicates` it did not merge (same title,
-different ids — the researcher's call), and the stage-4 coverage figures. Report what was merged: a silent merge looks like a paper
-went missing. Keep the report's coverage block for stage 4.
+### Then the code leg
 
-### Then the code leg — after the paper legs, still before the checkpoint
-
-Dispatch `second-brain-code-finder` **once the paper legs and the citation
-chaser have returned and the merge above is done**, with:
+Once the merge is done, dispatch `second-brain-code-finder`:
 
 ```
 profile: <confirmed profile path>
 format: <plugin root>/templates/repo-note-template.md
 ```
 
-It is not a fourth parallel leg: its
-highest-precision source is the repos named *inside the saved papers*, so it
-needs those files on disk. Started in parallel it would find an empty vault and
-silently degrade to topic search alone — the weakest half of what it does.
-
-It still runs before the checkpoint, so repos and papers are approved together
-in one review.
-
-Note what does *not* exist yet at this point: `summaries/` is written at stage 5,
-so the `code_link` field is unavailable on a first run and the agent works from
-the full texts. That is the richer source anyway. On a re-run where summaries
-already exist, it uses both.
-
-The agent reads GitHub through the API only — it never clones, downloads, or
-executes anything, and `code_vault_path` is still empty when it finishes. That
-is what makes it safe to run *before* the checkpoint at all. If it reports that
-`gh` is missing or unauthenticated, that is a skipped enhancement exactly like a
-missing Asta key: report it in one line and carry on.
+It mines the saved papers for repos, so it runs after them, and before the
+checkpoint, so repos and papers are reviewed together. It uses the GitHub API
+only and never clones anything.
 
 ## Stage 4: checkpoint — stop and wait
 
-After every discovery leg, the citation chaser and the merge are done, relay
-a combined summary (the profile type, what was saved per leg with the core
-question's count separate, which legs ran and which were skipped, each leg's
-queries that still returned 0 hits and any it reported too broad, what was
-merged as duplicates, what was skipped, dropped, or saved abstract-only
-because it is paywalled, and which repositories were found) to the researcher
-and **stop here**.
+Relay one combined summary to the researcher and **stop**:
 
-State **full-text coverage** as numbers, from the merge report rather than
-from the legs' prose: `full_text` gives `full` versus `abstract-only`,
-`by_source` splits them by source (the chaser's records are `pubmed` when
-PubMed holds the paper, else `openalex`), `extraction_warnings` names the records whose
-extracted text is known to be damaged, and `no_header` any record a leg saved
-without its identity header. Name `possible_duplicates` too, for the
-researcher to decide. A vault whose clinical core is abstracts caps the quality of
-everything downstream, and this is the last point where that is cheap to fix.
+- the profile type; what each leg saved, with the core question's count
+  separate; which legs ran and which were skipped; each leg's zero-hit and
+  too-broad queries; what was merged; what was skipped, dropped, or left
+  abstract-only.
+- **Full-text coverage as numbers**, from the merge report: `full_text` (full
+  versus abstract-only), `by_source`, `extraction_warnings`, `no_header`, and
+  `possible_duplicates`. Abstract-only papers cap the quality of everything
+  downstream, and this is the last cheap point to fix them.
+- **needs-manual-download**, from the biomedical leg and the chaser, verbatim
+  as one list with title, DOI and PMID; mark the chaser's as core papers. Never
+  fold it into the skipped tally, and never proceed past it without an
+  explicit decision. To supply one, the researcher saves the PDF as
+  `<paper_vault_path>/<id>.pdf`; when they say so, run for each:
 
-If the biomedical leg or the citation chaser returned a
-**needs-manual-download** list — papers that resolved neither open-access nor,
-in the biomedical leg, via the Sci-Hub rung — present them verbatim as one
-list, with title, DOI and PMID per paper. The chaser's entries are core
-papers, so mark them as such. This is the one point in the run where the
-researcher can supply those files by hand; once vault-build starts, an absent
-full text silently becomes an abstract-only note. Do not fold that list into
-the general "skipped" tally, and do not proceed past it without an explicit
-decision.
+  ```
+  python3 <plugin root>/scripts/fetch_fulltext.py --source manual \
+    --record <paper_vault_path>/<id>.md --from-pdf <paper_vault_path>/<id>.pdf
+  ```
 
-Tell the researcher how to supply one: save the PDF as
-`<paper_vault_path>/<id>.pdf`, next to the record `<id>.md` of the same name.
-When they say they have, run for each such PDF (`--from-pdf` takes one record
-at a time):
+  Delete the PDF once the report says `full_text: full`. If it says the file is
+  not a PDF (a browser often saves a publisher's HTML page as `.pdf`), tell the
+  researcher and delete nothing.
+- **Core coverage**, as its own section: the core question, seeds, the probes
+  (drafted ones marked, so the researcher can add them to `recall_probes`),
+  candidates and additions per round, the total added by title, and why it
+  stopped. Name OpenAlex's gaps and any `seed_papers` not in the vault. If the
+  chaser hit its 40-paper guard or 4-round cap, say so prominently: narrowing
+  `core_questions` is the researcher's call.
+- **Repositories**, as their own section: how many from papers and how many
+  from search, each one with **no license** by name, and that nothing was
+  cloned and `code_vault_path` is empty by design.
 
-```
-python3 <plugin root>/scripts/fetch_fulltext.py --source manual \
-  --record <paper_vault_path>/<id>.md --from-pdf <paper_vault_path>/<id>.pdf
-```
-
-It validates the file, converts it and upgrades the record in place. Delete the
-PDF once the report says `full_text: full` — the vault holds Markdown, not PDFs.
-If the report says the file is not a PDF (a browser often saves a publisher's
-HTML page under a `.pdf` name), tell the researcher that rather than deleting
-anything.
-
-Report **core coverage** as its own section, from the chaser's reply:
-- the core question;
-- how many seeds;
-- the probes, with any the chaser drafted marked so the researcher can add
-  them to the profile's `recall_probes` for the next run;
-- per round, candidates and additions;
-- the total added, by title;
-- why it stopped.
-
-Name OpenAlex's gaps: seeds it could not find, seeds it holds no reference
-list for (their backward hop found nothing), and seeds too cited to chase
-forward. Name any `seed_papers` entry not in the vault. If the chaser stopped
-at its 40-paper guard or its 4-round cap, say so prominently: the core
-question may be too broad to cover exhaustively, and narrowing
-`core_questions` is the researcher's call.
-
-Report the repositories as their own section, not folded into the paper counts:
-how many came from the papers versus from topic search, and — named individually
-— any with **no license**. That last one is the finding most likely to change
-what the researcher does with a repo, and the checkpoint is where it is still
-cheap to act on. State that nothing was cloned and `code_vault_path` is empty,
-so its emptiness reads as intended rather than as a step that failed.
-
-Ask explicitly
-whether to proceed to vault-build with what was found, add the missing papers
-manually first, or make other changes (remove a saved paper file, re-run
-discovery with adjusted terms, etc.) — this is the pipeline's checkpoint before anything downstream
-consumes the papers. Do not continue to stage 5 in the same turn; wait for
-an explicit go-ahead in a follow-up message.
+Ask whether to proceed to the vault build, add missing papers first, or change
+something (remove a paper, re-run discovery with other terms). Do not continue
+to stage 5 in the same turn: wait for an explicit go-ahead.
 
 ## Stage 5: vault build
 
-Only after the researcher confirms:
+Only after the researcher confirms. If a template or script path below does
+not exist, stop and report it; never guess a path.
 
-0. **Take the template paths** from the plugin root resolved before stage 3.
-   Two templates are needed this stage:
-   `<plugin root>/templates/paper-page-template.md` (step 1) and
-   `<plugin root>/templates/topic-note-template.md` (step 2). If
-   the root did not resolve then, try the same three places again now. If
-   either template does not exist, stop and report the gap plainly rather than
-   guessing a path or dispatching an agent without a valid format file.
-
-1. **Papers.** Plan the fan-out with one Bash call (add `--regenerate` only if
-   the researcher asked to regenerate; without it, papers that already have a
-   `summaries/<id>_summary.md` are skipped):
+1. **Papers.** Plan the fan-out (add `--regenerate` only if the researcher
+   asked to regenerate existing summaries):
 
    ```
    python3 <plugin root>/scripts/stage_prep.py summaries <paper_vault_path>
    ```
 
-   Its `dispatches` give each long full text a dispatch of its own, with
-   `read_until` at the line before its references, and batch the rest up to 8
-   per dispatch. Dispatch `paper-summarizer` once per entry, in waves, with
-   this prompt:
+   Dispatch `paper-summarizer` once per entry of its `dispatches`, in waves:
 
    ```
    papers:
@@ -327,95 +191,66 @@ Only after the researcher confirms:
    problem profile: <confirmed profile path>
    ```
 
-   The problem profile is what makes each summary carry real
-   `related_problem`/`matched_terms`/relevance synthesis instead of the
-   generic no-profile fallback. Carry every `FAIL` line into the final report.
+   Carry every `FAIL` line into the final report.
 
-2. **Topics.** Topic notes are meant to be a small set of entry points into
-   the vault, not one note per recurring keyword — so the researcher chooses
-   which ones get written. Four substeps: index, propose, select, dispatch.
+2. **Topics.** The researcher chooses which topic notes get written.
 
-   **2a. Build the keyword index once**, here in the pipeline — the agents do
-   not each re-derive it — with one Bash call:
+   **2a. Index**, once:
 
    ```
    python3 <plugin root>/scripts/stage_prep.py keywords <paper_vault_path> \
      --profile <confirmed profile path>
    ```
 
-   One line per slug: its paper count, two paper titles, and "(note exists,
-   +N new)" when a topic note exists with N matched papers not yet in it.
-   Profile keywords come first, then every keyword on 2 or more papers; the
-   single-paper slugs follow on one line, as merge material only. Keep its
-   last two lines, the profile keywords on no paper and the review questions
-   no summary cites, for the final report.
+   One line per slug: paper count, two titles, and "(note exists, +N new)".
+   Profile keywords first, then every keyword on 2 or more papers, then the
+   single-paper slugs on one line, as merge material only. Keep its last two
+   lines (profile keywords on no paper, review questions no summary cites) for
+   the final report.
 
-   **2b. Propose candidates.**
-   - The profile's `keywords_of_interest` are the researcher's own topics,
-     confirmed at intake. Every one that has no topic note yet is **always**
-     written, even one that matched zero papers — an empty topic note is a
-     real signal that either the literature or the search terms have a gap.
-     They are not asked about; list them once, above the picker, as "already
-     included".
-   - The candidates offered are every other keyword on **2 or more** papers.
-     This threshold now decides only what is *offered*, not what is written.
-     A keyword on a single paper is not offered: a one-paper topic note adds
-     nothing over the paper note itself.
-   - **Suggest merges.** Working from the slug list alone (no summary reads),
-     including the single-paper slugs, group slugs that name the same subtopic — `survival-analysis` /
-     `time-to-event-prediction`, `scleral-buckling` /
-     `scleral-buckling-surgery`. The canonical slug is the profile keyword
-     when the group contains one, otherwise the slug on the most papers; the
-     rest become its **aliases**. A merged topic's paper list is the union of
-     its members' lists. Merge only true synonyms or variants — a narrower
-     concept (`dynamic-survival-prediction` under `survival-analysis`) is a
-     judgment call, so prefer offering it as its own candidate. A profile
-     keyword may absorb synonyms too; show such merges in the "already
-     included" line so the researcher can reject them.
-   - **On a re-run**, nothing from a previous selection is remembered: every
-     candidate is offered again, and none is skipped or pre-rejected because
-     of an earlier choice. A topic that already has a
-     `<paper_vault_path>/topics/<slug>.md` is offered too, marked
-     "(note exists, +N new papers)" as the index prints it. Profile keywords that
-     already have a note move into the picker as well, under their own
-     "Your topics" question, so a re-run never regenerates them all
-     automatically.
+   **2b. Propose.**
+   - Every profile keyword without a topic note is **always** written, even
+     with zero papers (an empty note shows a gap). List them once above the
+     picker as "already included"; do not ask about them.
+   - Offer every other keyword on **2 or more** papers.
+   - **Suggest merges** from the slug list alone, single-paper slugs included:
+     group slugs naming the same subtopic (`survival-analysis` /
+     `time-to-event-prediction`). The canonical slug is the profile keyword if
+     the group has one, else the slug on most papers; the rest become its
+     **aliases**. Merge only true synonyms; offer a narrower concept as its
+     own candidate. Show a profile keyword's merges in the "already included"
+     line so the researcher can reject them.
+   - **On a re-run** nothing from an earlier selection is remembered: every
+     candidate is offered again, existing notes marked "(note exists, +N new
+     papers)". Profile keywords that already have a note go into the picker
+     under their own "Your topics" question.
 
-   **2c. The researcher selects.** This is a real pause, like the stage 4
-   checkpoint: dispatch nothing until the selection is answered, and never
-   auto-select. Use `AskUserQuestion` with `multiSelect: true`. It allows at
-   most 4 options per question and 4 questions per call, so:
-   - group the candidates into themed questions of up to 4 options each
-     ("Methods", "Clinical context", "Evaluation", …), ranked by paper count
-     within a theme. The question's `header` is the theme; an option's
-     `label` is the canonical slug with its aliases
-     (`survival-analysis (+ time-to-event-prediction)`), and its
-     `description` gives the paper count, one or two paper titles, and the
-     "(note exists, +N new papers)" marker where it applies;
-   - with more than 16 candidates, run a second call with the rest. Never
-     more than two rounds: whatever is left after 32 is named in one line
-     with "reply to add any";
-   - tell the researcher, in the question text, that the free-text "Other"
-     field can add a keyword that wasn't offered, undo a merge ("split
-     survival-analysis"), or give a focus for deepening an existing note
-     ("deepen model-calibration: more on recalibration methods").
+   **2c. The researcher selects.** A real pause: dispatch nothing until
+   answered, never auto-select. Use `AskUserQuestion` with
+   `multiSelect: true` (at most 4 options per question, 4 questions per call):
+   - themed questions ("Methods", "Clinical context", …) ranked by paper
+     count; `header` the theme; an option's `label` the canonical slug with
+     its aliases (`survival-analysis (+ time-to-event-prediction)`), its
+     `description` the paper count, one or two titles, and the "(note exists
+     …)" marker;
+   - over 16 candidates, a second call with the rest; whatever is left after
+     32 is named in one line with "reply to add any";
+   - say in the question text that "Other" can add a keyword, undo a merge
+     ("split survival-analysis") or give a focus for deepening ("deepen
+     model-calibration: more on recalibration methods").
 
-   If `AskUserQuestion` isn't available (a non-interactive run), show the
-   same list numbered in chat and wait for a reply naming the numbers.
+   Without `AskUserQuestion`, show the list numbered in chat and wait for the
+   numbers.
 
-   **2d. Dispatch.** The selected topics are the researcher's picks plus the
-   profile keywords that have no note yet. First write one digest per topic
-   (every summary carrying the slug or an alias, in one file) with a single
-   Bash call; `<slug>:<alias>,…` gives a merged topic its aliases:
+   **2d. Dispatch.** The selected topics plus the profile keywords with no
+   note. Write their digests in one call:
 
    ```
    python3 <plugin root>/scripts/stage_prep.py digest <paper_vault_path> \
      --topic <slug> --topic <slug>:<alias>,<alias> ...
    ```
 
-   The report gives each topic's paper count; a topic with 0 papers still
-   gets its note. Then dispatch `topic-summarizer` once per selected topic, in
-   waves, with this prompt:
+   Then dispatch `topic-summarizer` once per topic, in waves:
 
    ```
    keyword: <slug>
@@ -430,20 +265,14 @@ Only after the researcher confirms:
    focus: <the researcher's direction>
    ```
 
-   `aliases` only for a merged topic; `output exists` is true when the index
-   marked the slug "(note exists …)". `existing note` only for a topic that
-   already has a note, which puts the agent in deepen mode: it builds on the
-   note rather than starting over. Pass the Obsidian copy
-   `<vault>/topics/<slug>.md` when it exists (that copy carries the
-   researcher's edits; `<vault>` is the problem's vault, derived in step 4),
-   else `<paper_vault_path>/topics/<slug>.md`. `focus` only when the
-   researcher gave a deepening direction for this topic.
+   `aliases` only for a merged topic; `output exists` true when the index
+   marked the slug "(note exists …)". `existing note` only when a note exists:
+   the Obsidian copy `<vault>/topics/<slug>.md` if there is one (it carries
+   the researcher's edits; `<vault>` as in step 4), else the paper-vault copy.
+   `focus` only when the researcher gave one. Keep the dispatched slugs for
+   step 4.
 
-   Keep the list of slugs dispatched in this run: step 4 needs it as the
-   rebuilt topics.
-
-3. **Paper-to-paper links.** Run the linker script once with Bash — no agent
-   dispatch; this step involves no model:
+3. **Paper-to-paper links.** One Bash call, after step 1:
 
    ```
    python3 <plugin root>/scripts/link_papers.py \
@@ -451,188 +280,89 @@ Only after the researcher confirms:
      --state <paper_vault_path>/.linker/
    ```
 
-   It fetches every paper's reference list and SPECTER2 embedding from
-   Semantic Scholar in one batch request, then writes three kinds of link into
-   each summary's `related_notes`, with the reason for each in
-   `related_basis`:
-   - **direct citation**: one vault paper cites the other;
-   - **shared references**: the two share 2 or more references outside the
-     vault;
-   - **similar content**: their title+abstract embeddings are close (cosine
-     ≥ 0.90), for pairs with no citation relation at all.
+   It writes citation and content links into each summary's `related_notes`,
+   and never touches entries a researcher added. Relay its JSON report as it
+   stands: link counts by kind, and by name the papers in `zero_edge_papers`,
+   `not_in_s2` and `no_content_links_possible`, plus `embedding_coverage`
+   (below ~70%: say so prominently). An empty link list is not evidence that
+   nothing is related.
 
-   Each paper gets at most 5 citation links and 3 content links. Every link is
-   written on both papers.
+   If it cannot run (no `python3`, or exit 2 with `{"error": …}`, e.g.
+   Semantic Scholar rate-limiting for its whole retry window), skip it in one
+   line, suggest `SEMANTIC_SCHOLAR_API_KEY` if rate limiting was the cause,
+   and go on. Never write links by hand.
 
-   Run it **after** step 1, since it reads the summaries, and **before** step 4,
-   since vault-build renders the links. It needs every paper at once, so
-   it is one run, not a fan-out.
-
-   The script tracks which entries it wrote, in `.linker/owned.json`. That is
-   what makes re-runs safe:
-   - Entries a researcher added by hand are never touched.
-   - A regenerated summary whose id changed has its old links removed and
-     re-added under the new id.
-   - A re-run with nothing new changes no files and fetches nothing.
-
-   It prints a JSON report. Relay it as it stands and do not upgrade its
-   language:
-   - link counts by kind;
-   - `zero_edge_papers`;
-   - `not_in_s2` (no links possible);
-   - `no_content_links_possible` (citation links only: Semantic Scholar has no
-     embedding for them);
-   - `embedding_coverage`.
-
-   Name the papers in each of those lists. An empty link list must not read as
-   "nothing related exists". If `embedding_coverage` is below ~70%, say so
-   prominently: content linking then covers only part of the vault.
-
-   **If it can't run, skip the step; it never blocks the vault.** That covers:
-   - `python3` missing;
-   - a non-zero exit with `{"error": ...}`, for example Semantic Scholar
-     rate-limiting for the whole 10-minute retry window.
-
-   Report it in one line, suggest setting `SEMANTIC_SCHOLAR_API_KEY` if the
-   cause was rate limiting, and carry on to step 4 with whatever links the
-   summaries already hold. Never write links by hand instead.
-
-3b. **Check the records** before they reach the vault — one Bash call, no
-   model:
+   **3b. Check the records:**
 
    ```
    python3 <plugin root>/scripts/check_vault.py records <paper_vault_path> --fix
    ```
 
-   It checks that every paper file has its identity header and that the header
-   `id` is the filename stem; that every summary's `id` is its paper's id; that
-   every wikilink in the summaries, topic notes and repo notes resolves inside
-   the problem's vault layout (`papers/<id>`, `topics/<slug>`, `repos/<id>`,
-   `<problem-id>`) and that none carries a `<problem-id>/` prefix; and that
-   every id in a topic's `papers` or a repo's `related_papers` is a real
-   paper. `--fix` repairs only the two mechanical defects — tool-call markup
-   an agent leaked at the end of a file, and stray side files such as
-   `*.tmp` — and reports each one. It never changes a link or an id.
+   It checks headers, ids and links, and `--fix` repairs only leaked tool-call
+   markup and stray side files. Relay what it fixed and each error by file;
+   errors do not block step 4 but go in the final report, with its warnings.
+   **Never repair a link or an id by hand, and never by matching titles.**
 
-   Relay its JSON report: what it fixed, then each error by file. Errors do not
-   block step 4, but they go into the final report by name. **Never repair a
-   link or an id by hand, and never by matching titles** — ids are fixed at
-   download so that nothing has to match titles, and a mismatch is a bug in the
-   agent that wrote it. Its warnings — summaries with no resolvable identifier,
-   a summary whose `year` disagrees with its paper's header (the summarizer
-   took a date from the body), "full texts" that are not, extraction
-   warnings — go in the report too.
-
-4. **Vault.** One Bash call — no agent; this step involves no model:
+4. **Vault.** One Bash call:
 
    ```
    python3 <plugin root>/scripts/build_vault.py --profile <confirmed profile path> \
-     --records <paper_vault_path> --vault <root>/obsidian_vault/<id>/ \
-     --rebuilt-topics <slug>,<slug>
+     --records <paper_vault_path> --vault <vault> --rebuilt-topics <slug>,<slug>
    ```
 
-   `--vault` is the problem's own Obsidian vault, the folder the researcher
-   opens: strip the trailing `paper_vault/<id>/` from `paper_vault_path` and
-   append `obsidian_vault/<id>/`. `--rebuilt-topics` is the slugs dispatched in
-   step 2d (leave it out if none); on a re-run a topic note's content sections
-   are otherwise kept as they are, so a new or deepened note would never reach
-   the vault.
+   `<vault>` is the problem's Obsidian vault: `paper_vault_path` with its
+   trailing `paper_vault/<id>/` replaced by `obsidian_vault/<id>/`.
+   `--rebuilt-topics` is the slugs dispatched in step 2d (omit if none);
+   without it, a rebuilt note's content would not reach the vault. On a re-run
+   it replaces only the sections it owns: tell the researcher their
+   annotations survive, except edits made inside a generated section.
 
-   On a re-run it merges rather than overwriting: it regenerates only the
-   link, citation and related sections it owns and preserves everything the
-   researcher added or edited. Tell the researcher their annotations survive,
-   and that hand-edits made *inside* a generated section are the one
-   exception.
+   Relay notes created and `merged`, `citations.missing`,
+   `dropped_unknown_ids` (an upstream bug to name) and
+   `papers_without_summary`. On exit 2 with `{"error": …}`, fix the named input
+   and run it again; never write vault notes yourself.
 
-   Relay from its JSON report: notes created and `merged`; `citations.missing`
-   (arXiv papers left without a citation); `dropped_unknown_ids` (ids that
-   match no paper, dropped rather than re-targeted by title: an upstream bug
-   to name); and `papers_without_summary`. If it exits 2 with `{"error": …}`,
-   fix the named input and run it again — never write the vault notes yourself.
-
-5. **Check the vault's links** — one more Bash call:
+5. **Check the vault's links:**
 
    ```
    python3 <plugin root>/scripts/check_vault.py vault <vault>
    ```
 
-   It resolves every wikilink in the vault against the vault root, exactly as
-   Obsidian will, and lists each dead one with the note it sits in. Expect
-   zero. Report any it finds by name; do not edit the notes to fix them.
+   Expect zero dead links. Report any by name; do not edit notes to fix them.
 
 ## Report back
 
-State the profile id and type, how many papers were found/summarized/vaulted, how many
-topic notes and repo notes were written, and the final vault path. For topics, say how
-many were offered and how many selected, split into new and deepened notes, and which
-merges were applied; name the unselected slugs in one line, so the researcher knows they
-still exist as paper keywords and can be picked on a later run. Name any topic note that
-came back with zero matching papers — that's a gap in the literature or in the
-search terms, and it's the kind of thing that's easy to miss in a folder
-listing. For a topic profile, do the same for `review_questions`: name any
-question that no paper summary cites — the keyword index from step 2a already
-printed them. An unanswered review question is the topic-review counterpart of an empty topic
-note, and it is the finding the researcher most needs. If anything failed at any stage (a summarizer call errored, a paper
-had no matches to the profile's terms, etc.), name it plainly rather than
-reporting a clean run.
+- The profile id and type; papers found, summarized and in the vault; topic
+  and repo notes written; the vault path.
+- Topics: how many offered and selected, new versus deepened, the merges
+  applied, and the unselected slugs in one line (they can be picked on a later
+  run). Name every topic note with zero papers, and on a topic profile every
+  review question no summary cites: these gaps are the findings most easily
+  missed.
+- Core coverage in one line: the core question, papers added over how many
+  rounds, and why it stopped, or why it was skipped.
+- Both `check_vault.py` results: record errors, and the dead-link count with
+  each one named ("0 dead links" when clean).
+- Paper links: the split between direct citations, shared references and
+  similar content; embedding coverage; and the papers left without links, and
+  why.
+- Anything that failed at any stage, plainly.
 
-State core coverage in one line: the core question, how many papers the
-citation chaser added over how many rounds, and whether it stopped because a
-round added nothing or at a cap — or that it was skipped, and why.
+Then say what this run did not do: repos were catalogued but **never cloned,
+run or tested**, and there is no experiment plan.
 
-Report both `check_vault.py` results: the record errors from step 3b and the
-dead-link count from step 5, with each dead link named. A clean run says "0 dead
-links" in so many words.
-
-Report the paper-to-paper links separately from the topic notes:
-- the split between direct citations, shared references and similar content;
-- embedding coverage;
-- which papers ended with no links, and why (not in Semantic Scholar, or
-  genuinely unrelated to the rest of the vault).
-
-Close by reminding the researcher which stages of the original pipeline spec
-this run does not cover, so they don't assume those happened silently: repos
-were catalogued but **never cloned, run, or tested** — there is no code
-vault-build and no Docker sandbox — and there is no experiment plan.
-
-**Be precise about cross-linking**, because it is the easiest thing in this
-pipeline to overstate. Papers are linked three ways:
-- through shared-keyword topic notes;
-- through citation links (direct citations and shared references);
-- through content links.
-
-Citation links are facts: a researcher can check "A cites B" or "A and B share
-5 references". Content links are estimates, and narrower than the spec's
-stage 6 in two ways:
-- they compare **title and abstract only**, not full text;
-- they exist only for papers Semantic Scholar knows and has an embedding for.
-
-They are what connects two papers that solve the same problem in different
-literatures with no shared bibliography, which is the case this project exists
-for. So report them, with their coverage, and never present a missing content
-link as evidence that no such connection exists. Report what ran, not what
-the spec asked for.
+**Be precise about cross-linking.** Papers are linked through shared-keyword
+topic notes, citation links and content links. Citation links are checkable
+facts. Content links are estimates from **title and abstract only**, and exist
+only for papers Semantic Scholar has an embedding for: never present a missing
+content link as evidence that two papers are unrelated.
 
 ## Finally: offer to open the vault
 
-Not a pipeline-spec stage — the spec's stage 6 (cross-linking) is implemented
-only in the reduced form described above, and stage 7 (the experiment plan)
-not at all. This is a convenience step
-that runs once vault-build is already complete and reported, and nothing here
-can turn a finished run into a failed one.
-
-Ask the researcher whether they want to open the vault in Obsidian. If they
-already asked for it to be opened earlier in this run, skip the question and go
-straight to the launch attempt.
-
-Only if they say yes, check whether Obsidian is actually present — a
-platform-appropriate check (on Linux/WSL, an `obsidian` binary on `PATH` or a
-Flatpak install; on Windows, the standard install locations). If it is, launch
-it against the problem's vault, `<root>/obsidian_vault/<id>/` — the folder
-whose links step 5 checked, not its parent `obsidian_vault/` — and report any
-launch failure plainly without touching the created files.
-
-If Obsidian isn't installed, say so plainly — the vault path is already in the
-report above, so they can open it themselves. **Do not offer or run an install
-command** — no winget, no brew, no apt. Installing software on the researcher's
-machine is out of scope for this pipeline.
+Ask whether to open the vault in Obsidian (skip the question if they already
+asked for it). Only on yes, check that Obsidian is installed (Linux/WSL: an
+`obsidian` binary on `PATH` or a Flatpak install; Windows: the standard
+install locations) and launch it on `<vault>`, the problem's folder, not its
+parent. Report a launch failure plainly and touch no files. If Obsidian is not
+installed, say so; the vault path is in the report. **Never offer or run an
+install command.** Nothing here can turn a finished run into a failed one.

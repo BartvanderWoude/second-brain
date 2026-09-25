@@ -48,7 +48,7 @@ state under `<pv>` are shared.
 ## Stage 3
 
 The three legs and the citation chaser run as written, with the **deep-dive
-profile's** path; it is a topic profile, so they need nothing else. Its
+profile** as `profile:`; it is a topic profile, so they need nothing else. Its
 `paper_vault_path` is the vault's, so new papers land in the vault's paper
 vault and each leg skips what the vault already holds. The chaser's `--fresh`
 discards the vault's earlier `core-*` lists, which is intended. Then the

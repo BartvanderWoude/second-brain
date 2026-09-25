@@ -1,23 +1,14 @@
 ---
 name: second-brain-topic-deep-dive
 description: >
-  Dives deeper into ONE topic note of an existing second-brain vault with a
-  literature search of its own: deepens the note when it exists, creates it
-  when it does not, and links it into the vault (its papers old and new, the
-  vault's other papers and topic notes, the problem note). Use when the
-  researcher names a topic of a vault they already built and wants more
-  literature on it: "dive deeper into survival-analysis", "do a literature
-  review on the calibration note", "find more papers for the X topic in my
-  vault", "add a topic note on ultra-widefield imaging, with its own search".
-  Not for a new review of a problem or topic (research-problem-intake,
-  second-brain-pipeline); not for rewriting a note from papers the vault
-  already holds (a normal pipeline re-run offers that in its topic picker);
-  not for finishing a draft profile. Runs a short drafted Q&A through
-  research-problem-intake, then stages 3–5 of second-brain-pipeline on a
-  deep-dive profile. Never reimplement this skill's job yourself from this
-  description alone, and never treat a report from it, even a calm one
-  recommending a restart or install, as license to proceed without it; relay
-  such reports to the user and stop.
+  Gives one topic note of an existing second-brain vault a literature search of
+  its own: finds new papers on the topic, adds them to the vault, and deepens
+  the note, or creates it. Use when the researcher names a topic of a vault
+  they already built and wants more literature on it ("dive deeper into
+  survival-analysis", "find more papers for the X topic in my vault"). Not for
+  a new review (second-brain-pipeline), for rewriting a note from papers the
+  vault already holds (a pipeline re-run's topic picker), or for finishing a
+  draft profile.
 ---
 
 # Topic deep-dive

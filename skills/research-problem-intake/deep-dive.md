@@ -4,9 +4,8 @@ The third kind of intake. `second-brain-topic-deep-dive` invokes it with four
 things: the vault profile's path, the topic slug, the researcher's request in
 their own words, and the report of `stage_prep.py topic` (the note, its papers
 with a seed line each, what the vault has on the topic outside the note, nearby
-slugs, the note's text). It writes a **deep-dive profile**, per "Deep-dive
-profiles" in `templates/research-problem-profile-format-spec.md`: a topic
-profile scoped to that one topic, plus four fields that tie it to the vault.
+slugs, the note's text). It writes a **deep-dive profile**: a topic profile
+scoped to that one topic, plus four fields that tie it to the vault.
 
 The researcher already built the vault, so most of what a normal intake asks is
 known. Draft everything and ask nothing cold. The goal is one combined draft,
