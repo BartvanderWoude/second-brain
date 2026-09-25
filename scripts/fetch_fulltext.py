@@ -23,6 +23,7 @@ for digits is retried with full-page OCR, and flagged if that does not help.
   --record FILE [FILE ...]       try the rungs for these records
   --record FILE --from-pdf PDF   convert a PDF already on disk (Sci-Hub, manual)
   --vault DIR                    every abstract-only record in DIR
+  --force                        also refetch records that already have full text
 
 One --record prints that record's report; several, or --vault, print
 {"records": [...], "upgraded": [...], "still_abstract_only": [...]}.
@@ -35,7 +36,7 @@ import urllib.error, urllib.parse, urllib.request
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
-from link_papers import FM_RE, norm_doi, s2_ident, scalar
+from link_papers import FM_RE, norm_doi, s2_ident, scalar, set_field
 
 UA = "second-brain-researcher/1.0 (research literature pipeline; open-access full-text fetch)"
 EPMC = "https://www.ebi.ac.uk/europepmc/webservices/rest"
@@ -503,13 +504,6 @@ RUNGS = (rung_europepmc, rung_bioc, rung_arxiv, rung_s2, rung_unpaywall)
 
 
 # ---------------------------------------------------------------- record
-
-def set_field(fm, key, value):
-    line = f"{key}: {value}".rstrip() + "\n"
-    if re.search(rf"^{key}:.*\n", fm, re.M):
-        return re.sub(rf"^{key}:.*\n", lambda _: line, fm, count=1, flags=re.M)
-    return fm + line
-
 
 def ids_of(fm):
     url = scalar(fm, "url")

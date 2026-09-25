@@ -43,7 +43,7 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 
 from check_vault import split
-from link_papers import block, block_list, scalar
+from link_papers import block, block_list, listval, scalar
 
 ARXIV_API = "https://export.arxiv.org/api/query"
 ARXIV_OAI = "https://oaipmh.arxiv.org/oai"
@@ -78,14 +78,6 @@ def unquote(fm, key):
     if raw and raw.group(1).strip().startswith('"'):
         v = v.replace('\\"', '"').replace("\\\\", "\\")
     return v
-
-
-def listval(fm, key):
-    """A list field in block style or inline `[a, b]` style."""
-    v = scalar(fm, key)
-    if v.startswith("["):
-        return [x.strip().strip("\"'") for x in v.strip("[]").split(",") if x.strip()]
-    return block_list(fm, key)
 
 
 def entries(fm):
@@ -256,8 +248,8 @@ def parse_oai(xml_text):
 
 def fetch_arxiv(ids, cache):
     """Fill `cache` for ids not in it. One batched query-API request per 100
-    ids; when that endpoint refuses (on 2026-09-24 it answered HTTP 406 to
-    every uncached request), one OAI-PMH GetRecord per id instead. arXiv asks for 3 s between
+    ids; when that endpoint refuses (it has answered HTTP 406 to every uncached
+    request), one OAI-PMH GetRecord per id instead. arXiv asks for 3 s between
     requests. Returns (fetched ids, error or None)."""
     todo = sorted(i for i in ids if i not in cache)
     fetched, err = [], None

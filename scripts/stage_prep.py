@@ -19,15 +19,15 @@ Stdlib only.
       Stage 5 step 1. Plans the paper-summarizer fan-out. A paper file over
       --solo-kb (a full text, header or not) gets its own dispatch, with
       `read_until` set to the line before its references or acknowledgements
-      heading; the rest go in batches of up to --batch. Papers that already
+      heading; the rest go in batches of up to BATCH (8). Papers that already
       have a summary are skipped unless --regenerate. JSON.
 
   keywords <paper_vault_path> --profile P
       Stage 5 step 2a. The keyword index as one line per slug: paper count,
       how many untagged summaries name the slug in their text, two titles,
       whether a topic note exists and how many papers it lacks. Profile
-      keywords first, then candidates on >= --min papers. Also which review
-      questions (Q1, Q2, ...) no summary cites. Text.
+      keywords first, then candidates on >= MIN_PAPERS (2) papers. Also
+      which review questions (Q1, Q2, ...) no summary cites. Text.
 
   digest <paper_vault_path> --topic slug[:alias,alias] ...
       Stage 5 step 2d. Writes <paper_vault_path>/.digests/<slug>.md per topic:
@@ -57,7 +57,7 @@ import argparse, json, re, sys
 from pathlib import Path
 
 from check_vault import split
-from link_papers import FM_RE, block_list, norm_doi, scalar
+from link_papers import FM_RE, block_list, norm_doi, scalar, set_field
 
 # The end of the main text. An appendix before it is kept; one after it goes
 # with the references, and the summarizer may still read on when the main text
@@ -67,6 +67,8 @@ TAIL_RE = re.compile(
     r"acknowledge?ments?)\**\s*:?\s*$", re.I)
 PREPRINT_DOI = ("10.48550/", "10.1101/", "10.21203/", "10.2139/ssrn")
 MERGED = ".merged"
+BATCH = 8       # short papers per paper-summarizer dispatch
+MIN_PAPERS = 2  # papers a non-profile keyword needs to be offered as a topic
 
 
 def norm_title(t):
@@ -120,13 +122,6 @@ def same(a, b):
             return False, k
     t = norm_title(a["title"])
     return (bool(t) and t == norm_title(b["title"])), "title"
-
-
-def set_field(fm, key, value):
-    line = f"{key}: {value}\n"
-    if re.search(rf"^{key}:.*$", fm, re.M):
-        return re.sub(rf"^{key}:.*\n", lambda _: line, fm, count=1, flags=re.M)
-    return fm + line
 
 
 # ---------------------------------------------------------------- merge
@@ -246,7 +241,7 @@ def cmd_summaries(a):
                          **({"read_until": ru} if ru else {})})
         else:
             small.append(i)
-    batches = [{"papers": small[n:n + a.batch]} for n in range(0, len(small), a.batch)]
+    batches = [{"papers": small[n:n + BATCH]} for n in range(0, len(small), BATCH)]
     print(json.dumps({
         "to_summarize": len(todo),
         "skipped_existing": len(ps) - len(todo),
@@ -358,11 +353,11 @@ def cmd_keywords(a):
     out = [f"{len(ss)} summaries, {len(index)} distinct keywords", "",
            "Profile keywords_of_interest:"]
     out += [line(k) for k in wanted] or ["  (none)"]
-    cands = sorted((k for k in index if k not in wanted and len(index[k]) >= a.min),
+    cands = sorted((k for k in index if k not in wanted and len(index[k]) >= MIN_PAPERS),
                    key=lambda k: (-len(index[k]), k))
-    out += ["", f"Other keywords on >= {a.min} papers ({len(cands)}):"] + ([line(k) for k in cands] or ["  (none)"])
-    single = sorted(k for k in index if k not in wanted and len(index[k]) < a.min)
-    out += ["", f"Keywords below {a.min} papers ({len(single)}; not offered alone, but can merge into a "
+    out += ["", f"Other keywords on >= {MIN_PAPERS} papers ({len(cands)}):"] + ([line(k) for k in cands] or ["  (none)"])
+    single = sorted(k for k in index if k not in wanted and len(index[k]) < MIN_PAPERS)
+    out += ["", f"Keywords below {MIN_PAPERS} papers ({len(single)}; not offered alone, but can merge into a "
                 f"topic above as an alias): " + ", ".join(single)]
     zero = [k for k in wanted if not index.get(k)]
     if zero:
@@ -751,12 +746,10 @@ def main():
     s = sub.add_parser("summaries")
     s.add_argument("path", type=Path)
     s.add_argument("--regenerate", action="store_true")
-    s.add_argument("--batch", type=int, default=8)
     s.add_argument("--solo-kb", type=int, default=12)
     k = sub.add_parser("keywords")
     k.add_argument("path", type=Path)
     k.add_argument("--profile", type=Path, required=True)
-    k.add_argument("--min", type=int, default=2)
     d = sub.add_parser("digest")
     d.add_argument("path", type=Path)
     d.add_argument("--topic", action="append", required=True, help="slug, or slug:alias,alias")

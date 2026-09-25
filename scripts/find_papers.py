@@ -58,7 +58,7 @@ from pathlib import Path
 from build_vault import ATOM, parse_atom
 from check_vault import split
 from fetch_fulltext import NetError, get, process
-from link_papers import block_list, norm_doi, scalar
+from link_papers import listval, norm_doi, scalar
 from stage_prep import MERGED, norm_title, papers, same
 
 ESEARCH = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi"
@@ -410,13 +410,6 @@ def seed_ident(s):
     if re.fullmatch(r"PMC\d+", s, re.I):
         return {**blank, "pmcid": s.upper()}
     return {**blank, "title": s}
-
-
-def listval(fm, key):
-    v = scalar(fm, key).split(" #")[0].strip()
-    if v.startswith("["):
-        return [x.strip().strip("\"'") for x in v.strip("[]").split(",") if x.strip()]
-    return block_list(fm, key)
 
 
 def cmd_seeds(a, api):

@@ -4,11 +4,13 @@ each summary's `related_notes` / `related_basis` frontmatter.
 
 Three kinds of link, from one Semantic Scholar batch request:
   direct-citation     one vault paper's references contain the other
-  shared-references   the two share >= --min-shared references outside the vault
+  shared-references   the two share >= MIN_SHARED references outside the vault
   similar-content     SPECTER2 (title + abstract) embeddings are close, for
                       pairs with no citation relation at all
 
 Deterministic, symmetric and capped by construction. Stdlib only.
+Semantic Scholar data is cached in --state; --refresh refetches it, --offline
+uses the cache only.
 Prints a JSON report on stdout; exits 2 (with {"error": ...}) if the fetch fails.
 """
 import argparse, itertools, json, math, os, re, sys, time, urllib.error, urllib.request
@@ -17,6 +19,13 @@ from pathlib import Path
 S2_BATCH = "https://api.semanticscholar.org/graph/v1/paper/batch"
 FIELDS = "title,externalIds,embedding.specter_v2,references.paperId"
 BATCH_SIZE = 500
+CITATION_SLOTS = 5   # citation edges per paper
+SEMANTIC_SLOTS = 3   # similar-content edges per paper
+MIN_SHARED = 2       # shared outside references for a shared-references edge
+# min SPECTER2 cosine for a content link; calibrated: same-field pairs 0.92-0.97,
+# cross-field (CT imaging vs time-series) <= 0.861
+SIM_FLOOR = 0.90
+FETCH_BUDGET_S = 600  # seconds to keep retrying a rate-limited fetch
 FM_RE = re.compile(r"\A---\n(.*?\n)---\n", re.S)
 
 
@@ -45,6 +54,22 @@ def block_list(fm, key):
     if not b:
         return []
     return [ln.strip()[2:].strip().strip("\"'") for ln in b[2][1:] if ln.strip().startswith("- ")]
+
+
+def listval(fm, key):
+    """A list field in block style or inline `[a, b]` style (a trailing ` # comment` dropped)."""
+    v = scalar(fm, key).split(" #")[0].strip()
+    if v.startswith("["):
+        return [x.strip().strip("\"'") for x in v.strip("[]").split(",") if x.strip()]
+    return block_list(fm, key)
+
+
+def set_field(fm, key, value):
+    """Set a top-level scalar field in place, or append it."""
+    line = f"{key}: {value}".rstrip() + "\n"
+    if re.search(rf"^{key}:.*\n", fm, re.M):
+        return re.sub(rf"^{key}:.*\n", lambda _: line, fm, count=1, flags=re.M)
+    return fm + line
 
 
 def render_list(key, items):
@@ -138,7 +163,7 @@ def cosine(u, v):
     return sum(a * b for a, b in zip(u, v)) / math.sqrt(sum(a * a for a in u) * sum(b * b for b in v))
 
 
-def compute(papers, cache, a):
+def compute(papers, cache):
     known = [p for p in papers if p["s2id"] and cache.get(p["s2id"])]
     rec = {p["id"]: cache[p["s2id"]] for p in known}
     pid = {i: r["paperId"] for i, r in rec.items()}
@@ -154,7 +179,7 @@ def compute(papers, cache, a):
             citation[(x, y)] = ((1, 0), "direct-citation")
         else:
             n = len((refs[x] & refs[y]) - vault_pids)
-            if n >= a.min_shared:
+            if n >= MIN_SHARED:
                 citation[(x, y)] = ((0, n), f'"shared-references ({n})"')
 
     # SPECTER2 cosines are compressed (0.76-0.97 on the calibration vault): the
@@ -162,17 +187,17 @@ def compute(papers, cache, a):
     # neighbours, so no vault-relative percentile is needed (in a one-topic
     # vault it would climb above genuine neighbours).
     sims = {(x, y): cosine(emb[x], emb[y]) for x, y in itertools.combinations(sorted(emb), 2)}
-    semantic = {pr: s for pr, s in sims.items() if pr not in citation and s >= a.sim_floor}
+    semantic = {pr: s for pr, s in sims.items() if pr not in citation and s >= SIM_FLOOR}
 
     # greedy in one global order; an edge lands on both papers or neither
     chosen, c_used, s_used = {}, {}, {}
     for pr, (k, basis) in sorted(citation.items(), key=lambda kv: (-kv[1][0][0], -kv[1][0][1], kv[0])):
-        if all(c_used.get(i, 0) < a.citation_slots for i in pr):
+        if all(c_used.get(i, 0) < CITATION_SLOTS for i in pr):
             chosen[pr] = basis
             for i in pr:
                 c_used[i] = c_used.get(i, 0) + 1
     for pr, s in sorted(semantic.items(), key=lambda kv: (-kv[1], kv[0])):
-        if all(s_used.get(i, 0) < a.semantic_slots for i in pr):
+        if all(s_used.get(i, 0) < SEMANTIC_SLOTS for i in pr):
             chosen[pr] = f'"similar-content ({s:.3f})"'
             for i in pr:
                 s_used[i] = s_used.get(i, 0) + 1
@@ -215,13 +240,6 @@ def main():
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--refresh", action="store_true", help="ignore cached Semantic Scholar data")
     ap.add_argument("--offline", action="store_true", help="use cached data only; never touch the network")
-    ap.add_argument("--citation-slots", type=int, default=5)
-    ap.add_argument("--semantic-slots", type=int, default=3)
-    ap.add_argument("--min-shared", type=int, default=2)
-    ap.add_argument("--sim-floor", type=float, default=0.90,
-                    help="min SPECTER2 cosine for a content link; calibrated: same-field pairs "
-                         "0.92-0.97, cross-field (CT imaging vs time-series) <= 0.861")
-    ap.add_argument("--fetch-budget", type=int, default=600, help="seconds to keep retrying a rate-limited fetch")
     a = ap.parse_args()
 
     if not a.summaries.is_dir():
@@ -236,13 +254,13 @@ def main():
     fetched = 0
     if not a.offline:
         try:
-            fetched = fetch([p["s2id"] for p in papers if p["s2id"]], cache, a.refresh, a.fetch_budget)
+            fetched = fetch([p["s2id"] for p in papers if p["s2id"]], cache, a.refresh, FETCH_BUDGET_S)
         except RuntimeError as e:
             print(json.dumps({"error": str(e)}))
             return 2
     fetch_s = round(time.time() - t0, 1)
 
-    chosen, in_s2, with_emb = compute(papers, cache, a)
+    chosen, in_s2, with_emb = compute(papers, cache)
     per = {p["id"]: [] for p in papers}
     for (x, y), basis in chosen.items():
         per[x].append((y, basis))
@@ -275,7 +293,7 @@ def main():
         "embedding_coverage": f"{len(with_emb)}/{len(papers)}",
         "edges": kinds,
         "zero_edge_papers": [i for i, l in per.items() if not l],
-        "similarity_floor": a.sim_floor,
+        "similarity_floor": SIM_FLOOR,
         "stale_entries_removed": stale_total,
         "files_changed": changed,
         "papers_fetched": fetched,
