@@ -1,0 +1,24 @@
+{
+ "to_summarize": 7,
+ "skipped_existing": 0,
+ "dispatch_count": 2,
+ "dispatches": [
+  {
+   "papers": [
+    "2023_lee_park"
+   ],
+   "kb": 1,
+   "read_until": 31
+  },
+  {
+   "papers": [
+    "2019_legacy",
+    "2020_hand_a",
+    "2020_hand_b",
+    "2021_smith_jones",
+    "2021_smith_jones_2",
+    "2024_lee_park"
+   ]
+  }
+ ]
+}

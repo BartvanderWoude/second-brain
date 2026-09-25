@@ -1,0 +1,18 @@
+{
+  "mcpServers": {
+    "paper-search": {
+      "command": "uvx",
+      "args": ["paper-search-mcp"],
+      "env": {
+        "UNPAYWALL_EMAIL": "${UNPAYWALL_EMAIL:-}"
+      }
+    },
+    "asta": {
+      "type": "http",
+      "url": "https://asta-tools.allen.ai/mcp/v1",
+      "headers": {
+        "x-api-key": "${ASTA_API_KEY:-}"
+      }
+    }
+  }
+}

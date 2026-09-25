@@ -1,0 +1,12 @@
+q1: 9 hits, all 9 fetched; 3 in vault, 6 new: ("proliferative vitreoretinopathy" OR redetachment) AND (nomogram OR "deep learning" OR "machine learning")
+q2: 8 hits, all 8 fetched; 4 in vault, 2 new: ("retinal detachment" OR redetachment) AND (recurrence OR recurrent OR "proliferative vitreoretinopathy") AND (nomogram OR "deep learning")
+q3: 121 hits, TOO BROAD, not fetched — split it and rerun; 0 in vault, 0 new: "retinal detachment" AND ("machine learning" OR "deep learning")
+list core-probe: 8 candidates, in .candidates/core-probe.json
+1. 2020 Antaki — Predictive modeling of proliferative vitreoretinopathy using automated machine learning by ophthalmologists without coding experience [Scientific reports] (q1#2)
+2. 2026 Liu — Identification of potential ferroptosis-related biomarkers in proliferative vitreoretinopathy based on machine learning [Frontiers in molecular biosciences] (q1#3)
+3. 2025 Gan — Development and validation of the Artificial Intelligence-Proliferative Vitreoretinopathy (AI-PVR) Insight system for deep learning-based diagnosis a… [Quantitative imaging in medicine and sur] (q1#5, q2#6)
+4. 2026 N — Design of a multilayer photonic crystal biosensor for ocular studies enhanced with machine learning towards the evaluation of proliferative vitreoret… [Scientific reports] (q1#6)
+5. 2026 Jiang — Predictive lipidaemic and clinical factors for PVR formation after RRD surgery in nondiabetic patients [International journal of ophthalmology] (q1#7, q2#7)
+6. 2009 Rojas — Development of predictive models of proliferative vitreoretinopathy based on genetic variables: the Retina 4 project [Investigative ophthalmology & visual sci] (q1#9)
+7. 2023 Zhou — A Prediction Nomogram for Recurrent Retinal Detachment [Risk management and healthcare policy] (q2#1)
+8. 2026 Wu — Elevated Retinal Neovascularization on Widefield Optical Coherence Tomography Angiography Predicts Complications in High-Risk Proliferative Diabetic … [American journal of ophthalmology] (q2#5)

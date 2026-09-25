@@ -1,0 +1,16 @@
+Resolution: existing note topics/survival-analysis.md, 2 papers.
+
+Since deep-dive survival-analysis-deep-dive-20260925:
+Note papers: 2 at the snapshot, 2 now.
+Records: 4 at the snapshot, 8 now: 4 new (3 full text, 1 abstract-only), 0 gone.
+Extraction warnings on new records: 2025_diaz_ruiz (garbled-digits).
+New records summarized: 3 of 4; not yet: 2025_orphan.
+Older records without a summary: none.
+
+New summaries carrying the slug or an alias (1):
+  2025_kim_cho Deep Survival Networks for Recurrence
+New summaries naming it untagged (1):
+  - 2025_diaz_ruiz — Fine-Gray Models Revisited: "Subdistribution hazards, compared with a time-to-event model that censors deaths."
+New summaries doing neither (1): 2025_ng_ong.
+Other topic notes the new summaries carry: calibration 1 (1 not in its note).
+Review questions the new summaries cite: Q1 1, Q2 1, Q3 2.

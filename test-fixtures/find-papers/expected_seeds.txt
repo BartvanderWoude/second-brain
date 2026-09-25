@@ -1,0 +1,8 @@
+5 records in the vault
+2021_nobody_known | 2021 nobody — A fixture paper that no bibliographic index holds
+2023_gao_wu | 2023 gao — A title the fixture changed, so only the PMID can match
+2024_catania_chapron | 2024 catania — Deep Learning for prediction of late recurrence of retinal detachment using preoperative and postoperative ultra-wide field imaging
+2025_gan_cao | 2025 gan — A different paper by the same two authors in the same year
+2026_xing_shao | 2026 xing — NOMOGRAM-BASED PREDICTION OF POSTOPERATIVE PROLIFERATIVE VITREORETINOPATHY FOLLOWING SCLERAL BUCKLING SURGERY FOR RHEGMATOGENOUS RETINAL DETACHMENT.
+seed_papers: 3 in the profile, 1 not in the vault
+  not in vault: A Prediction Nomogram for Recurrent Retinal Detachment

@@ -1,0 +1,20 @@
+{
+ "saved": [
+  {
+   "requested": "core-probe #7",
+   "id": "2023_zhou_lu",
+   "file": "2023_zhou_lu.md",
+   "title": "A Prediction Nomogram for Recurrent Retinal Detachment",
+   "doi": "10.2147/rmhp.s403136",
+   "pmid": "37013114",
+   "source": "pubmed",
+   "full_text": "abstract-only"
+  }
+ ],
+ "skipped_existing": [],
+ "not_found": [],
+ "fetched": false,
+ "still_abstract_only": [
+  "2023_zhou_lu"
+ ]
+}

@@ -1,4 +1,12 @@
 .DS_Store
+__pycache__/
+*.pyc
 paper_vault/
 code_vault/
 obsidian_vault/
+
+# Secrets — never commit. .env holds per-researcher API keys (e.g. ASTA_API_KEY).
+# .env.example is the committed placeholder; .env itself is personal.
+.env
+.env.*
+!.env.example

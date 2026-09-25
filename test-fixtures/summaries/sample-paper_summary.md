@@ -1,5 +1,5 @@
 ---
-id: sarcopenia-ct-embedding-20260825
+id: sample-paper
 created: 2026-08-25
 status: draft
 type: paper
@@ -10,8 +10,10 @@ year: 2025
 venue: MICCAI 2025 Workshop on Body Composition Imaging
 url: https://arxiv.org/abs/2501.12345
 doi: 10.1234/miccai.2025.00042
+pmid:
 code_link: https://github.com/example-lab/sarcopenia-embed
 paywalled: false
+full_text: full
 related_problem: ""
 matched_terms:
   close_field: []
@@ -29,6 +31,7 @@ task: skeletal muscle cross-sectional area segmentation for sarcopenia screening
 method: contrastive-pretrained lightweight 3D convolutional encoder + compact segmentation head
 result: Dice 0.91 vs. 0.92 for a 5x larger baseline, 8x faster on CPU (0.4s vs 3.2s/slice), n=412 single-site test set
 related_notes: []
+related_basis: {}
 ---
 
 ## Problem addressed
@@ -46,6 +49,11 @@ A compact 3D encoder is trained on L3-level abdominal CT slices with a
 contrastive pretraining objective, then paired with a lightweight segmentation
 head fine-tuned on annotated masks. The encoder has roughly 1/5th the
 parameters of comparable 3D U-Net baselines, enabling CPU-only inference.
+
+## Key technical details
+
+The paper states no equations or explicit objective (the contrastive
+pretraining loss is named in "2. Method" but not written out).
 
 ## Result
 

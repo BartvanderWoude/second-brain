@@ -1,0 +1,41 @@
+Resolution: existing note topics/survival-analysis.md, 2 papers.
+
+Vault: 4 papers (3 full text, 1 abstract-only), 4 summaries, 2 topic notes.
+Vault profile: fixture-dd-20260925, status confirmed, 3 review questions.
+In the vault profile's keywords_of_interest: yes.
+Note aliases: time-to-event. deep_dive: none.
+
+Note papers (2):
+  2021_smith_jones 2021 Cox Models for Recurrence
+    seed: "Cox Models for Recurrence — 10.1000/sj.2021"
+  2022_wu_chen 2022 Time-to-Event Learning: A "Review"
+    seed: "Time-to-Event Learning: A \"Review\""
+
+Carry the slug or an alias, not in the note (0):
+  none
+
+Name it without carrying it (1):
+  - 2023_lee_park — Recalibrating Risk Scores: "A survival analysis of the refitted cohort sets the interval."
+
+Same name, spelled differently (0):
+  none
+
+Names sharing a word (1):
+  survival-models  1 paper, 0 shared
+
+On at least half of the topic's papers (1):
+  calibration  3 papers, 2 shared (own note)
+
+Review questions the topic's summaries cite: Q1 2, Q2 1, Q3 0
+
+Note sections: Summary, Relevance to the problem, Papers.
+Obsidian copy: edited by hand, and replaced on a rebuild: Summary; the researcher's own sections, kept: My notes.
+
+Note text (104 characters):
+## Summary
+Survival models predict recurrence as time to event.
+
+## Relevance to the problem
+Answers Q1.
+
+Snapshot: wrote .deep-dive/survival-analysis-deep-dive-20260925.json (4 records).

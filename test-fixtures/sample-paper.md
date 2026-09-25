@@ -1,3 +1,20 @@
+---
+id: sample-paper
+title: "Fast Sarcopenia Segmentation via Lightweight 3D CT Embeddings"
+authors: ["Jane Q. Researcher", "Alex T. Collaborator"]
+year: 2025
+venue: "MICCAI 2025 Workshop on Body Composition Imaging"
+source: arxiv
+url: https://arxiv.org/abs/2501.12345
+doi: 10.1234/miccai.2025.00042
+arxiv_id: 2501.12345
+pmid:
+pmcid:
+paywalled: false
+full_text: full
+full_text_source: arxiv-mcp
+extraction_warning:
+---
 # Fast Sarcopenia Segmentation via Lightweight 3D CT Embeddings
 
 **Authors:** Jane Q. Researcher, Alex T. Collaborator

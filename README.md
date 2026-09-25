@@ -1,73 +1,143 @@
 # second-brain-researcher
 
-Agentic research pipeline for literature and code discovery, built on Claude Code + Claude app + Obsidian.
+A Claude Code plugin for literature reviews. You describe a research problem, or
+a topic you want reviewed. It searches for papers and code, summarizes every
+paper, and builds a linked [Obsidian](https://obsidian.md) vault you can browse.
 
-Methods relevant to a problem often already exist in an adjacent field, but finding them is manual and ad hoc — and whatever gets found rarely ends up captured anywhere durable, so the next project starts from zero. This pipeline turns a researcher's problem description into a structured search, and structures what it finds into a browsable, linked knowledge base.
+It is built to find methods from neighbouring fields that a normal search would
+miss, and to keep what it finds in one place for the next project.
 
-## Pipeline overview
+## What it does
 
-1. **Intake** — researcher describes the problem (domain, data, task, reference standard).
-2. **Problem profile** — an adaptive Q&A deepens the description into a structured note, including the two term lists discovery searches against.
-3. **Discovery** — parallel search across papers (arXiv, PubMed, Semantic Scholar) and code (GitHub).
-4. **Checkpoint** — pause for researcher review before anything downstream consumes what was found.
-5. **Vault build** — discovered papers and repos become structured notes, materialized into an Obsidian vault.
-6. **Cross-linking** (partly implemented) — papers are linked to each other through per-subtopic topic notes built from their shared keywords. The spec's embedding-similarity linking is still not implemented.
-7. **Experiment plan** (not implemented) — proposes a baseline + ideas from the vault, optionally adapted into the researcher's existing project repo.
+1. **Questions.** Claude asks about your problem or topic and writes a short
+   profile of it, including the search terms. You check and confirm it.
+2. **Search.** Several searches run at the same time (see
+   [Where it searches](#where-it-searches)). Then it follows the citations of
+   the most central papers until no new ones turn up.
+3. **Checkpoint.** It stops and shows you what it found: how many papers per
+   source, which have full text and which only an abstract, and which you need
+   to download yourself. Nothing happens until you say go.
+4. **Summaries and topics.** Every paper gets a structured summary. You pick
+   which themes get a topic note: what those papers show together, where they
+   disagree, and what is missing.
+5. **Vault.** Everything is written into an Obsidian vault as linked notes.
 
-**What's actually wired end to end right now:** stages 1–2 (`research-problem-intake`), stage 3 for **arXiv only** (`second-brain-paper-downloader`), stage 4 as a conversational pause, stage 5 for **papers only** (`paper-summarizer` → `topic-summarizer` → `obsidian-vault-writer`), and keyword-based cross-linking via topic notes. No code/repo discovery or vault-build yet. PubMed, Semantic Scholar, and GitHub discovery, repo cloning/summarization, embedding-similarity cross-linking, and the experiment plan are all still unimplemented. The `second-brain-pipeline` skill is the entry point that runs the wired stages in sequence; the five pieces it calls can also still be invoked individually.
+Later, a **topic deep-dive** gives one topic note of an existing vault its own
+literature search and deepens the note with what it finds.
+
+Not built yet: running the code it finds, and proposing an experiment plan.
+
+A full run uses a lot of your Claude usage: a 42-paper review used about 21
+million tokens.
+
+## Where it searches
+
+| Source | What for |
+|---|---|
+| arXiv | preprints, mostly machine learning and computer science |
+| PubMed, PMC, Europe PMC | biomedical and clinical papers |
+| Semantic Scholar, through [Ai2 Asta](https://allenai.org/asta/resources/mcp) | the full text of papers, to find methods from other fields whose abstracts never mention yours |
+| OpenAlex | the citations of the most central papers, in both directions |
+| GitHub | code for the papers and the topic. It only reads the repository pages: nothing is downloaded or run. |
+
+Full text comes from free sources first (Europe PMC, NCBI, arXiv, Semantic
+Scholar, Unpaywall). For a paywalled paper it tries Sci-Hub as a last resort.
+Papers it still cannot get are listed at the checkpoint.
 
 ## Install
 
-This repo is a Claude Code **plugin** (and self-hosts its own marketplace) — you install it, you don't clone-and-work inside it. Once installed, the second-brain pipeline is available in every project you open Claude Code in, not just this one:
+You need [Claude Code](https://docs.claude.com/en/docs/claude-code/overview),
+[uv](https://docs.astral.sh/uv/getting-started/installation/) and Python 3.
+
+1. In Claude Code, add the two marketplaces and install the plugin. Add both
+   marketplaces before installing, or the plugin will not load.
+   ```
+   /plugin marketplace add blazickjp/arxiv-mcp-server
+   /plugin marketplace add ofulla/second-brain-researcher
+   /plugin install second-brain-researcher@second-brain-researcher
+   ```
+2. In a terminal, add the arXiv server with PDF support, so it can also read
+   arXiv papers that have no HTML version. If it says `arxiv` already exists,
+   run `claude mcp remove arxiv -s user` first.
+   ```bash
+   claude mcp add -s user arxiv -- uvx --from "arxiv-mcp-server[pdf]" arxiv-mcp-server
+   ```
+3. *Optional:* install Docling, to read papers that are only available as a
+   PDF. Without it, those papers keep only their abstract. The first PDF is
+   slow, because Docling downloads its models then.
+   ```bash
+   uv tool install docling
+   ```
+4. *Optional:* log in to the [GitHub CLI](https://cli.github.com/), to search
+   for code. Without it, the code search is skipped.
+   ```bash
+   gh auth login
+   ```
+5. *Optional:* add API keys (below).
+6. Restart Claude Code.
+
+### API keys (all optional)
+
+The plugin works without any of them: a source without its key is skipped or
+slower. To add one, put `export NAME=value` in your `~/.bashrc` (or
+`~/.zshrc`) and open a new terminal. All of them are free.
+
+| Key | What it adds | Get it |
+|---|---|---|
+| `ASTA_API_KEY` | the full-text search for methods from other fields | [request form](https://share.hsforms.com/1L4hUh20oT3mu8iXJQMV77w3ioxm) |
+| `SEMANTIC_SCHOLAR_API_KEY` | reliable links between papers, and more full text (the shared public quota is often full) | [request form](https://www.semanticscholar.org/product/api#api-key-form) |
+| `UNPAYWALL_EMAIL` | one more source of free full text | no sign-up: just your email address |
+| `OPENALEX_API_KEY` | ten times more citation searches a day; only needed for large or frequent runs | [API settings](https://openalex.org/settings/api), after making an account |
+| `NCBI_API_KEY` | your own PubMed rate limit instead of the one shared by your network | [NCBI account settings](https://www.ncbi.nlm.nih.gov/account/settings/), under "API Key Management" |
+
+## Use
+
+Open Claude Code in the folder of your project and say what you want, for
+example *"I want a literature review on self-supervised pretraining for CT"* or
+*"I have a research problem: …"*. You can also start it by name:
+`/second-brain-researcher:second-brain-pipeline`.
+
+Claude then walks you through it:
+
+1. Answer its questions and confirm the profile it writes.
+2. Wait for the search, read the checkpoint summary, and say whether to go on.
+3. Pick which topics get a topic note.
+4. Open the vault in Obsidian. It offers to do this for you.
+
+To dig deeper into one topic of a vault you already have, say *"dive deeper
+into the survival-analysis note"*, or use
+`/second-brain-researcher:second-brain-topic-deep-dive`.
+
+It creates three folders in your project: `paper_vault/` (the papers it
+found), `code_vault/` (empty for now) and `obsidian_vault/` (the vaults).
+
+## The vault
+
+Each problem or review gets its own vault. In Obsidian, open the folder
+`obsidian_vault/<id>/` of that one problem, not `obsidian_vault/` itself.
 
 ```
-/plugin marketplace add ofulla/second-brain-researcher
-/plugin marketplace add blazickjp/arxiv-mcp-server
-/plugin install second-brain-researcher@second-brain-researcher
+obsidian_vault/<id>/
+├── <id>.md     the problem or review question
+├── papers/     one summary per paper
+├── topics/     one note per topic: what its papers show together
+└── repos/      one note per code repository
 ```
 
-The second command adds the marketplace for `arxiv-mcp-server`, a separate plugin `second-brain-paper-downloader` depends on for its MCP tools. It's declared as a real dependency in `plugin.json`, so the third command auto-installs and auto-enables it too — but only once its marketplace is already registered, which is why that line has to come first. If you skip it: the install *command* reports success, but the plugin itself ends up `failed to load` and every one of its agents/skills is completely unreachable in any session — not degraded, just gone — until you add that marketplace, at which point it self-heals to enabled with no restart needed. All verified directly, not assumed. There's no reason to hit that broken intermediate state when running both commands up front avoids it entirely.
+The notes link to each other:
 
-Because Claude Code's own plugin loader already refuses to load this plugin at all when `arxiv-mcp-server` is missing — confirmed in both the real install path and local dev below — none of this plugin's own agents/skills need to re-check that dependency themselves; there's no scenario where they'd run with it actually absent.
+- The **problem note** links to every paper, topic and repository.
+- A **topic note** links to its papers, and to the other topics that share at
+  least two papers with it.
+- A **paper note** links to its topics, its repositories, and related papers:
+  papers it cites or that cite it, and papers with a similar abstract.
 
-For local development, run Claude Code straight from a checkout of this repo with `claude --plugin-dir .` — it loads the plugin live from the working tree, no install step, no re-running anything after an edit. Verified directly: this enforces the same `arxiv-mcp-server` dependency as a real install — with it missing, none of this plugin's agents/skills appear at all; with it present, everything loads normally. So it still needs to be installed (via the marketplace commands above) for local testing to work, same as for a real user.
+You can edit any note. When the pipeline runs again, it updates only its own
+sections and keeps your changes.
 
-Once installed, running the pipeline against a real research problem happens in *your own* project — that's where `research-problem-intake` sets up `paper_vault/`, `code_vault/`, and `obsidian_vault/` as working directories, and where the resulting notes live.
+## Working on the plugin
 
-## Structure
-
-```
-second-brain-researcher/
-├── .claude-plugin/
-│   ├── plugin.json                                # plugin manifest (name, version, description)
-│   └── marketplace.json                            # self-hosted marketplace listing this one plugin
-├── agents/
-│   ├── second-brain-paper-downloader.md           # stage 3 (arXiv only): finds + saves papers into paper_vault/<id>/
-│   ├── paper-summarizer.md                        # stage 5 (papers): one paper -> one structured summary note
-│   ├── topic-summarizer.md                        # stage 5 (topics): one keyword -> one synthesized topic note
-│   └── obsidian-vault-writer.md                   # stage 5 (vault): materializes profile + paper + topic notes into the Obsidian vault
-├── skills/
-│   ├── research-problem-intake/SKILL.md           # stage 1–2: Q&A that produces the problem-profile note
-│   └── second-brain-pipeline/SKILL.md              # orchestrator: runs stages 1–5 end to end, holds the stage-4 checkpoint
-├── templates/
-│   ├── paper-page-template.md                    # stage 5: structure for a discovered-paper note
-│   ├── topic-note-template.md                    # stage 5: structure for a per-subtopic topic note
-│   └── research-problem-profile-format-spec.md   # shared contract: exact schema the intake skill outputs
-├── test-fixtures/                                # sample paper + expected summary, for testing paper-summarizer
-└── README.md
-```
-
-**Note on placement:** `research-problem-profile-format-spec.md` is a format contract more than a fill-in-the-blanks template, but it lives in `templates/` for now since that's the only place for shared reference docs in the current structure. Worth revisiting once there's more than one non-skill, non-template doc to place (e.g. a `docs/` folder).
-
-**Fixed (needs real-install verification):** agent/skill content used to reference `templates/...` by a path relative to this repo's root (e.g. `templates/paper-page-template.md`), which doesn't resolve once installed and invoked from an unrelated project. `${CLAUDE_PLUGIN_ROOT}` looked like the fix Claude Code's plugin system provides for exactly this, but it's scoped to hook/monitor/MCP *command* config fields — not to skill/agent Markdown prose, and not exposed as a Bash-tool environment variable (verified directly: `echo $CLAUDE_PLUGIN_ROOT` under `--plugin-dir` returns empty). `second-brain-pipeline/SKILL.md` now resolves the template path itself at Stage 5 (checks `${CLAUDE_PLUGIN_ROOT}`, then a repo-relative path for local dev, then scans `~/.claude/plugins/marketplaces/*/` for this plugin's installed copy) instead of assuming a fixed path. The third case's directory shape is inferred from how the (already-installed) `arxiv-mcp-server` plugin is laid out, not yet verified against a real marketplace install of *this* plugin — do that before trusting it fully. See [PROJECT_CONTEXT.md](PROJECT_CONTEXT.md).
-
-## What's built so far
-
-- **`research-problem-intake` skill** — runs the adaptive Q&A, deepens the researcher's initial description (including fields drawn from the CLAIM checklist for AI-in-medical-imaging reporting), produces the two search-term lists discovery consumes, and writes a confirmed problem-profile `.md` file. Also sets up three local working directories (`paper_vault/`, `code_vault/`, `obsidian_vault/`) when run from Claude Code.
-- **`second-brain-paper-downloader` agent** — stage 3, arXiv only. Reads a confirmed problem profile's `paper_vault_path`, searches arXiv in two passes (close-field, then generalized terms), and saves up to 20 matched papers there.
-- **`paper-summarizer` agent** — stage 5 (papers). Turns one saved paper into a structured summary note conforming to `paper-page-template.md`. Optionally takes the confirmed problem profile as a third input, in which case `related_problem`, `matched_terms`, and the relevance synthesis are grounded in that specific problem rather than written as a generic assessment.
-- **`topic-summarizer` agent** — stage 5 (topics). Takes one subtopic keyword plus the paper summaries carrying it, reads those papers' full text selectively (greps to the relevant passages rather than loading whole 20–140 KB extractions), and writes one short topic note synthesizing what the papers collectively establish, where they disagree, and what's missing. Dispatched once per subtopic, in parallel. A profile keyword that matched no papers still gets a note saying so — that's a gap worth seeing.
-- **`obsidian-vault-writer` agent** — stage 5 (vault). Materializes a confirmed problem profile, the paper-summary notes, and the topic notes into an Obsidian vault (problem ↔ papers, problem ↔ topics, topics ↔ papers). Takes all four inputs explicitly from the caller. A vault is just a folder of markdown files, so this works whether or not the Obsidian application is installed — the pipeline offers to open the result afterwards, separately.
-- **`second-brain-pipeline` skill** — the orchestrator. Runs the above four (one skill, three agents) in sequence against one research problem, pausing at the stage-4 checkpoint for researcher review before vault-build.
-- **`paper-page-template.md`** — the note format for a paper once discovery finds it, including how it links back to the problem that surfaced it.
-- **`research-problem-profile-format-spec.md`** — the frontmatter schema for the problem-profile note, field by field, with notes for what the paper-search and Obsidian groups each need from it.
+Run `claude --plugin-dir .` in a clone of this repository to load the plugin
+from your working copy. Install steps 1 and 2 are still needed: the plugin does
+not load without the arXiv server. How it is built, its rules and how to test
+it are in [CLAUDE.md](CLAUDE.md).
