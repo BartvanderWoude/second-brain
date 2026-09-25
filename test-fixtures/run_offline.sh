@@ -15,7 +15,8 @@
 set -u
 cd "$(dirname "$0")/.." || exit 2
 
-SUITES=(check-vault fetch find-papers linker stage-prep stage-prep-deep-dive vault-build)
+ALL=(check-vault fetch find-papers linker schema-copies stage-prep stage-prep-deep-dive vault-build)
+SUITES=("${ALL[@]}")
 
 # fail LABEL TEXT: record a failure for the suite that is running.
 fail() { printf '%s: %s\n' "$1" "$2" >> "$LOG"; }
@@ -111,6 +112,13 @@ suite_linker() {
     --state test-fixtures/linker/state --offline --dry-run) test-fixtures/linker/expected_report.json
 }
 
+suite_schema_copies() {
+  fields_spec() { grep -oE '^\| `[a-z_]+`' templates/research-problem-profile-format-spec.md | tr -d '|` ' | sort -u; }
+  fields_intake() { awk '/^ *```yaml/{p=1;next} /^ *```/{p=0} p' skills/research-problem-intake/SKILL.md \
+      skills/research-problem-intake/deep-dive.md | grep -oE '^ *[a-z_]+:' | tr -d ' :' | sort -u; }
+  same fields <(fields_intake) <(fields_spec)
+}
+
 suite_stage_prep() {
   local B=test-fixtures/stage-prep
   local R=$B/records/fixture-prep-20260924
@@ -200,7 +208,7 @@ status=0
 for name in "${SUITES[@]}"; do
   fn="suite_${name//-/_}"
   if ! declare -F "$fn" > /dev/null; then
-    echo "unknown suite: $name (suites: check-vault fetch find-papers linker stage-prep stage-prep-deep-dive vault-build)"
+    echo "unknown suite: $name (suites: ${ALL[*]})"
     status=1
     continue
   fi

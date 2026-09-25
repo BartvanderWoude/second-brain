@@ -55,8 +55,7 @@ REPO_LINE_RE = re.compile(r"^\s*- \[\[repos/[^\]]*\]\]\s*$")
 FENCE_RE = re.compile(r"^(```|~~~)")
 
 REQUIRED = {
-    "all": ["id", "created", "status", "close_field_terms", "keywords_of_interest",
-            "cross_project_linking"],
+    "all": ["id", "created", "status", "close_field_terms", "keywords_of_interest"],
     "problem": ["domain", "data_modality", "cohort_description", "task", "reference_standard",
                 "current_approach", "observed_failure_mode", "generalized_methodology_terms"],
     "topic": ["review_scope", "review_purpose", "review_questions"],
@@ -344,7 +343,7 @@ def check_profile(profile, vault):
         if not re.search(rf"^{key}:", fm, re.M):
             missing.append(key)
         elif not scalar(fm, key) and not block(fm, key)[2][1:] and \
-                key not in ("generalized_methodology_terms", "cross_project_linking"):
+                key != "generalized_methodology_terms":
             missing.append(key)
     if missing:
         return None, f"profile ({ptype}) is missing required fields: {', '.join(missing)}"

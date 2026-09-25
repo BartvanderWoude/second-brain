@@ -16,5 +16,4 @@ generalized_methodology_terms: []
 keywords_of_interest:
   - survival-analysis
   - calibration
-cross_project_linking: false
 ---

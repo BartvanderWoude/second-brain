@@ -2,15 +2,10 @@
 
 The single definition of **when two search hits are the same paper**, **what
 the saved file is called**, **what its id is**, and **what a saved file
-contains**. Every discovery agent cites this file rather than restating it — per
-the "one copy of each schema" rule in `PROJECT_CONTEXT.md`, a second copy that
-drifts breaks dedup silently.
-
-This began as arXiv-only rules inside `second-brain-paper-downloader.md`. It is
-now shared, because once several sources run in parallel the same paper
-routinely arrives twice — a preprint on arXiv and the published version on
-PubMed are one paper, and saving both wastes a vault slot and double-counts the
-subtopic in every topic note downstream.
+contains**. Every discovery agent and script follows this file; none restates
+it, because a drifting copy breaks dedup silently. The same paper often arrives
+from several sources (a preprint on arXiv, the published version on PubMed), and
+saving it twice double-counts it in every topic note.
 
 ## Identity: the key ladder
 
@@ -106,11 +101,8 @@ re-derived by any later stage. The same string is:
 - the entries in a topic note's `papers` and a repo note's `related_papers`;
 - the entries the linker script writes into `related_notes`.
 
-Every stage can compute it from a path alone, so no stage has to look it up and
-no two stages can disagree about it. Before this rule each stage coined its own
-id — the downloader from the authors, the summarizer from the title, the code
-leg from the filename — and links written in one namespace pointed at notes
-named in another.
+Every stage computes it from a path alone, so no two stages can disagree
+about it. Never coin an id of your own from a title or a slug.
 
 Never rename a saved file: renaming changes the id. The pipeline's merge step
 keeps one file per paper and moves the other into `.merged/`, and the kept file
@@ -153,7 +145,10 @@ extraction_warning:
   it returned none. These are what the linker script and the full-text fetcher
   resolve the paper by, so fill every one you have.
 - `paywalled` — whether the **paper** is behind a publisher paywall. It says
-  nothing about whether you captured its text.
+  nothing about whether you captured its text: `true` whenever no open-access
+  copy exists, including when Sci-Hub then supplied one; `false` for an
+  open-access paper, even one whose text could not be converted; blank when a
+  source could not be reached to tell.
 - `full_text` — `full` when the body is the paper's extracted text,
   `abstract-only` when it is only the abstract.
 - `full_text_source` — where the body came from: `arxiv-mcp` (the arXiv MCP
@@ -164,17 +159,13 @@ extraction_warning:
   `garbled-digits` (a PDF whose numerals came out as substituted glyphs).
 
 Every value comes from the **source's metadata** (the API response), never from
-the paper's body text. A body can carry a masthead from a different version, or
-a date the HTML renderer stamped on the page; one saved paper dated 2023 by
-every index had "August 24, 2026" in its body for exactly that reason.
+the paper's body text: a body can carry a masthead from another version, or a
+date stamped on the page by an HTML renderer.
 
 **A body** — the paper's extracted text, or, when there is none, a
 `## Abstract` heading followed by the abstract verbatim. The body is **never
 summary-shaped**: no `keywords`, `matched_terms`, relevance assessment or
-`## Synthesis`. Writing the summary is `paper-summarizer`'s job, and a saved
-file that already looks like a summary is indistinguishable downstream from a
-paper that has no full text — later stages then burn their effort discovering
-that there is nothing to read.
+`## Synthesis`. Writing the summary is `paper-summarizer`'s job.
 
 Write the header when you save the file, even for an abstract-only record: an
 abstract-only record is valid and complete, and `scripts/fetch_fulltext.py`
@@ -184,8 +175,8 @@ upgrades it in place when it finds the full text.
 
 Build the index of what is already saved **once per run**, before fetching
 anything: glob `<paper_vault_path>/*.md`, read each file's header `title:` field
-(the first ~20 lines) and normalize it. A file with no header — saved before
-headers existed — begins with its title, so fall back to its first line. Do not
+(the first ~20 lines) and normalize it. A file with no header (an old one)
+begins with its title, so fall back to its first line. Do not
 glob per candidate, and do not narrow the glob to a candidate's expected
 filename — the same paper can be sitting under a different year (v1 vs. v2
 dates) or a differently-slugged second author.

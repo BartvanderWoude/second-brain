@@ -107,7 +107,9 @@ open the vault at the end, and never installs Obsidian.
   decision, and the README says so.
 - **One copy of each schema.** The `templates/` files are the only
   definitions; consumers cite them, never restate them. A drifting copy breaks
-  a handoff silently.
+  a handoff silently. The one exception is intake's YAML skeletons of the
+  profile (reading the whole spec in the main conversation costs more); the
+  `schema-copies` suite fails when their fields drift from the spec's.
 - **Every agent's `description:` warns against being reimplemented** from the
   description alone or routed around after a blocking report. It is the only
   text an orchestrating session sees before dispatch.
@@ -262,6 +264,7 @@ working and every suite before calling a change done.
 | `fetch_fulltext.py` (offline rungs) | `fetch` | `test-fixtures/fetch/` |
 | `find_papers.py` | `find-papers` | `test-fixtures/find-papers/` |
 | `link_papers.py` | `linker` | `test-fixtures/linker/` |
+| intake's profile skeletons vs the profile spec | `schema-copies` | `test-fixtures/schema-copies/` |
 | `stage_prep.py` merge, summaries, keywords, digest | `stage-prep` | `test-fixtures/stage-prep/` |
 | `stage_prep.py topic`, `digest --since` | `stage-prep-deep-dive` | `test-fixtures/stage-prep/` (§ Topic deep-dive) |
 | `build_vault.py` | `vault-build` | `test-fixtures/vault-build/` |

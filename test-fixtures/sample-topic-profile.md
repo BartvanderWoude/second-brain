@@ -27,8 +27,6 @@ keywords_of_interest:
   - domain-shift
   - abdominal-ct
   - chest-ct
-cross_project_linking: false
-related_projects: []
 paper_vault_path:
 code_vault_path:
 ---

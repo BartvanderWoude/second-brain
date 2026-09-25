@@ -22,7 +22,6 @@ recall_probes:
   - '("retinal detachment" OR redetachment) AND (recurrence OR recurrent OR "proliferative vitreoretinopathy") AND (nomogram OR "deep learning")'
 generalized_methodology_terms: []
 keywords_of_interest: []
-cross_project_linking: false
 ---
 
 Fixture profile for scripts/find_papers.py.

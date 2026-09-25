@@ -17,7 +17,6 @@ generalized_methodology_terms:
 keywords_of_interest:
   - survival-analysis
   - calibration
-cross_project_linking: false
 paper_vault_path: /tmp/fixture/paper_vault/fixture-vault-20260924/
 ---
 

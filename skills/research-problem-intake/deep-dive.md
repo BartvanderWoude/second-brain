@@ -75,8 +75,7 @@ changed.
     that the summarizer will then tag new papers by its own judgement, and the
     note may collect fewer of them.
 
-Tier 1 is not asked: the draft covers it. Tier 3 is inherited from the vault
-profile.
+Tier 1 is not asked: the draft covers it.
 
 ## Write
 
@@ -112,8 +111,6 @@ After the researcher confirms:
    generalized_methodology_terms: []
    keywords_of_interest:
      - <slug>
-   cross_project_linking:      # the vault's
-   related_projects: []        # the vault's
    paper_vault_path:           # the vault's, verbatim
    code_vault_path:            # the vault's, verbatim
    ---

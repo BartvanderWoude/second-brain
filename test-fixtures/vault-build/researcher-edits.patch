@@ -1,7 +1,7 @@
 diff -ruN a/fixture-vault-20260924/fixture-vault-20260924.md b/fixture-vault-20260924/fixture-vault-20260924.md
 --- a/fixture-vault-20260924/fixture-vault-20260924.md
 +++ b/fixture-vault-20260924/fixture-vault-20260924.md
-@@ -31,11 +31,10 @@
+@@ -30,11 +30,10 @@
  - [[papers/2022_wu_chen|Time-to-Event Learning / A Review of (Deep) Methods]]
  - [[papers/2023_lee_park|Deep Survival Models for Recurrence]]
  

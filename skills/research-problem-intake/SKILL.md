@@ -11,7 +11,7 @@ Turns a researcher's initial description into a structured markdown profile note
 - **Topic** — a literature review of a topic, with no specific problem or dataset (e.g. "what's known about self-supervised pretraining for CT"). Written as `profile_type: topic`.
 - **Topic deep-dive** — a literature search for one topic note of an existing vault. Entered only from the `second-brain-topic-deep-dive` skill, which passes the vault profile, the topic slug, the request and a topic report. Written as a topic profile with `deep_dive_of` set. **Read `deep-dive.md` in this skill's directory and follow it instead of the process below**; it cites Tier 2 from this file.
 
-Only Tier 0 and Tier 1 differ between the first two; Tier 2 and Tier 3 are shared.
+Only Tier 0 and Tier 1 differ between the first two; Tier 2 is shared.
 
 This is stage 1–2 of the second-brain research pipeline — the output is what stage 3 (paper/code discovery) searches against, so the two term lists it produces (close-field and generalized-methodology) matter more than any other field.
 
@@ -34,10 +34,9 @@ Works identically whether invoked from Claude app or Claude Code — same questi
 2. **Take Tier 0 as given.** Problem type: if the researcher already stated domain, data modality, task, and reference standard (e.g. in their opening message), do not re-ask for these — treat them as the seed and move straight to deepening them in Tier 1. If none of this was given yet, ask for it first in one open question: "What's the problem — domain, data you're working with, the task, and what you're using as ground truth?" Topic type: the seed is the topic itself plus whatever framing came with it; if it was a bare phrase, ask one open question: "What's the topic, and what do you want out of the review?"
 3. **Work through Tier 1** for the chosen type (below), one question at a time, adapting to what's already been said. Skip any question already answered by something the researcher volunteered earlier in the conversation.
 4. **Run the Tier 2 abstraction step.** This is the highest-value part of the whole skill — see the dedicated section below. Do not skip or shortcut it even if the researcher seems ready to move on.
-5. **Ask Tier 3 bookkeeping** questions.
-6. **Present the full draft** (every field below, plus both term lists and the recall probes) as a single summary and ask the researcher to confirm or edit. Do not write the file until they confirm.
-7. **Create this profile's subfolders**, if filesystem access is available: `paper_vault/<id>/` and `code_vault/<id>/`, using the `id` about to go into the frontmatter. Skip silently in Claude app, same as step 0.
-8. **Write the `.md` file** using the output format below, setting `status: confirmed` — the researcher approved the draft in step 6, and every downstream stage refuses to run against a `draft` profile. Save it and hand it back to the researcher (e.g. via `present_files` if available). Tell them plainly this is ready for hand-off to discovery/vault-writing — don't perform those steps yourself.
+5. **Present the full draft** (every field below, plus both term lists and the recall probes) as a single summary and ask the researcher to confirm or edit. Do not write the file until they confirm.
+6. **Create this profile's subfolders**, if filesystem access is available: `paper_vault/<id>/` and `code_vault/<id>/`, using the `id` about to go into the frontmatter. Skip silently in Claude app, same as step 0.
+7. **Write the `.md` file** using the output format below, setting `status: confirmed` — the researcher approved the draft in step 5, and every downstream stage refuses to run against a `draft` profile. Save it and hand it back to the researcher (e.g. via `present_files` if available). Tell them plainly this is ready for hand-off to discovery/vault-writing — don't perform those steps yourself.
 
    If the researcher stops partway and asks you to save an unfinished profile, write it with `status: draft` and tell them plainly that discovery won't run against it until it's confirmed.
 
@@ -155,14 +154,6 @@ Drafting guidance:
 
 Same thin-answer rule as everywhere else: one follow-up if the response is a shrug, then record the draft as-is and move on.
 
-## Tier 3 — bookkeeping
-
-**`cross_project_linking`**
-- "Should this link to your other active projects if something turns out relevant, or stay standalone for now?"
-
-**`related_projects`** — only ask if the above is yes:
-- "Which existing project(s) should it check against?"
-
 ## Output format
 
 Write a single markdown file with YAML frontmatter. **Problem profile:**
@@ -190,8 +181,6 @@ close_field_terms: []
 recall_probes: []           # 1–3 single-quoted PubMed boolean queries; omit if none
 generalized_methodology_terms: []
 keywords_of_interest: []
-cross_project_linking: true/false
-related_projects: []
 paper_vault_path: <root>/paper_vault/<id>/
 code_vault_path: <root>/code_vault/<id>/
 ---
@@ -217,8 +206,6 @@ close_field_terms: []
 recall_probes: []           # 1–3 single-quoted PubMed boolean queries; omit if none
 generalized_methodology_terms: []   # may be empty — cross-field pass declined
 keywords_of_interest: []
-cross_project_linking: true/false
-related_projects: []
 paper_vault_path: <root>/paper_vault/<id>/
 code_vault_path: <root>/code_vault/<id>/
 ---
@@ -226,7 +213,7 @@ code_vault_path: <root>/code_vault/<id>/
 
 Never write problem-only fields (`cohort_description`, `reference_standard`, `observed_failure_mode`, etc.) into a topic profile, not even as blanks. A blank field there reads downstream as "unknown" rather than "doesn't apply".
 
-`status:` is `confirmed` for a normal completed run (the researcher signed off in step 6 before anything was written). Only write `status: draft` for the partial-save case in step 8 — `draft` means "the Q&A didn't finish," and it blocks every downstream stage.
+`status:` is `confirmed` for a normal completed run (the researcher signed off in step 5 before anything was written). Only write `status: draft` for the partial-save case in step 7 — `draft` means "the Q&A didn't finish," and it blocks every downstream stage.
 
 `keywords_of_interest` is the subtopic taxonomy, always lowercase kebab-case. It is a **preferred vocabulary, not a closed one** — paper notes reuse these slugs verbatim when they cover a concept named here (that exact-string reuse is what links a paper to a topic), but they may also carry keywords beyond this list, which is by design rather than an error. It is not search input; discovery queries the two term lists only.
 
