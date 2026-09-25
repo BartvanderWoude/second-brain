@@ -1,0 +1,31 @@
+{
+ "saved": [
+  {
+   "requested": "core-1 #19",
+   "id": "2024_savastano_crincoli",
+   "file": "2024_savastano_crincoli.md",
+   "title": "Prediction of postoperative visual acuity restoration in macula off rhegmatogenous retinal detachment using artificial intelligence",
+   "doi": "10.1016/j.ajoint.2024.100008",
+   "pmid": "",
+   "source": "openalex",
+   "full_text": "abstract-only"
+  },
+  {
+   "requested": "core-1 #60",
+   "id": "2013_salapuigdollers_fernandez",
+   "file": "2013_salapuigdollers_fernandez.md",
+   "title": "External validation of existing formulas to predict the risk of developing proliferative vitreoretinopathy: the Retina 1 Project; report 5",
+   "doi": "10.1097/iae.0b013e31828991ea",
+   "pmid": "23594721",
+   "source": "pubmed",
+   "full_text": "abstract-only"
+  }
+ ],
+ "skipped_existing": [],
+ "not_found": [],
+ "fetched": false,
+ "still_abstract_only": [
+  "2024_savastano_crincoli",
+  "2013_salapuigdollers_fernandez"
+ ]
+}

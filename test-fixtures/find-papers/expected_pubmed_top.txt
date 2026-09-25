@@ -1,0 +1,7 @@
+q1: 121 hits, top 5 of 121 fetched; 0 in vault, 5 new: "retinal detachment" AND ("machine learning" OR "deep learning")
+list background: 5 candidates, in .candidates/background.json
+9. 2021 Group — Classification Criteria for Vogt-Koyanagi-Harada Disease [American journal of ophthalmology] (q1#1)
+10. 2024 Li — Developing and validating a clinlabomics-based machine-learning model for early detection of retinal detachment in patients with high myopia [Journal of translational medicine] (q1#2)
+11. 2025 Kaur — Retinopathy of Prematurity [StatPearls] (q1#3)
+12. 2020 Li — Deep learning for detecting retinal detachment and discerning macular status using ultra-widefield fundus images [Communications biology] (q1#4)
+13. 2024 Munk — Integrated Assessment of OCT, Multimodal Imaging, and Cytokine Markers for Predicting Treatment Responses in Retinal Vein Occlusion Associated Macula… [Diagnostics (Basel, Switzerland)] (q1#5)

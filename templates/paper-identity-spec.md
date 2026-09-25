@@ -143,8 +143,10 @@ extraction_warning:
 ```
 
 - `id` — the filename stem, per above.
-- `source` — `arxiv`, `pubmed`, `pmc`, `europepmc` or `semantic_scholar`;
-  after a merge, the merged sources comma-joined (`arxiv, pubmed`).
+- `source` — `arxiv`, `pubmed`, `pmc`, `europepmc`, `semantic_scholar` or
+  `openalex` (a paper the citation chaser found that neither PubMed nor arXiv
+  holds, saved from OpenAlex's metadata); after a merge, the merged sources
+  comma-joined (`arxiv, pubmed`).
 - `url` — for an arXiv paper always `https://arxiv.org/abs/<arxiv_id>`, without
   a version suffix; otherwise the source's landing page.
 - `doi`, `arxiv_id`, `pmid`, `pmcid` — every id the source returned, blank when

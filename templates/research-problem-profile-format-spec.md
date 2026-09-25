@@ -50,9 +50,10 @@ Required: **all** = both types; **problem** / **topic** = required for that type
 | `review_scope` | string | topic | What the review covers and what it explicitly rules out | Both — discovery screens against it |
 | `review_purpose` | string | topic | Why the review is being done — entering a field, grant background, judging whether a method is mature, etc. | Summarizers (steers relevance) |
 | `review_questions` | list[string] | topic | 1–5 guiding questions the review should answer. The topic-profile counterpart of `observed_failure_mode`: the anchor every relevance section ties back to. | Summarizers + pipeline report |
+| `core_questions` | list[int] | topic | The 1-based numbers of the `review_questions` whose papers must be covered **completely**, usually one: the question the researcher's own work is compared against. The discovery legs do not cap its papers, and the citation chaser covers it exhaustively. `[]` means none (a broad survey): nothing is uncapped and citation chasing is skipped. Missing on a topic profile means the pipeline asks for it before discovery. A problem profile has no field: its core is always the direct comparators, papers doing its `task` on its `domain`. See "Core question" below. | Discovery legs + citation chaser |
 | `seed_papers` | list[string] | no | Known key papers (title, DOI or arXiv id) or authors. Extra query anchors for discovery, not an allowlist. Topic profiles mostly, but valid on either type. | Paper-search group |
 | `date_window_years` | integer | no | How many years back the main discovery sweep reaches. Missing means `3`; `0` means no lower bound. Either type. | Paper-search group |
-| `recall_probes` | list[string] | no | 1–3 boolean queries in PubMed syntax describing the **direct-comparator** category — papers doing this profile's own task on its own condition. Not discovery input: the stage-4 recall check runs them and reports hits the vault lacks. Missing means the pipeline drafts its own at stage 4. Either type. See "Recall probes" below. | Pipeline (stage-4 recall check) |
+| `recall_probes` | list[string] | no | 1–3 boolean queries in PubMed syntax for the **core** category — on a problem profile, papers doing its own task on its own condition. Not discovery-leg input: the citation chaser runs them, whole and without a date window, as its first round. Missing means the chaser drafts its own and reports them. Either type. See "Recall probes" below. | Citation chaser |
 | `close_field_terms` | list[string] | all | Direct search terms for pass 1 of discovery | **Paper-search group — this is a primary input** |
 | `generalized_methodology_terms` | list[string] | all | Abstracted terms for pass 2 (cross-field transfer search). **May be empty on a topic profile** — the researcher declined the cross-field pass — in which case that pass is skipped, not failed. | **Paper-search group — this is a primary input** |
 | `keywords_of_interest` | list[string] | all | Subtopic taxonomy for this problem — the buckets papers get filed under. Lowercase kebab-case slugs. Not search input; see "Keyword vocabulary" below. | Obsidian group (topic notes) + `paper-summarizer` (preferred vocabulary) |
@@ -72,15 +73,28 @@ The contract between this file and the paper notes:
 - **Paper notes may carry keywords beyond this list, by design.** A paper's `keywords` describe the paper itself, not its relation to this problem, so a subtopic irrelevant to this review may match a future one and let that paper be picked up again. Do not treat an unlisted keyword on a paper as an error.
 - **Absent on older profiles is not an error** — treat a missing `keywords_of_interest` as an empty preferred vocabulary and carry on.
 
+## Core question
+
+Most of a review's questions are background: a fair sample of their literature is enough. One usually is not: the question the researcher's own work answers, whose papers are the direct comparators. A reRD review once found 5 of the 19 papers on that question, because every discovery stage treated it like the others. It rested on a few queries, their results were cut to the top 30, and its papers competed with epidemiology and cost papers for 20 slots.
+
+`core_questions` names that question, so that:
+
+- the discovery legs save **every** paper that passes screening for it, and cap only the background questions;
+- the **citation chaser** runs after the legs and covers it exhaustively, independently of how the legs worded their queries. It runs the recall probes as whole hit sets, then chases citations one hop both ways from the vault's core papers through OpenAlex, round after round until a round adds nothing. No date window applies.
+
+A problem profile needs no field: its core is always the direct comparators, papers doing its `task` on its `domain`.
+
 ## Recall probes
 
-`recall_probes` is the check on discovery, not an input to it. The discovery legs build their own queries from the two term lists, and nothing downstream sees what those queries missed: a reRD review once lacked two of the four papers that were its closest comparators, and no stage noticed. A probe is a small, precise query for the one category whose gaps matter most — the papers the researcher's own work would be compared against. At the stage-4 checkpoint, `scripts/recall_check.py` runs each probe on PubMed and arXiv and lists every top hit that is not already in the paper vault.
+`recall_probes` are the core category's own queries, written at intake with the researcher, who knows the comparators best. The citation chaser runs them first, on PubMed, fetching every hit and never just the top ones, and screens them with its first round of citation candidates. On the reRD run, citation chasing recovered 10 of the 14 core papers discovery had missed, and a probe-style concept-block query recovered the other 4.
 
-- **Syntax: concept blocks.** Each probe has 2–3 blocks joined by AND; a block is an OR-group of synonyms in parentheses, with every multi-word phrase in quotes — `("retinal detachment" OR redetachment) AND (recurrence OR "anatomical success") AND (nomogram OR "machine learning" OR "prediction model")`. PubMed syntax; the script translates it for arXiv, dropping any `[tiab]`-style field tag there. Tagging a block's terms `[tiab]` keeps PubMed from widening them through MeSH mapping, which trims off-target hits.
-- **Precise, not exhaustive.** A probe should return tens of hits, mostly on target. The check flags a probe that returns more than 60 as `too_broad` — the top of a flood is not a recall test.
+- **Syntax: concept blocks.** Each probe has 2–3 blocks joined by AND; a block is an OR-group of synonyms in parentheses, with every multi-word phrase in quotes — `("retinal detachment" OR redetachment) AND (recurren* OR "anatomical success") AND (nomogram* OR "risk score*" OR "logistic regression" OR "prediction model*" OR "machine learning" OR "deep learning")`.
+- **Both method families.** A prediction-type probe names classical models (nomogram, risk score, logistic regression, prediction model) and machine learning together. The reRD run's only core query named machine learning alone and missed the four classical PVR models the field is built on.
+- **Truncation for word families** (`predict*`, `recurren*`), with a stem of at least 4 characters. A truncated word escapes PubMed's automatic MeSH mapping, so keep the plain form beside it when it has a MeSH heading.
+- **Tens of hits, not thousands.** A probe matching more than 300 papers is reported too broad and not fetched; the chaser splits it. Tagging a block's terms `[tiab]` keeps PubMed from widening them through MeSH mapping, which trims off-target hits.
 - **Write each as a single-quoted YAML string** (`- '(...) AND (...)'`), since probes carry double quotes; a literal single quote is doubled.
-- **Discovery legs do not read this field.** Letting them query with it would make the check test itself.
-- **Absent is not an error.** Older profiles have none; the pipeline drafts 1–3 at stage 4 from `task`, `domain` and `close_field_terms`, and labels them as drafted in its report.
+- **Discovery legs do not read this field.** The chaser runs after them, and whatever the probes find that the legs missed is what it adds.
+- **Absent is not an error.** Older profiles have none; the chaser drafts 1–3 from the core question, `task` and `domain`, and labels them as drafted in its report so the researcher can add them here.
 
 ## Body
 
@@ -106,7 +120,8 @@ The root path itself is not yet a settled team convention — treat `<project-ro
 - `close_field_terms` and `generalized_methodology_terms` are the two inputs for the two discovery passes described in the pipeline spec — treat them as separate query sets, not one merged list. A hit that only matches `generalized_methodology_terms` is a genuine cross-field transfer candidate and probably worth surfacing even with a weaker literal match.
 - Don't query against a note with `status: draft` — it means the researcher hasn't confirmed the profile yet.
 - `keywords_of_interest` is **not** search input. It's the vault's subtopic taxonomy — discovery still queries the two term lists only.
-- `recall_probes` is not search input either. It is the stage-4 check on what discovery found; a leg that queried with it would be grading its own work.
+- `recall_probes` is not search input either. It is the citation chaser's first round, run after the legs.
+- `core_questions` (or, on a problem profile, the direct comparators) marks the question whose papers are **not capped**: save every one that passes screening, and spread the usual 20 slots across the other questions only.
 - `domain`, `data_modality`, `task`, `reference_standard`, `data_partitioning` are free text, not enums — expect variation in phrasing across notes, no fixed vocabulary yet.
 - On a `topic` profile, most of those fields are absent. Screen relevance against `review_scope` instead, and treat `seed_papers` as extra query anchors — search for them and their neighbourhood, but don't save a seed paper that falls outside `review_scope` just because it was named.
 - Read `date_window_years` for the main sweep's lower bound: missing → 3 years, `0` → none. Never hardcode the window.

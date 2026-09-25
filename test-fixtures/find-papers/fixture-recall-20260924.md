@@ -7,6 +7,7 @@ domain: ophthalmology
 task: predicting recurrent retinal detachment and PVR
 review_scope: prediction models for re-detachment and PVR
 review_purpose: fixture
+core_questions: [1]
 review_questions:
   - Which models predict re-detachment?
 seed_papers:
@@ -24,4 +25,4 @@ keywords_of_interest: []
 cross_project_linking: false
 ---
 
-Fixture profile for scripts/recall_check.py.
+Fixture profile for scripts/find_papers.py.

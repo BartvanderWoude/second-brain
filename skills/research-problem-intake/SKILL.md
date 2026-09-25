@@ -40,6 +40,8 @@ Works identically whether invoked from Claude app or Claude Code — same questi
 
    If the researcher stops partway and asks you to save an unfinished profile, write it with `status: draft` and tell them plainly that discovery won't run against it until it's confirmed.
 
+**A confirmed topic profile without `core_questions`** (written before the field existed) comes back from the pipeline for that one field. Ask only the `core_questions` question below, add the field to the frontmatter after `review_questions`, keep `status: confirmed`, and change nothing else.
+
 ### Handling thin answers
 
 If an answer is a single word, "not sure," or otherwise clearly underdeveloped, ask exactly **one** follow-up (each field below has a suggested one). If the second answer is still thin, record what you have and move on — don't loop trying to extract depth that isn't there. Note the gap plainly in the confirmation summary rather than silently padding the field.
@@ -111,6 +113,10 @@ Same one-question-at-a-time rhythm and thin-answer rule as the problem branch. N
 - "What 1–5 questions should the review answer by the end? For example: which methods exist, how they compare, what's still unsolved."
 - Follow-up, if the answer is one vague question: "Here's how I'd split that into sharper questions: [draft]. Does that match what you want to know?"
 
+**`core_questions`** — asked right after `review_questions`, with the questions numbered:
+- "Which of these is the core one — the question your own work is compared against, whose papers the review has to cover completely rather than sample? Usually one. The others get a fair sample; the core one gets every paper we can find, including by chasing citations. It's fine to say none if this is a broad survey."
+- Record the 1-based numbers (`core_questions: [3]`), or `core_questions: []` for none. No follow-up: "none" is a real answer, and it only means nothing is searched exhaustively.
+
 `review_questions` is deliberately asked last, right before the abstraction step, for the same reason the failure mode is in the problem branch: it is the raw material the term lists and keywords are drafted from, and it is what every relevance section downstream ties back to. Where the researcher's topic implies a `domain` or `task`, record it — it helps discovery choose arXiv categories — but don't ask for either as a separate question.
 
 ## Tier 2 — abstraction step (produces the two term lists, the recall probes and the keyword taxonomy)
@@ -120,10 +126,10 @@ This is the skill's actual value-add and the part most likely to be shallow if r
 **Close-field terms** — usually mostly extractable from Tier 1 answers. Draft it yourself and confirm rather than asking cold:
 - "Here's a draft of close-field search terms based on what you've described: [draft list]. Anything to add or cut?"
 
-**Recall probes** — 1–3 queries for the papers the researcher's own work would be compared against: the ones doing the same task on the same condition. They are not used for discovery; at the stage-4 checkpoint the pipeline runs them and lists every hit missing from the vault. Draft them from `task`, `domain` (or `review_questions`) and the close-field terms, and confirm:
-- "One more thing on search. These queries test, after discovery, whether we found the papers your work would be compared against — [task] on [condition]: [draft probes]. Would the papers you'd cite as direct comparators match these?"
+**Recall probes** — 1–3 queries for the core category: on a topic profile the `core_questions`, on a problem profile the papers doing the same task on the same condition. The discovery legs do not use them. After the legs, the pipeline's citation chaser runs them, fetching every hit, and then chases citations from the core papers they and the legs found. Draft them from the core question, `task`, `domain` and the close-field terms, and confirm:
+- "One more thing on search. These queries go after the papers your work would be compared against — [core question, or task on condition] — and everything found from them is followed through its citations: [draft probes]. Would the papers you'd cite as direct comparators match these?"
 
-Write each probe as 2–3 concept blocks joined by AND, a block being an OR-group of synonyms in parentheses with multi-word phrases quoted — `("retinal detachment" OR redetachment) AND (recurrence OR "anatomical success") AND (nomogram OR "machine learning" OR "prediction model")`. Keep them narrow: a probe returning hundreds of hits tests nothing. If the researcher can name no comparator category (a broad methods survey, say), record none — the pipeline drafts its own at stage 4 — and do not push for one.
+Write each probe as 2–3 concept blocks joined by AND, a block being an OR-group of synonyms in parentheses with multi-word phrases quoted — `("retinal detachment" OR redetachment) AND (recurren* OR "anatomical success") AND (nomogram* OR "risk score*" OR "logistic regression" OR "prediction model*" OR "machine learning" OR "deep learning")`. For a prediction-type core, the method block always names classical models and machine learning together: a probe with machine learning alone once missed the four classical models its field was built on. Truncate word families (`predict*`, `recurren*`, stem of 4+ characters). Aim for tens of hits, not thousands. If there is no core category (`core_questions: []`, a broad methods survey), record none and do not push for one.
 
 **Generalized methodology terms** — ask explicitly, never infer silently:
 - "Strip away the domain framing for a second. What's the underlying computational or statistical problem — a distribution-shift problem, a small-sample problem, a representation/pooling problem, a label-noise problem, something else?"
@@ -203,6 +209,7 @@ task:                       # optional — only if the topic implies one
 review_purpose:
 review_scope:
 review_questions: []
+core_questions: []          # 1-based numbers into review_questions; [] = none
 seed_papers: []
 date_window_years:          # omit for the 3-year default; 0 = no limit
 close_field_terms: []

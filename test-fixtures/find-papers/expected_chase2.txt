@@ -1,0 +1,27 @@
+seeds: 1, 1 found in OpenAlex
+backward: 19 works cited by the seeds
+forward: 10 works citing the seeds
+left out: 1 in vault, 6 in earlier core lists, 0 errata/paratext, 0 untitled
+list core-2: 22 candidates, in .candidates/core-2.json
+82. 2023 Gahon — Intravitreal Injection of Bevacizumab for the Prevention of Postoperative Proliferative Vitreoretinopathy in High-Risk Patients Selected by Laser Fla… [Ophthalmologica] (cites 2013_salapuigdollers_fernandez)
+83. 2018 Schaub — Prophylactic intravitreal 5-fluorouracil and heparin to prevent proliferative vitreoretinopathy in high-risk patients with retinal detachment: study … [Trials] (cites 2013_salapuigdollers_fernandez)
+84. 2017 Mulder — Preoperative aqueous humour flare values do not predict proliferative vitreoretinopathy in patients with rhegmatogenous retinal detachment [British Journal of Ophthalmology] (cites 2013_salapuigdollers_fernandez)
+85. 2017 Kuriakose — Proliferative Vitreoretinopathy (PVR) Update: Current Surgical Techniques and Emerging Medical Management [Journal of VitreoRetinal Diseases] (cites 2013_salapuigdollers_fernandez)
+86. 2016 Conart — Validity of aqueous flare measurement in predicting proliferative vitreoretinopathy in patients with rhegmatogenous retinal detachment [Acta Ophthalmologica] (cites 2013_salapuigdollers_fernandez)
+87. 2015 Lauro — Loss of Visual Acuity after Successful Surgery for Macula-On Rhegmatogenous Retinal Detachment in a Prospective Multicentre Study [Journal of Ophthalmology] (cites 2013_salapuigdollers_fernandez)
+88. 2014 Rojas — Predicting proliferative vitreoretinopathy: temporal and external validation of models based on genetic and clinical variables [British Journal of Ophthalmology] (cites 2013_salapuigdollers_fernandez)
+89. 2011 Pastor — A Brief Review and Re-thinking of Proliferative Vitreoretinopathy [European Ophthalmic Review] (ref of 2013_salapuigdollers_fernandez)
+90. 2008 Rua — Non-complicated retinal detachment management: variations in 4 years. Retina 1 project; report 1 [British Journal of Ophthalmology] (ref of 2013_salapuigdollers_fernandez)
+91. 2008 Pastor — Surgical outcomes for primary rhegmatogenous retinal detachments in phakic and pseudophakic patients: the Retina 1 Project--report 2 [British Journal of Ophthalmology] (ref of 2013_salapuigdollers_fernandez)
+92. 2008 Taylor — Validation of Biomarker-Based Risk Prediction Models [Clinical Cancer Research] (ref of 2013_salapuigdollers_fernandez)
+93. 2007 Conrath — Les facteurs de récidive du décollement de rétine [Journal Français d Ophtalmologie] (ref of 2013_salapuigdollers_fernandez)
+94. 2003 Bleeker — External validation is necessary in prediction research: [Journal of Clinical Epidemiology] (ref of 2013_salapuigdollers_fernandez)
+95. 2003 Terrin — External validity of predictive models: a comparison of logistic regression, classification trees, and neural networks [Journal of Clinical Epidemiology] (ref of 2013_salapuigdollers_fernandez)
+96. 2002 Pastor — Proliferative vitreoretinopathy: risk factors and pathobiology [Progress in Retinal and Eye Research] (ref of 2013_salapuigdollers_fernandez)
+97. 2001 Asaria — How to predict proliferative vitreoretinopathy [Ophthalmology] (ref of 2013_salapuigdollers_fernandez)
+98. 2000 Pastor — Combined Pharmacologic Therapy in a Rabbit Model of Proliferative Vitreoretinopathy (PVR) [Ophthalmic Research] (ref of 2013_salapuigdollers_fernandez)
+99. 2000 Kon — Risk factors for proliferative vitreoretinopathy after primary vitrectomy: a prospective study [British Journal of Ophthalmology] (ref of 2013_salapuigdollers_fernandez)
+100. 1998 Pastor — Proliferative Vitreoretinopathy [Survey of Ophthalmology] (ref of 2013_salapuigdollers_fernandez)
+101. 1989 Yoshino — COMPARATIVE STUDY OF CLINICAL FACTORS PREDISPOSING PATIENTS TO PROLIFERATIVE VITREORETINOPATHY [Retina] (ref of 2013_salapuigdollers_fernandez)
+102. 1981 Brennan — Coefficient Kappa: Some Uses, Misuses, and Alternatives [Educational and Psychological Measuremen] (ref of 2013_salapuigdollers_fernandez)
+103. 1973 Chignell — Failure in retinal detachment surgery. [British Journal of Ophthalmology] (ref of 2013_salapuigdollers_fernandez)

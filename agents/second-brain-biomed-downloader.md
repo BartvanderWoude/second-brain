@@ -4,14 +4,16 @@ description: >
   Use when a confirmed research-problem-profile .md file needs the biomedical
   literature leg of discovery — PubMed, PubMed Central and Europe PMC — as the
   counterpart to second-brain-paper-downloader's arXiv leg. Invoke with the
-  profile path; it reads paper_vault_path itself. Searches via the
-  paper-search MCP server, screens abstracts against the profile including its
-  exclusions, and saves matching papers into the problem's paper vault under
-  the shared filename convention. Never reimplement this agent's job yourself
+  profile path and the plugin's scripts/find_papers.py and
+  scripts/fetch_fulltext.py paths; it reads paper_vault_path itself. Searches
+  PubMed through find_papers.py, which retrieves every query's whole hit set,
+  screens against the profile including its exclusions, and saves matching
+  papers into the problem's paper vault under the shared filename convention.
+  Never reimplement this agent's job yourself
   from this description alone, and never treat its own report — even a calm one
   recommending a restart or install — as license to proceed without it; relay
   such reports to the user and stop.
-tools: Read, Write, Bash, Glob, mcp__plugin_second-brain-researcher_paper-search__search_pubmed, mcp__paper-search__search_pubmed, mcp__plugin_second-brain-researcher_paper-search__search_papers, mcp__paper-search__search_papers, mcp__plugin_second-brain-researcher_paper-search__download_pubmed, mcp__paper-search__download_pubmed, mcp__plugin_second-brain-researcher_paper-search__read_pubmed_paper, mcp__paper-search__read_pubmed_paper, mcp__plugin_second-brain-researcher_paper-search__download_scihub, mcp__paper-search__download_scihub
+tools: Read, Write, Bash, Glob, mcp__plugin_second-brain-researcher_paper-search__search_papers, mcp__paper-search__search_papers, mcp__plugin_second-brain-researcher_paper-search__download_pubmed, mcp__paper-search__download_pubmed, mcp__plugin_second-brain-researcher_paper-search__read_pubmed_paper, mcp__paper-search__read_pubmed_paper, mcp__plugin_second-brain-researcher_paper-search__download_scihub, mcp__paper-search__download_scihub
 model: sonnet
 ---
 
@@ -22,18 +24,25 @@ you never ask the user anything.
 
 ## Tool names
 
-Tools are named below without their MCP prefix — `search_pubmed`,
-`search_papers`, `download_scihub`. The live prefix depends on how the
-`paper-search-mcp` server was configured, and both forms are allowlisted above:
+PubMed is searched through the plugin's `scripts/find_papers.py`, not through
+an MCP tool: the MCP search returns only its top hits, with no total, so a
+paper ranked below them is lost where nobody can see it. On one run the
+closest comparator ranked #46 of 54 and the leg read 30.
+
+The MCP tools are named below without their prefix — `search_papers`,
+`download_scihub`. The live prefix depends on how the `paper-search-mcp`
+server was configured, and both forms are allowlisted above:
 
 - `mcp__plugin_second-brain-researcher_paper-search__*` when it runs as the MCP
   server this plugin bundles in its `.mcp.json` (the normal case);
 - `mcp__paper-search__*` when the researcher configured it themselves as a
   user- or project-level server named `paper-search`.
 
-Use whichever prefix is actually in your tool list. If neither is, stop and
-report that the paper-search MCP server is unreachable — do not fall back to
-scraping PubMed over Bash, and do not silently skip the biomedical leg.
+Use whichever prefix is actually in your tool list. If neither is, the PubMed
+search still runs, but the Sci-Hub rung and the Europe PMC breadth search do
+not: say in your reply that the paper-search MCP server is unreachable, and
+that every paywalled paper went to the needs-manual-download list for that
+reason.
 
 ## Input
 
@@ -49,7 +58,12 @@ frontmatter.
   invalid one.
 - `close_field_terms` and `generalized_methodology_terms` are your two query
   sets; treat them separately, not as one merged list. `keywords_of_interest`
-  is **not** search input.
+  and `recall_probes` are **not** search input.
+- **The core question.** On a topic profile it is the `review_questions` whose
+  1-based numbers `core_questions` lists; on a problem profile it is the
+  direct comparators, papers doing `task` on `domain`. Its papers are not
+  capped (step 5). `core_questions: []` or a missing field means every
+  question is background.
 - Respect any out-of-scope/exclusion section.
 - **`profile_type: topic`** (missing means `problem`): a literature review with
   no problem or dataset. Screen against `review_scope` and `review_questions`
@@ -57,14 +71,17 @@ frontmatter.
 - **`seed_papers`**, if present: look each up (by DOI/PMID, or title) and use it
   as a query anchor — its MeSH terms and title wording are strong signals. Save
   it only if it passes the same screening as everything else; it counts toward
-  the 20.
+  the 20 unless it answers the core question.
 - **`date_window_years`**: the main sweep's lower bound. Missing means 3; `0`
   means no date clause at all.
 
-You may also be given the path to the plugin's full-text fetcher,
-`scripts/fetch_fulltext.py`. Step 7 depends on it. Without it, every paper is
-saved abstract-only, and your reply must say the fetcher was not available —
-that is the cause to fix, not the literature.
+You are also given the paths to the plugin's `scripts/find_papers.py` and
+`scripts/fetch_fulltext.py`. Without `find_papers.py`, stop and report that
+the biomedical leg cannot search: it is the only PubMed route. `add` runs the
+full-text fetcher's open-access rungs itself (step 6); the fetcher's own path
+is needed only for the Sci-Hub step, and without it every paper the
+open-access rungs cannot resolve goes straight to the needs-manual-download
+list.
 
 ## Workflow
 
@@ -93,6 +110,24 @@ concepts as three blocks returned 41 hits with all four closest comparators
 among them. More blocks narrow; more synonyms inside a block
 widen.
 
+**Word families and plurals.** Truncate with `*` to catch them —
+`predict*`, `recurren*`, `model*` — with a stem of at least 4 characters. A
+truncated word escapes Automatic Term Mapping (below), so keep the plain form
+beside it when the word has a MeSH heading: `(recurrence OR recurren*)`.
+
+**Classical and machine-learning methods together.** Any sub-ask about
+predicting, prognosing or stratifying risk carries both families in its
+method block, never one:
+
+```
+(predict* OR prognos* OR nomogram* OR "risk score*" OR "risk model*" OR "logistic regression"
+ OR "machine learning" OR "deep learning" OR "artificial intelligence")
+```
+
+The run above searched its core category with `machine learning` as the only
+method term and found none of the four classical PVR prediction models that
+field is built on.
+
 **Do not add `[MeSH]` tags by default.** This is the opposite of the usual
 advice and it is measured, not assumed. PubMed's Automatic Term Mapping already
 expands a bare term into its MeSH descriptor OR-ed with free-text fields, so
@@ -109,47 +144,73 @@ a query that came back flooded with off-topic hits. Never as the default, and
 never as a recall fix — if a query returns too little, the wording is too
 specific, and the fix is a broader synonym.
 
-### 2. Apply the date window inside the query string
+### 2. The date window
 
-`search_pubmed` has **no date parameter**, and `search_papers`'s `year` argument
-applies to Semantic Scholar only — it is silently ignored for PubMed. Do not
-look for a parameter that does not exist.
+Pass `--window N` to `find_papers.py pubmed` (step 3), with `N` =
+`date_window_years`, or 3 if the field is missing. The script appends the
+publication-date clause to every query itself. If `date_window_years` is `0`,
+leave `--window` off. This mirrors the window in
+`second-brain-paper-downloader`, so the two legs stay comparable. The core
+question's coverage beyond the window is the citation chaser's job, which runs
+after this leg without one.
 
-The searcher passes your query verbatim to NCBI ESearch, so the full PubMed
-query language is available to you. Append the window to the query string:
-
-```
-<your terms> AND ("2023"[Date - Publication] : "2026"[Date - Publication])
-```
-
-Compute the lower bound at run time with Bash — `date -d "${N} years ago" +%Y`
-with `N` = `date_window_years` (3 if missing) — never hardcode a year. If
-`date_window_years` is `0`, leave the date clause off entirely. This mirrors the
-window in `second-brain-paper-downloader`, so the two legs stay comparable.
+`search_papers`'s `year` argument applies to Semantic Scholar only and is
+silently ignored for PubMed, so a Europe PMC breadth search is not
+date-windowed.
 
 **Landmark exception**, matching the arXiv leg: if the problem explicitly asks
 for foundational, critique, benchmark-methodology, or survey work, run one
-additional query with no date clause. At most 3 of the 20 slots may come from
-it; label them as landmark picks in your reply. With `date_window_years: 0`
+additional query without `--window`, as its own list (`pubmed-landmark`). At
+most 3 of the 20 slots may come from it; label them as landmark picks in your
+reply. With `date_window_years: 0`
 there is no window and this exception is moot.
 
 ### 3. Search
 
-Call `search_pubmed` with an explicit `max_results` of 25–50 — the default is
-**10**, which starves selection. Prefer `search_pubmed` over the multi-source
-`search_papers` for this agent: `search_papers` fans out across sources this
-agent does not own, and the arXiv leg is already covered by a different agent.
-Use `search_papers` with `sources: "pubmed,pmc,europepmc"` only when you
-deliberately want the PMC/Europe PMC breadth in one call.
+Run your queries through the script, the core question's in one call and the
+background questions' in another:
+
+```bash
+python3 <find_papers.py> pubmed <paper_vault_path> --list pubmed-core --window N \
+  --query '<query>' --query '<query>'
+python3 <find_papers.py> pubmed <paper_vault_path> --list pubmed-background --window N --top 50 \
+  --query '<query>' --query '<query>'
+```
+
+It prints one line per query — its hit count, how many it fetched, how many
+are already in the vault — then one numbered line per new paper: year, first
+author, title, journal, and which queries found it at which rank. It never
+prints abstracts; step 4 asks for those.
+
+A query with at most 300 hits is fetched **whole**. A larger one is reported
+`TOO BROAD` and not fetched at all:
+
+- **A core query is never cut to its top hits.** Split it into narrower
+  queries that together cover the same ground — divide its widest OR-group
+  between two queries, or add a block — and run them as a new list
+  (`pubmed-core-2`).
+- **A background query** may be read as its top 50 by relevance instead:
+  that is what `--top 50` does, and the report says "top 50 of N". Twenty
+  slots are shared across the background questions, so their top hits
+  suffice. The count is still reported, so the cut is visible.
 
 A zero-result query is a wording signal, not a finding — never report it as
-thin literature. Rebuild it: drop the least essential block, or widen an
-OR-group with more synonyms, and run it again. Check that every multi-word
+thin literature. Rebuild it by **widening**: add synonyms to an OR-group, or
+drop a whole AND block. Never remove a term from an OR-group. That is how the
+retry above lost `nomogram` and `risk score`. Check that every multi-word
 phrase is quoted and every block is parenthesised before blaming the topic.
+
+`search_papers` with `sources: "pubmed,pmc,europepmc"` remains for when you
+deliberately want the Europe PMC breadth (preprints, some non-MEDLINE
+journals). It returns top hits only; use it as a supplement, never for the
+core question.
 
 ### 4. Screen for relevance
 
-Judge each candidate on its returned abstract. Before selecting, actively
+Screen in two passes. First the titles: drop what is plainly off-topic and
+shortlist the rest. Then read the shortlist's abstracts, all in one call —
+`python3 <find_papers.py> show <paper_vault_path> --list <list> <n> <n> ...` —
+and judge each candidate on its abstract. Before selecting, actively
 re-check it against the profile's exclusion section and confirm the abstract
 violates none of it — exclusions are exactly what topical similarity fails to
 catch. A paper can read as squarely on-topic and turn out to be the wrong
@@ -166,47 +227,54 @@ problem would skip.
 ### 5. Deduplicate, cap, and skip what exists
 
 Follow `templates/paper-identity-spec.md` — do not restate or re-derive its
-rules. In short: key on DOI first, then PMID, then normalized title; build the
-already-saved index once per run; select at most 20 papers, spread across the
-problem's sub-asks rather than the top 20 by topical similarity.
+rules. The script already leaves out papers in the vault and merges hits
+across queries; a paper two lists share is still one paper.
+
+**The core question is not capped.** Select every candidate from the core
+list that passes screening. On one run 20 slots were split evenly over six
+review questions, and core papers the leg had retrieved lost their slots to
+epidemiology and cost papers.
+
+**The background questions share 20 papers**, spread across their sub-asks
+rather than the top 20 by topical similarity.
 
 Note that this agent may run in parallel with the arXiv leg and cannot see its
 writes. Do not try to compensate — cross-fetcher duplicates are the pipeline's
 merge step to resolve.
 
-### 6. Save every selected paper as a record first
+### 6. Save the selected papers — the script writes the records
 
-Write one file per selected paper into `<paper_vault_path>/`, named by the
-filename convention in `templates/paper-identity-spec.md`, so it sits alongside
-the arXiv leg's output and `paper-summarizer` consumes it without knowing which
-leg produced it.
+One call per list, with the numbers you selected:
 
-Each file is the **identity header** from that spec ("Saved paper file") plus
-the abstract as its body — a `## Abstract` heading and the abstract verbatim.
-Fill the header from the search result's metadata, never from the abstract's
-text: `id` (the filename stem), `title`, `authors`, `year`, `venue`,
-`source: pubmed` (or `pmc` / `europepmc`), `url`, and every id the result
-carried — `doi`, `pmid`, `pmcid`. Set `full_text: abstract-only`,
-`full_text_source: none`, and leave `paywalled:` blank: whether the paper is
-open access is exactly what step 7 finds out.
+```bash
+python3 <find_papers.py> add <paper_vault_path> --list <list> <n> <n> ...
+```
 
-Nothing else goes in the file. No `keywords`, no relevance notes, no summary
+It writes one file per paper into `<paper_vault_path>/`, named by the filename
+convention in `templates/paper-identity-spec.md`: the **identity header** from
+that spec, filled from PubMed's metadata, with the abstract as the body and
+`full_text: abstract-only`. Then it runs the full-text fetcher's open-access
+rungs on each new record and upgrades it in place when one succeeds. Its JSON
+report gives, per record, `full_text`, `full_text_source`, `paywalled` and the
+fetcher's `attempts`, and ends with `still_abstract_only`, the input to
+step 7.
+
+Do not edit the records. No `keywords`, no relevance notes, no summary
 sections — the summary is `paper-summarizer`'s job, and a record that already
 looks like a summary reads downstream as a paper with no full text to read.
 
-This record is valid and complete as it stands. Step 7 upgrades it in place
-when it finds the full text; when it does not, the paper is still in the vault,
-honestly marked abstract-only.
+A Europe PMC hit with a PMID is saved the same way:
+`add <paper_vault_path> --pmid <PMID> ...`. Only one with no PMID (a preprint,
+say) is written by hand: the "Saved paper file" header from the search
+result's metadata, never from its abstract (`source: europepmc`, every id it
+carried, `full_text: abstract-only`, `full_text_source: none`, `paywalled:`
+blank), a `## Abstract` heading and the abstract verbatim. Then run the
+fetcher on it: `python3 <fetch_fulltext.py path> --record <file>`.
 
 ### 7. Fetch the full text: the fetcher first, Sci-Hub last
 
-**Open access — the fetcher.** Run it once, on every saved record:
-
-```bash
-python3 <fetch_fulltext.py path> --record <paper_vault_path>/<file>.md ...
-```
-
-It reads the ids from the header — filling any it lacks from Semantic
+**Open access — the fetcher.** `add` has already run it on every record it
+saved. It reads the ids from the header — filling any it lacks from Semantic
 Scholar, and writing them back — and tries, in order: Europe PMC's full-text
 XML (the open-access PMC subset, converted straight to Markdown — no PDF, so
 none of PDF extraction's mangled digits); NCBI's BioC text of the PMC article,
@@ -218,8 +286,8 @@ an HTML error page, and a download tool has saved exactly that under a `.pdf`
 name while reporting success. On success it rewrites the body, sets
 `full_text: full` and `full_text_source`, and sets `paywalled`: `false` when it
 found an open-access copy, `true` when every source answered that there is
-none. It prints a JSON report per record; read `full_text`, `paywalled` and
-`attempts` from it rather than re-reading the file.
+none. Read `full_text`, `paywalled` and `attempts` from `add`'s report rather
+than re-reading the files.
 
 These are the open-access rungs. The fetcher replaces the ones inside
 `paper-search-mcp`'s `download_with_fallback`, several of which fail on
@@ -234,7 +302,7 @@ the operator's call, not a default to spread silently. Never use it for a paper
 the fetcher already resolved, and do not comment on the choice in your report
 beyond the accounting below.
 
-For each record still `abstract-only` after the fetcher, call `download_scihub`
+For each record in `add`'s `still_abstract_only`, call `download_scihub`
 with `identifier` set to the DOI (else the PMID, else the title) and
 `save_path` set to a fresh temporary directory (`mktemp -d`). It returns a file
 path on success and an error sentence on failure. **Never trust the path on its
@@ -310,10 +378,15 @@ copy, a source that could not be reached, or no fetcher at all — the fixes
 differ. Name any record the fetcher flagged with an `extraction_warning`. Mark
 any landmark picks from outside the date window.
 
-Add one line listing every query that still returned 0 hits after its rebuild,
-verbatim — or "zero-hit queries: none". A query that finds nothing is a gap in
-coverage, and the pipeline's recall check is only useful if it can see where
-the gaps were.
+List every query you ran, verbatim, with its hit count and what was
+fetched: "all N", "top 50 of N", or `TOO BROAD` and the queries you split it
+into. Add one line listing every query that still returned 0 hits after its
+rebuild — or "zero-hit queries: none". A query that finds nothing is a gap in
+coverage, and a count is what shows whether a gap is the literature or the
+wording.
+
+Say how many papers you saved for the core question and how many for the
+background questions, separately.
 
 Keep the **needs-manual-download** list as its own clearly labelled section,
 never folded into the general skipped tally. That list is what the pipeline's

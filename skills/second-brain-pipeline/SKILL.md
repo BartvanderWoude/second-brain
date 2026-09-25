@@ -16,8 +16,9 @@ description: >
   merge, fan-out planning, keyword index, topic digests),
   `scripts/link_papers.py` (paper-to-paper links, content similarity from
   SPECTER2 title+abstract embeddings, not full text),
-  `scripts/fetch_fulltext.py` (full text), `scripts/recall_check.py` (the
-  stage-4 check for comparator papers discovery missed),
+  `scripts/fetch_fulltext.py` (full text), `scripts/find_papers.py` (whole
+  PubMed hit sets and OpenAlex citation chasing, for the biomedical leg and
+  the `second-brain-citation-chaser` agent's core-coverage stage),
   `scripts/build_vault.py` (the Obsidian vault) and `scripts/check_vault.py`
   (records and links).
 ---
@@ -61,6 +62,13 @@ unconfirmed profile.
 Note its `id`, `paper_vault_path`, and `code_vault_path` fields — every
 later stage needs these.
 
+**A topic profile needs `core_questions`**, the review question whose papers
+are covered completely rather than sampled (see the format spec's "Core
+question"). If a confirmed topic profile has no such field — `[]` counts as
+answered — hand it to `research-problem-intake` to ask that one question and
+add it, exactly as for a `draft`. Every stage from discovery on depends on it,
+and it is the researcher's call, not one to guess.
+
 Also note its `profile_type`: `problem` (a concrete problem with data) or
 `topic` (a literature review with no problem behind it); a missing field means
 `problem`. This skill does not branch on it — every agent below reads the
@@ -88,16 +96,19 @@ Resolve the plugin root once, now, in this order:
 In the same Bash call, read the wave size:
 `echo ${CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS:-20}`.
 
-Note `<plugin root>/scripts/fetch_fulltext.py` for stage 3. If no root
-resolves, discovery still runs — dispatch the legs without the fetcher path;
-they then save abstract-only records and say so — but say it in the stage-4
-report, since it is the cause of every abstract-only paper that run.
+Note `<plugin root>/scripts/fetch_fulltext.py` and
+`<plugin root>/scripts/find_papers.py` for stage 3. If no root resolves,
+discovery still runs without them — the arXiv and cross-field legs save
+abstract-only records, the biomedical leg reports it cannot search, and the
+core-coverage stage is skipped — but say it in the stage-4 report, since it
+is the cause of all three.
 
 ## Stage 3: discovery
 
 Dispatch all three discovery agents as **one wave**, each with the confirmed
-profile's file path and the fetcher path
-`<plugin root>/scripts/fetch_fulltext.py` — nothing else. Each reads
+profile's file path, the fetcher path
+`<plugin root>/scripts/fetch_fulltext.py` and, for the biomedical leg, the
+search script path `<plugin root>/scripts/find_papers.py` — nothing else. Each reads
 `paper_vault_path` itself and save into it directly — do not pass or compute that path separately, and do
 not pre-create the directory (the agents handle that).
 
@@ -116,6 +127,28 @@ researcher declined the pass, that is a skipped enhancement, not a failed run. S
 report, in one line, and carry on with the arXiv and PubMed results. Never
 present a run as failed because the optional leg was skipped, and never re-run
 discovery to "fix" a missing key.
+
+### Then core coverage — the citation chaser
+
+Once the three paper legs have returned, dispatch
+`second-brain-citation-chaser` with the confirmed profile path and
+`<plugin root>/scripts/find_papers.py`. It runs after the legs, not beside
+them: it chases citations from the core papers they saved, so it needs those
+on disk.
+
+The legs can report what they found, never what their queries failed to
+retrieve. On the reRD run they found 5 of the 19 papers on its core question,
+while every stage reported a clean run. The chaser covers the core question
+independently of their wording. It runs the profile's `recall_probes` as
+whole PubMed hit sets, then chases citations one hop both ways from the
+vault's core papers through OpenAlex. It screens each round and saves what
+passes, until a round adds nothing. No date window applies.
+
+It replies `OK` with a few lines — the core question, seeds, probes (marked
+when it drafted them), candidates and additions per round, why it stopped,
+OpenAlex gaps — and a **needs-manual-download** list. Keep all of it for
+stage 4. `OK core coverage skipped: …` (the profile names no core question) is
+a skipped stage, not a failure: one line in the report.
 
 ### Merge before the checkpoint
 
@@ -143,7 +176,8 @@ went missing. Keep the report's coverage block for stage 4.
 ### Then the code leg — after the paper legs, still before the checkpoint
 
 Dispatch `second-brain-code-finder` with the confirmed profile path, **once the
-three paper legs have returned and the merge above is done**. It is not a fourth
+paper legs and the citation chaser have returned and the merge above is
+done**. It is not a fourth
 parallel leg, and the reason is a real dependency rather than caution: its
 highest-precision source is the repos named *inside the saved papers*, so it
 needs those files on disk. Started in parallel it would find an empty vault and
@@ -163,60 +197,30 @@ is what makes it safe to run *before* the checkpoint at all. If it reports that
 `gh` is missing or unauthenticated, that is a skipped enhancement exactly like a
 missing Asta key: report it in one line and carry on.
 
-### Last, the recall check — one Bash call, before the checkpoint
-
-The legs can report what they found, never what they failed to retrieve. A reRD
-run once lacked two of its four closest comparator papers while every stage
-reported a clean run: one matched no query the PubMed leg kept, and the other
-ranked below the 30 results it read. Check instead of assuming — no agent:
-
-```
-python3 <plugin root>/scripts/recall_check.py probe <paper_vault_path> --profile <profile path>
-```
-
-It runs the profile's `recall_probes` — 1–3 precise PubMed-syntax queries for
-the papers the researcher's own work would be compared against — on PubMed and
-arXiv, within `date_window_years`, and matches each source's top hits against
-the vault and `.merged/` by the key ladder in `templates/paper-identity-spec.md`.
-It checks `seed_papers` the same way.
-
-**A profile without `recall_probes`** (one written before the field existed):
-draft 1–3 yourself from `task`, `domain` and `close_field_terms`, as concept
-blocks per the format spec's "Recall probes" section — the papers doing the
-profile's own task on its own condition — and pass each as `--probe '<query>'`.
-Show them in the stage-4 report, labelled as drafted by the pipeline, so the
-researcher can correct them and add them to the profile for the next run.
-
-Its JSON gives, per probe and source, `count` (all hits), `checked` (the top
-ones compared), `in_vault` and `missing`. `missing` holds numbers into the
-top-level `missing` list, which numbers each paper once however many probes
-found it. `too_broad` means the probe matched more than it checks. `error`
-means that source was **not checked** — never report it as 0 missing. arXiv's
-query API intermittently answers HTTP 406 for minutes at a time; the script
-retries twice, and if arXiv still refuses, rerun the probe once before the
-checkpoint and otherwise report arXiv as not checked.
-
-
 ## Stage 4: checkpoint — stop and wait
 
-After every discovery leg has reported and the merge and the recall check
-above are done, relay a combined summary (the profile type, what was saved per
-leg, which legs ran and which were skipped, each leg's queries that still
-returned 0 hits, what was merged as duplicates, what was skipped, dropped, or
-saved abstract-only because it is paywalled, and which repositories were
-found) to the researcher and **stop here**.
+After every discovery leg, the citation chaser and the merge are done, relay
+a combined summary (the profile type, what was saved per leg with the core
+question's count separate, which legs ran and which were skipped, each leg's
+queries that still returned 0 hits and any it reported too broad, what was
+merged as duplicates, what was skipped, dropped, or saved abstract-only
+because it is paywalled, and which repositories were found) to the researcher
+and **stop here**.
 
 State **full-text coverage** as numbers, from the merge report rather than
 from the legs' prose: `full_text` gives `full` versus `abstract-only`,
-`by_source` splits them by leg, `extraction_warnings` names the records whose
+`by_source` splits them by source (the chaser's records are `pubmed` when
+PubMed holds the paper, else `openalex`), `extraction_warnings` names the records whose
 extracted text is known to be damaged, and `no_header` any record a leg saved
 without its identity header. Name `possible_duplicates` too, for the
 researcher to decide. A vault whose clinical core is abstracts caps the quality of
 everything downstream, and this is the last point where that is cheap to fix.
 
-If the biomedical leg returned a **needs-manual-download** list — papers that
-resolved neither open-access nor via the Sci-Hub rung — present it verbatim,
-with title, DOI and PMID per paper. This is the one point in the run where the
+If the biomedical leg or the citation chaser returned a
+**needs-manual-download** list — papers that resolved neither open-access nor,
+in the biomedical leg, via the Sci-Hub rung — present them verbatim as one
+list, with title, DOI and PMID per paper. The chaser's entries are core
+papers, so mark them as such. This is the one point in the run where the
 researcher can supply those files by hand; once vault-build starts, an absent
 full text silently becomes an abstract-only note. Do not fold that list into
 the general "skipped" tally, and do not proceed past it without an explicit
@@ -238,32 +242,21 @@ If the report says the file is not a PDF (a browser often saves a publisher's
 HTML page under a `.pdf` name), tell the researcher that rather than deleting
 anything.
 
-Report the **recall check** as its own section. Per probe and source, one
-line: "k of N top hits already in the vault" (`in_vault` of `checked`, out of
-`count`), with `too_broad` or `error` when set. Then the top-level `missing`
-list, numbered as the script numbered it, one line per paper: number, year,
-first author, title, PMID or arXiv id. A probe is precise, not perfect, so
-the list holds off-target papers too; the researcher chooses. Name any
-`seed_papers` entry not found in the vault. If most on-target hits are
-missing, say that the legs' queries missed a whole region, and offer to re-run
-discovery with adjusted terms rather than adding dozens by hand.
+Report **core coverage** as its own section, from the chaser's reply:
+- the core question;
+- how many seeds;
+- the probes, with any the chaser drafted marked so the researcher can add
+  them to the profile's `recall_probes` for the next run;
+- per round, candidates and additions;
+- the total added, by title;
+- why it stopped.
 
-Ask the researcher to answer with the numbers to add, `all` or `none`, in the
-same reply as the go-ahead. For the chosen ones, one Bash call:
-
-```
-python3 <plugin root>/scripts/recall_check.py add <paper_vault_path> \
-  --pmid <PMID> ... --arxiv <arXiv id> ...
-```
-
-It saves each paper as an identity-header record per the identity spec, skips
-any already on disk, and runs the full-text fetcher's open-access rungs on each
-new one. Then run `stage_prep.py merge` again and report the updated coverage.
-A record `add` left abstract-only goes on the needs-manual-download list above
-and through the same manual-PDF step, which needs the researcher again before
-stage 5; the Sci-Hub rung stays in the biomedical leg and is not repeated here.
-If every added record came back with full text, the go-ahead already given
-covers stage 5.
+Name OpenAlex's gaps: seeds it could not find, seeds it holds no reference
+list for (their backward hop found nothing), and seeds too cited to chase
+forward. Name any `seed_papers` entry not in the vault. If the chaser stopped
+at its 40-paper guard or its 4-round cap, say so prominently: the core
+question may be too broad to cover exhaustively, and narrowing
+`core_questions` is the researcher's call.
 
 Report the repositories as their own section, not folded into the paper counts:
 how many came from the papers versus from topic search, and — named individually
@@ -561,9 +554,9 @@ note, and it is the finding the researcher most needs. If anything failed at any
 had no matches to the profile's terms, etc.), name it plainly rather than
 reporting a clean run.
 
-State the recall check in one line: which probes ran (the profile's or drafted),
-k of N top hits in the vault per source, how many missing hits the researcher
-added, and any source that was not checked.
+State core coverage in one line: the core question, how many papers the
+citation chaser added over how many rounds, and whether it stopped because a
+round added nothing or at a cap — or that it was skipped, and why.
 
 Report both `check_vault.py` results: the record errors from step 3b and the
 dead-link count from step 5, with each dead link named. A clean run says "0 dead

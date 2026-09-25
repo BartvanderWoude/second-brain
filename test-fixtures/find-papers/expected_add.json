@@ -4,12 +4,20 @@
    "requested": "pmid:37013114",
    "id": "2023_zhou_lu",
    "file": "2023_zhou_lu.md",
+   "title": "A Prediction Nomogram for Recurrent Retinal Detachment",
+   "doi": "10.2147/rmhp.s403136",
+   "pmid": "37013114",
+   "source": "pubmed",
    "full_text": "abstract-only"
   },
   {
    "requested": "pmid:40235812",
    "id": "2025_gan_cao_2",
    "file": "2025_gan_cao_2.md",
+   "title": "Development and validation of the Artificial Intelligence-Proliferative Vitreoretinopathy (AI-PVR) Insight system for deep learning-based diagnosis and postoperative risk prediction in proliferative vitreoretinopathy using multimodal fundus imaging",
+   "doi": "10.21037/qims-24-1644",
+   "pmid": "40235812",
+   "source": "pubmed",
    "full_text": "abstract-only"
   }
  ],

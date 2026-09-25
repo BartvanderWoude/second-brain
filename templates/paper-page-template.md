@@ -3,7 +3,7 @@ id: <paper filename stem, e.g. 2023_fung_john>
 created: <yyyy-mm-dd>
 status: draft
 type: paper
-source: arxiv | pubmed | pmc | europepmc | semantic_scholar
+source: arxiv | pubmed | pmc | europepmc | semantic_scholar | openalex
 title:
 authors: []
 year:

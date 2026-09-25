@@ -35,14 +35,19 @@ You may also be given the path to the plugin's full-text fetcher, `scripts/fetch
 Everything else in the file (frontmatter body and prose) describes the research problem, domain, and relevant keywords/subfields/methods — use it to guide search. Respect any section that rules topics out of scope.
 
 - **`profile_type: topic`** (a literature review with no problem or dataset behind it; a missing `profile_type` means `problem`): there is no failure mode or cohort to search around. Derive queries from `close_field_terms` and `review_questions`, screen against `review_scope`, and pick `categories` from the topic itself or `domain` if given.
-- **`seed_papers`**, if present: look each one up directly (by arXiv id, or by title with `search_papers`) and treat it as a query anchor — its title terms and categories are strong signals. Save a seed paper only if it is on arXiv and passes the same screening as everything else; it counts toward the 20, not on top of them.
+- **`seed_papers`**, if present: look each one up directly (by arXiv id, or by title with `search_papers`) and treat it as a query anchor — its title terms and categories are strong signals. Save a seed paper only if it is on arXiv and passes the same screening as everything else; it counts toward the 20, not on top of them, unless it answers the core question.
 - **`date_window_years`**: the main sweep's lower bound. Missing means 3; `0` means no `date_from` at all.
+- **The core question.** On a topic profile it is the `review_questions` whose 1-based numbers `core_questions` lists; on a problem profile it is the direct comparators, papers doing `task` on `domain`. Its papers are not capped (step 5). `core_questions: []` or a missing field means every question is background. `recall_probes` is not search input.
 
 ## Workflow
 
 1. **Derive queries**: Build several distinct search queries/keyword combinations from the research problem — don't rely on a single query. Aim to cover each distinct sub-ask in the problem description, not just its dominant topic.
 
    Query-syntax caveat: `categories` and a single field prefix work well, but **ANDing two quoted `abs:` phrases silently over-restricts** and often returns zero results where the same concepts unprefixed return dozens. If a query returns 0–2 hits, retry it with the phrases unprefixed before concluding the literature is thin.
+
+   A retry **widens** a query: unprefix phrases, add synonyms, or drop a whole concept. It never drops one of several alternatives for the same concept. On one run the retry that rescued a zero-hit query dropped `nomogram` and `risk score`, and no classical prediction model was searched again.
+
+   Any sub-ask about predicting, prognosing or stratifying risk gets queries for both method families, classical (nomogram, risk score, logistic regression, prediction model) and machine learning (machine learning, deep learning), never one alone. That run searched its core category with `machine learning` as the only method term and found none of the classical models the field is built on.
 
 2. **Search**: Run each query with `search_papers`, passing these arguments explicitly — the defaults are wrong for this job:
    - `max_results`: 25–50. The default is **5** (the cap is 50), so leaving it unset starves the 20-paper selection down to a handful of candidates per query.
@@ -70,9 +75,12 @@ Everything else in the file (frontmatter body and prose) describes the research 
    `YEAR` from the `published` (v1) date in `get_abstract` metadata, never an
    update/revision date, so the same paper yields the same filename on every run.
 
-5. **Cap at 20.** If more than 20 qualify, spread the slate across the problem's
-   distinct sub-asks rather than taking the 20 highest topical-similarity hits,
-   and name the notable papers you dropped in your final reply.
+5. **Cap the background at 20; never cap the core.** Save every paper that
+   passes screening for the core question. The other sub-asks share 20 slots:
+   if more qualify, spread the slate across them rather than taking the 20
+   highest topical-similarity hits, and name the notable papers you dropped in
+   your final reply. On one run an even split of 20 slots over six questions
+   dropped core papers the leg had already found.
 
 6. **Fetch**: For each remaining paper, call `download_paper`. Pass a small `max_chars` (e.g. 200) — the call still fetches and caches the **complete** paper server-side regardless of how much text it returns, and you do not need the text in context.
 
@@ -129,4 +137,4 @@ paper being saved twice under two names.
 
 ## Output
 
-Don't write any summary, index, or report file — the saved paper files are the only output. After downloads complete, reply with a short plain-text list of what was saved (titles and filenames), plus anything you skipped as already-present or dropped at the 20 cap. Say which papers came through the PDF fallback and which ended up abstract-only, with the fetcher's reason for each. Mark any landmark picks that came from outside the date window. Add one line listing every query that still returned 0 hits after its retry, verbatim — or "zero-hit queries: none". That reply is a response to the user, not a file.
+Don't write any summary, index, or report file — the saved paper files are the only output. After downloads complete, reply with a short plain-text list of what was saved (titles and filenames), plus anything you skipped as already-present or dropped at the 20 cap. Say which papers came through the PDF fallback and which ended up abstract-only, with the fetcher's reason for each. Mark any landmark picks that came from outside the date window. Say how many papers you saved for the core question and how many for the rest, separately. Add one line listing every query that still returned 0 hits after its retry, verbatim — or "zero-hit queries: none". That reply is a response to the user, not a file.
