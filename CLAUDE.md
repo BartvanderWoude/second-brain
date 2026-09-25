@@ -5,13 +5,28 @@ linked Obsidian vault: `skills/` orchestrate, `agents/` do the judgment work,
 `scripts/` (stdlib Python) do everything deterministic, `templates/` hold the
 formats, `test-fixtures/` hold the offline tests.
 
+## Three docs, three readers
+
+- **`README.md`** is for colleagues who install and use the plugin: what it
+  is, how to install and use it, where it searches, what the vault looks like.
+  Plain language, short. No design reasoning and no internals; those go here.
+- **`CLAUDE.md`** (this file) is how the project works and its rules, complete
+  and current. Anything a session needs to work on this repo belongs here, even
+  when `PROJECT_CONTEXT.md` also records it.
+- **`PROJECT_CONTEXT.md`** is the history: the changes and design decisions of
+  past sessions, the reasoning and the measurements behind them. Search it to
+  learn what was decided before and why. It never replaces this file.
+
+When a session decides something, the rule or fact that results goes here, the
+story and evidence go in a new `PROJECT_CONTEXT.md` entry, and whatever a user
+sees goes in `README.md`.
+
 ## PROJECT_CONTEXT.md: search it, never read it whole
 
-`PROJECT_CONTEXT.md` is the design log: every decision and why, with the
-measured costs of past runs. At 64 KB it is meant to be searched, not read:
-reading it whole adds ~16k tokens to the context, paid again on every later
-turn. Never `Read` it without `offset`/`limit`, never `cat` it, and never
-`@`-import it here.
+At 64 KB `PROJECT_CONTEXT.md` is meant to be searched, not read: reading it
+whole adds ~16k tokens to the context, paid again on every later turn. Never
+`Read` it without `offset`/`limit`, never `cat` it, and never `@`-import it
+here.
 
 - **Find:** `grep -n -i '<term>' PROJECT_CONTEXT.md | cut -c1-200`. Each
   paragraph is one line of up to ~1,500 characters, so trim the output.
@@ -24,6 +39,181 @@ turn. Never `Read` it without `offset`/`limit`, never `cat` it, and never
 
 A large file here is fine. Shrinking it is not the fix; reading it only in
 pieces is.
+
+## How it works
+
+The spec has 7 stages. 1–5 are built. Stage 6 (cross-linking) is built only
+in reduced form: topic notes from shared keywords, `## Related topics`, and
+`link_papers.py`'s paper-to-paper edges. Stage 7 (experiment plan) is not
+built, and neither are repo cloning, running, or the Docker sandbox.
+
+| Stage | Piece | Job |
+|---|---|---|
+| 1–2 | skill `research-problem-intake` (+ `deep-dive.md`) | adaptive Q&A for a problem or a topic review → profile note: CLAIM-checklist fields, the two term lists, recall probes, keyword taxonomy; sets up the working dirs |
+| all | skill `second-brain-pipeline` (+ `deep-dive.md`) | orchestrator: runs 1–5, holds the stage-4 checkpoint, dispatches agents in waves, reads script reports only |
+| — | skill `second-brain-topic-deep-dive` | resolves vault and note (`stage_prep.py topic`, which also warns about old-style ids), then intake's deep-dive branch and pipeline 3–5 on a `deep_dive_of` profile; new papers go into the vault's own paper vault, summarized against the vault's profile |
+| 3 | `second-brain-paper-downloader` (sonnet) | arXiv leg: close-field then generalized terms, ≤20 papers |
+| 3 | `second-brain-biomed-downloader` (sonnet) | PubMed/PMC/Europe PMC leg, via `paper-search-mcp` and `find_papers.py pubmed` (whole hit sets) |
+| 3 | `second-brain-crossfield-searcher` (sonnet) | paper bodies via Asta, for methods from adjacent fields |
+| 3 | `second-brain-citation-chaser` (sonnet) | after the legs: the core question exhaustively. Recall probes as whole PubMed hit sets, then OpenAlex one hop both ways from the core papers, round after round until one adds nothing. Screens titles first, abstracts only where a title leaves it unsure |
+| 3 | `second-brain-code-finder` (sonnet) | after the paper legs and the merge (it needs the papers on disk): repos the papers name, plus `gh search repos`; GitHub API only. Notes record the license (`none` = no reuse rights) and whether it is the official implementation |
+| 3 | `scripts/fetch_fulltext.py` | upgrades a saved record to full text in place |
+| 3 | `scripts/find_papers.py` | numbered candidate lists (`pubmed`, `chase`, `show`); `add` saves chosen ones as records and fetches their full text. A query too large to fetch whole is flagged, never silently cut to its top hits |
+| 3–5 | `scripts/stage_prep.py` | duplicate merge and coverage figures, summarizer fan-out plan, keyword index, topic digests, `topic` report, `digest --since` |
+| 5 | `paper-summarizer` (sonnet) | one long paper, or up to 8 short ones → summaries per `paper-page-template.md`; long papers read up to the references. Given the profile, `related_problem`, `matched_terms` and the relevance synthesis are grounded in that problem |
+| 5 | `topic-summarizer` (opus) | one keyword + its digest → topic note; checks the full text of ≤3 central papers on a fixed budget |
+| 5 | `scripts/link_papers.py` | citation links and SPECTER2 similarity from Semantic Scholar |
+| 5 | `scripts/check_vault.py` | `records` before the vault, `vault` links after |
+| 5 | `scripts/build_vault.py` | profile, papers, topics, repos → the Obsidian vault, with BibTeX from arXiv's own metadata |
+| dev | `scripts/token_report.py` | a session's real token spend; never called by the pipeline |
+
+Topics: the picker offers keywords on ≥2 papers, near-duplicate slugs merged;
+a profile keyword with no papers still gets a note (a gap worth seeing). The
+index and digests also count papers that name a topic without carrying its
+slug, since tags drift between summarizer batches. Re-selecting a topic deepens
+its note and keeps the researcher's edits; a `deep_dive` note is written deeper
+and a later re-run cannot shrink it.
+
+Templates: `paper-identity-spec.md` (when two hits are one paper, filename,
+id, the identity header every saved record carries);
+`research-problem-profile-format-spec.md` (the profile schema, a contract kept
+in `templates/` because there is no `docs/`); `paper-page-template.md`,
+`topic-note-template.md`, `repo-note-template.md` (note formats).
+
+A run writes into the researcher's own project, never into this repo:
+`paper_vault/<id>/` (records, `summaries/`, `topics/`, `repos/`),
+`code_vault/<id>/` (stays empty) and `obsidian_vault/<id>/`. Each problem is
+its own vault, opened at `obsidian_vault/<id>/`. Every wikilink is written from
+that folder (`[[papers/<id>|Title]]`, `[[topics/<slug>]]`,
+`[[repos/<owner>-<name>]]`, `[[<id>]]`) and `check_vault.py vault` checks
+them. On a re-run `build_vault.py` replaces only the `##` sections it owns
+(listed in its docstring) and keeps everything else. A vault is a folder of
+Markdown, so none of this needs Obsidian installed; the pipeline only offers to
+open the vault at the end, and never installs Obsidian.
+
+## Rules
+
+- **No patient data.** A profile stays at the level of modality, cohort and
+  task descriptions.
+- **Nothing is cloned or executed before the stage-4 checkpoint.** The code leg
+  runs before it, so it uses the GitHub API only: no clone, no install, and
+  `code_vault/<id>/` stays empty.
+- **Paywalled papers: open access first, then Sci-Hub.** The biomedical leg's
+  last rung is `download_scihub`, and `fetch_fulltext.py` validates what it
+  returns. Only what resolves nowhere is flagged for manual download, and the
+  checkpoint stops on that list. Sci-Hub is legally contested and ships to
+  everyone who installs the plugin. Using it is the operator's deliberate
+  decision, and the README says so.
+- **One copy of each schema.** The `templates/` files are the only
+  definitions; consumers cite them, never restate them. A drifting copy breaks
+  a handoff silently.
+- **Every agent's `description:` warns against being reimplemented** from the
+  description alone or routed around after a blocking report. It is the only
+  text an orchestrating session sees before dispatch.
+- **Skill, agent, or script.** A skill only when it needs the main conversation
+  (live Q&A, holding the checkpoint, asking which vault is meant); otherwise an
+  agent with an enforced `tools:` allowlist, or a script when no model is
+  needed.
+- **Model tiers are pinned per agent, never `inherit`.** `sonnet` for per-item
+  and mechanical work, `opus` only for `topic-summarizer`, so synthesis quality
+  does not depend on the main session's model.
+- **The main conversation reads compact script reports**, never papers,
+  summaries or notes: every turn there re-reads the whole conversation.
+- **Experiment-plan code reuse** (when built) targets the researcher's existing
+  project repo, not a new one.
+
+## Plugin mechanics
+
+- **Install and the arXiv dependency.** The repo is its own marketplace
+  (`.claude-plugin/marketplace.json`). `plugin.json` declares `arxiv-mcp-server`
+  (marketplace `arxiv-mcp`) as a dependency, which is auto-installed only once
+  that marketplace is registered. Without it the install command still reports
+  success, but Claude Code refuses to load this plugin at all, in a real install and under `--plugin-dir` alike. So no agent
+  re-checks the dependency. Adding the marketplace later self-heals without a
+  restart.
+- **Local dev:** `claude --plugin-dir .` loads the working tree live, with no
+  reinstall after edits. The dependency must still be installed.
+- **The `[pdf]` extra.** The `arxiv-mcp-server` plugin launches plain
+  `uvx arxiv-mcp-server`, which cannot extract arXiv papers that have no HTML
+  version (one run lost 17 that way). The README has users add a second
+  server named `arxiv` with the extra, at user scope (`-s user`; the default
+  local scope exists only in the directory where it was added). Without the
+  extra that failure is permanent: the arXiv leg does not retry, and hands the
+  paper to `fetch_fulltext.py`'s arXiv-PDF route. So the second server is
+  recommended, not required. Check it with `claude mcp get arxiv`: `Scope: User
+  config`, the `[pdf]` args, `✔ Connected`. Open sessions keep the old server
+  until restarted.
+- **MCP tool names.** A server bundled by a plugin is
+  `mcp__plugin_<plugin>_<server>__<tool>`, a user-level one
+  `mcp__<server>__<tool>`. Every agent allowlists both forms
+  (`mcp__arxiv__*` and `mcp__plugin_arxiv-mcp-server_arxiv__*`;
+  `mcp__paper-search__*` and `mcp__plugin_second-brain-researcher_paper-search__*`)
+  and names tools by their bare name in its body. A wrong prefix fails
+  silently: the agent just has no tools.
+- **`.mcp.json`** bundles `paper-search-mcp` (run by `uvx`; it is not a
+  marketplace plugin, so it cannot be a dependency) and Asta (remote HTTP,
+  `x-api-key`). Without `uv` only the biomedical leg is unavailable, and the
+  agent says so. `.mcp.json` passes `UNPAYWALL_EMAIL` through to
+  `paper-search-mcp`; that server's own optional keys (CORE, DOAJ) go in
+  `~/.config/paper-search-mcp/.env`. Every env var in `.mcp.json` needs a
+  default (`${VAR:-}`): an unset one without it is substituted literally.
+- **No `${CLAUDE_PLUGIN_ROOT}` in prose.** It works only in hook, monitor and MCP
+  command fields, not in skill or agent Markdown and not in Bash. Never write
+  repo-relative paths into skills or agents. The skills resolve the plugin root
+  themselves (the env var, then repo-relative for dev, then a scan of
+  `~/.claude/plugins/marketplaces/*/`) and pass absolute paths on. That third
+  case is not yet verified against a real marketplace install of this plugin.
+- **Keys come from the environment only**, never plugin config:
+  `ASTA_API_KEY`, `SEMANTIC_SCHOLAR_API_KEY`, `UNPAYWALL_EMAIL`,
+  `OPENALEX_API_KEY`, `NCBI_API_KEY`. The README tells users to export them in
+  their shell profile. For dev, `.env` (gitignored; `.env.example` is the
+  committed template) is loaded with `set -a; source .env; set +a` before
+  `claude`, because Claude Code does not read `.env` itself. The cross-field
+  agent's skip message names the `.env` route.
+- **Waves.** Agents go out in waves no larger than
+  `CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS` (20 by default): a call past it is
+  refused, not queued. Raising it in `~/.claude/settings.json` saves wall-clock
+  time, not tokens, and can hit the organization's rate limits.
+
+## Sources and full text
+
+- **Every leg saves a record first** (identity header plus abstract), then
+  runs `fetch_fulltext.py`, which upgrades it in place from the first route
+  that works: Europe PMC full-text XML (JATS straight to Markdown, so tables
+  and numbers survive) → NCBI BioC (NIH author manuscripts, which Europe PMC's
+  XML answers with a 500) → the arXiv PDF → Semantic Scholar's open-access PDF
+  → Unpaywall (needs `UNPAYWALL_EMAIL`). It first fills any missing
+  DOI/PMID/PMCID from Semantic Scholar. A download that does not start with
+  `%PDF-` is refused.
+- **It replaced `paper-search-mcp`'s `download_with_fallback`** for open access.
+  On the 42-paper run 16 of 20 clinical papers ended up abstract-only through
+  it: PMC called open-access papers closed, Europe PMC's PDFs returned 403,
+  HTML error pages were saved as `.pdf` and reported as success, CORE failed on
+  every DOI, and the Sci-Hub mirror did not resolve.
+- **Docling converts PDFs** and is optional: without it a PDF-only paper stays
+  abstract-only, with the reason in the report. `--image-export-mode
+  placeholder`, because base64 figures made one paper 545 KB instead of 56 KB;
+  `--no-ocr`, 10 s instead of 49 s on born-digital PDFs. Output under 10 KB is
+  retried with OCR. Digits extracted as substituted glyphs (`0.90` as `Ͷ.ͿͶ`)
+  are retried with full-page OCR, else flagged `extraction_warning:
+  garbled-digits`. The first run downloads a few hundred MB of models.
+- **Asta's key is effectively required**, whatever its docs say: without it
+  `snippet_search` and `search_papers_by_relevance` hang ~271 s, then fail with
+  a misleading `ConnectionRefusedError`. Identifier lookups such as
+  `search_paper_by_title` do work without it, which is what makes the docs'
+  framing easy to believe. The cross-field agent checks the key first. The pipeline dispatches it unconditionally and reports a skip as an
+  optional leg skipped, never a failed run.
+- **Citation chasing uses OpenAlex, not Semantic Scholar.** S2 returns empty
+  reference lists for many clinical publishers (0 where OpenAlex has 35 and 29
+  for two core reRD papers). No key needed: ~1,000 filter requests a day, ~10
+  per chase round; `OPENALEX_API_KEY` raises that tenfold.
+- **`link_papers.py`** fetches references and SPECTER2 embeddings from Semantic
+  Scholar in one batch. The embeddings cover title and abstract only, not full
+  text. Without `SEMANTIC_SCHOLAR_API_KEY` the public quota often refuses; the
+  linker retries for up to 10 minutes, then skips linking.
+- **`NCBI_API_KEY`** is added to `find_papers.py`'s E-utilities requests. It
+  gives the user their own rate limit instead of the network's shared one; the
+  script keeps the same 0.4 s pace either way.
 
 ## Testing: small scale by default
 
@@ -149,7 +339,8 @@ python3 scripts/token_report.py "$(ls -t $P/*.jsonl | head -1)"
 ```
 
 It sums the whole session by agent type, so for one test run it before and
-after and report the difference.
+after and report the difference. It counts every turn; the harness's own
+per-agent token figure is only the final context size, not what was billed.
 
 Measured per agent on the deep-dive live test (session `7d220f0b…`,
 2026-09-25, no caps), weighted tokens. That session also held development
