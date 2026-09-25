@@ -106,21 +106,23 @@ Resolve the plugin root once, now, in this order:
 In the same Bash call, read the wave size:
 `echo ${CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS:-20}`.
 
-Note `<plugin root>/scripts/fetch_fulltext.py` and
-`<plugin root>/scripts/find_papers.py` for stage 3. If no root resolves,
-discovery still runs without them — the arXiv and cross-field legs save
-abstract-only records, the biomedical leg reports it cannot search, and the
-core-coverage stage is skipped — but say it in the stage-4 report, since it
-is the cause of all three.
+If no root resolves, stop and tell the researcher the plugin's files could not
+be found: every stage from here on needs them.
 
 ## Stage 3: discovery
 
-Dispatch all three discovery agents as **one wave**, each with the confirmed
-profile's file path, the fetcher path
-`<plugin root>/scripts/fetch_fulltext.py` and, for the biomedical leg, the
-search script path `<plugin root>/scripts/find_papers.py` — nothing else. Each reads
-`paper_vault_path` itself and save into it directly — do not pass or compute that path separately, and do
-not pre-create the directory (the agents handle that).
+Dispatch all three discovery agents as **one wave**, each with this prompt and
+nothing else (the `find_papers` line for the biomedical leg only):
+
+```
+profile: <confirmed profile path>
+identity spec: <plugin root>/templates/paper-identity-spec.md
+fetcher: <plugin root>/scripts/fetch_fulltext.py
+find_papers: <plugin root>/scripts/find_papers.py
+```
+
+Each reads `paper_vault_path` from the profile and creates it if needed; do not
+pass or create it yourself.
 
 - `second-brain-paper-downloader` — the arXiv leg.
 - `second-brain-biomed-downloader` — the PubMed/PMC/Europe PMC leg.
@@ -185,10 +187,15 @@ went missing. Keep the report's coverage block for stage 4.
 
 ### Then the code leg — after the paper legs, still before the checkpoint
 
-Dispatch `second-brain-code-finder` with the confirmed profile path, **once the
-paper legs and the citation chaser have returned and the merge above is
-done**. It is not a fourth
-parallel leg, and the reason is a real dependency rather than caution: its
+Dispatch `second-brain-code-finder` **once the paper legs and the citation
+chaser have returned and the merge above is done**, with:
+
+```
+profile: <confirmed profile path>
+format: <plugin root>/templates/repo-note-template.md
+```
+
+It is not a fourth parallel leg: its
 highest-precision source is the repos named *inside the saved papers*, so it
 needs those files on disk. Started in parallel it would find an empty vault and
 silently degrade to topic search alone — the weakest half of what it does.

@@ -12,6 +12,8 @@ url: https://arxiv.org/abs/2501.12345
 doi: 10.1234/miccai.2025.00042
 pmid:
 code_link: https://github.com/example-lab/sarcopenia-embed
+pdf_local_path:
+code_local_path:
 paywalled: false
 full_text: full
 related_problem: ""
