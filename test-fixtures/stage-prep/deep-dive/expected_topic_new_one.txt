@@ -1,0 +1,23 @@
+Resolution: new topic; 1 paper carries the slug.
+
+Vault: 4 papers (3 full text, 1 abstract-only), 4 summaries, 2 topic notes.
+Vault profile: fixture-dd-20260925, status confirmed, 3 review questions.
+In the vault profile's keywords_of_interest: no.
+
+Carry the slug (1):
+  2024_tan_ho 2024 Competing Risks in Recurrence
+    seed: "Competing Risks in Recurrence — 10.1000/th.2024"
+
+Name it without carrying it (0):
+  none
+
+Same name, spelled differently (1):
+  competing-risk  1 paper, 0 shared
+
+Names sharing a word (0):
+  none
+
+On at least half of the topic's papers (0):
+  none
+
+Review questions the topic's summaries cite: Q1 0, Q2 0, Q3 1

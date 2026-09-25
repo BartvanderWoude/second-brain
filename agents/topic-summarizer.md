@@ -8,8 +8,10 @@ description: >
   live), the confirmed problem-profile path, the topic-note format/template
   path, the output path, and whether that output exists. Optionally takes
   aliases (slugs merged into this topic), an existing note to deepen rather
-  than start over, and a focus for that deepening. Works from the digest, and
-  checks the full text of at most three central papers on a fixed budget —
+  than start over, and a focus for that deepening; for a topic deep-dive, also
+  the deep-dive profile and the vault's topic slugs, which raise its reading
+  budget and length. Works from the digest, and checks the full text of at
+  most three central papers (six in a deep-dive) on a fixed budget —
   via the arXiv MCP server's own section search and original LaTeX where the
   paper is an arXiv paper, and Grep otherwise. It does not read whole papers
   end to end.
@@ -43,7 +45,9 @@ do not derive it, guess, or scan the filesystem for it.
   one-liners and the summary's body sections, without `## Code notes`. It may
   list 0 papers; see step 5. It may end with `## Mentioned but not tagged`:
   summaries that name the topic without carrying its slug, one sentence each
-  (step 2c).
+  (step 2c), and in a deep-dive with `## Found by this deep-dive, not tagged`.
+  A deep-dive's digest can run past 2,000 lines: read it in pages with
+  `offset`/`limit` until you reach its end.
 - **paper vault path** — the directory holding the full-text papers.
 - **problem profile** — a confirmed research-problem-profile note, per
   `templates/research-problem-profile-format-spec.md`.
@@ -54,7 +58,7 @@ do not derive it, guess, or scan the filesystem for it.
 - **output path** — where to write the finished note.
 - **output exists** — whether a file is already at the output path (step 6).
 
-Three more are optional; the caller passes them only where they apply.
+Five more are optional; the caller passes them only where they apply.
 
 - **aliases** — other slugs merged into this topic because they name the same
   subtopic (`time-to-event-prediction` merged into `survival-analysis`). The
@@ -64,6 +68,11 @@ Three more are optional; the caller passes them only where they apply.
   you are in deepen mode: follow step 2b.
 - **focus** — the researcher's free-text direction for deepening (e.g. "more
   on recalibration methods"). Only meaningful with an existing note.
+- **deep-dive profile** — a confirmed topic deep-dive profile (a topic profile
+  with `deep_dive_of` set). When supplied, you are in deep-dive mode: follow
+  step 2d. It comes with or without an existing note.
+- **vault topics** — the slugs of the topic notes already in the vault. Passed
+  with a deep-dive profile; the only topics you may link to (step 2d).
 
 ## 2. Read the digest first
 
@@ -107,6 +116,12 @@ added since, or both. Build on the existing note; do not start over.
   prose and 400 for core technical details, growing with the material actually
   added. A note that gained no new papers and no focus should not grow much —
   that rewrite is for flow.
+- **A note a deep-dive wrote keeps its depth.** If the existing note's
+  frontmatter has `deep_dive` set, the researcher had this topic searched and
+  written at greater depth. Whatever mode you are in, do not write it shorter
+  than it is, except where a paper you read contradicts a claim, and keep its
+  `deep_dive` value unless step 2d sets a new one. The caps above do not
+  apply to it; step 2d's do.
 
 ## 2c. Candidates: mentioned but not tagged
 
@@ -124,6 +139,50 @@ paper's summary (`<paper vault path>/summaries/<id>_summary.md`) only when the
 sentence leaves it unclear, and never more than three. A taken candidate counts
 as a digest paper for the step 3 budget. Vault-build links it back to this
 topic from the `papers` list, so do not ask for its summary to be re-tagged.
+
+A deep-dive's digest can end with a second list, `## Found by this deep-dive,
+not tagged`: papers the deep-dive's own search saved that neither carry the
+slug nor name it, each with its task and method. The search was aimed at this
+topic, but it also brings in neighbours, so the same rule applies: take one
+only when it covers the topic. In deep-dive mode you may read up to six
+summaries across both lists.
+
+## 2d. Deep-dive mode — only when a deep-dive profile is supplied
+
+A topic deep-dive ran a literature search for this one topic, so the digest
+holds more papers than a normal run, and the researcher asked for depth on
+this topic specifically. Everything above still applies, with these changes.
+
+- **Two profiles.** The problem profile is the vault's: `related_problem` is
+  its `id`, and the relevance section ties back to it. The deep-dive profile
+  scopes the note: its `review_scope` bounds what the note covers, and its
+  `review_questions` are what the note must answer, the ones `core_questions`
+  names first. Set the note's `deep_dive` field to the deep-dive profile's
+  `id`. Never link to that id: it is not a note in the vault.
+- **With or without an existing note.** With one, step 2b applies and the
+  existing note is your starting draft. Without one, write the note from the
+  digest at the depth below.
+- **Central papers** are the ones that answer the deep-dive's questions, the
+  core question first, not the ones that carry the keyword most prominently.
+- **Budget.** Step 3's limits become at most **6 central papers** and **4
+  regions each**, and its "3 papers or fewer" exemption does not apply: a
+  deep-dive note is checked against full text however few papers it has.
+- **Length.** A new note: 600–1,000 words of prose, of which the relevance
+  section takes about 80–150 per question, plus up to ~600 for the core
+  technical details. Deepening a note: soft caps of about 1,400 words of prose
+  and 800 of technical details, and never shorter than the existing note except
+  where a claim was contradicted. Equations count toward neither.
+- **Relevance section.** One paragraph per deep-dive question, in order, each
+  opening with the question in bold (shortened if long). Say how far the papers
+  answer it — answered, partly, or not — and what they leave open. Then one
+  closing paragraph tying the topic back to the vault profile: which of its
+  `review_questions` it bears on, by `Q` number, or on a problem profile its
+  `observed_failure_mode` and `current_approach`.
+- **Links to other topics.** You may link a topic from **vault topics** inline
+  as `[[topics/<slug>]]` where the synthesis genuinely connects to it: a method
+  these papers compare against, a shared evaluation problem. Use only slugs
+  from that list; any other would be a dead link. Do not write a
+  `## Related topics` section: vault-build writes it from shared papers.
 
 ## 3. Then read the full text, on a budget
 
@@ -203,7 +262,7 @@ full text isn't there, note it and work from that paper's digest entry alone.
 
 ### Either route
 
-Stay within step 3's three regions per paper. If a paper turns
+Stay within step 3's three regions per paper (four in deep-dive mode). If a paper turns
 out to barely touch the subtopic despite carrying the keyword, say so in the
 note rather than padding it.
 
@@ -215,7 +274,7 @@ technical details* usually holds them; this pass fills what it lacks, for a
 central paper whose entry misses the formulation, says it could not be read,
 or carries an `extraction_warning`.
 
-- **Pick the central papers only** — at most 3, judged from the digest:
+- **Pick the central papers only** — at most 3 (6 in deep-dive mode), judged from the digest:
   the ones whose method *is* this subtopic, not ones that merely use or mention
   it. Skip this pass for papers that are purely empirical or clinical.
 - **Start from the pointer.** If a digest entry's *Key technical details*
@@ -256,6 +315,8 @@ heading guidance as instruction, never copy it into the output).
   ids, matching the order of your `## Papers` section. `status`: `draft`.
   `created`: today's date — or, in deepen mode, the existing note's `created`,
   keeping `status` too if the researcher changed it from `draft`.
+- `deep_dive`: blank, unless step 2d applies or the existing note has one
+  (step 2b).
 - Identify each paper by the id in its digest heading — the
   saved paper's filename stem, per `templates/paper-identity-spec.md`. Write
   the `## Papers` links as `[[papers/<paper-id>|<paper title>]]`, so the
@@ -267,7 +328,8 @@ heading guidance as instruction, never copy it into the output).
   Obsidian vault root, which is this problem's own folder: never prefix it with
   the problem id. Vault-build regenerates the `## Papers` list but copies
   your prose verbatim, so an inline link written in the wrong form stays dead in
-  the vault.
+  the vault. The one other link a note may carry is a deep-dive's
+  `[[topics/<slug>]]` (step 2d).
 - **The synthesis is the point.** Say what the papers collectively establish,
   where they disagree or use setups that aren't comparable, and what's
   conspicuously absent. A sequence of per-paper recaps is a failure — those
@@ -275,7 +337,7 @@ heading guidance as instruction, never copy it into the output).
   summary, cross-paper and relevance sections, plus up to ~250 more for the
   core-technical-details section. Equations don't count toward either figure.
   This is a map, not a review article.
-- **Relevance section**: ground it in the profile's actual fields — does this
+- **Relevance section** (in deep-dive mode, step 2d's form): ground it in the profile's actual fields — does this
   subtopic bear on the stated `observed_failure_mode`, or on why
   `current_approach` fell short? On a topic profile, ask instead which
   `review_questions` this subtopic answers, how conclusively, and what it
@@ -312,8 +374,11 @@ heading guidance as instruction, never copy it into the output).
 Write the note to the supplied output path with `Write` (it creates missing
 parent directories). **output exists** tells you whether that file already
 exists. If it does, `Read` it before you `Write` — `Write` refuses to overwrite
-a file you have not read in this run — and if you were not given it as the
-existing note, you are overwriting it: note that in your report.
+a file you have not read in this run — and if you were given no existing note
+at all, you are overwriting it: note that in your report. An existing note
+passed from the Obsidian vault is the same note as the file at the output
+path, with the researcher's edits; replacing that file is the normal case,
+not an anomaly.
 
 Write only to the output path. Never write a side file (`.tmp`, `.new`, a
 backup) as a workaround for a failed write: you have no tool that can delete
@@ -329,6 +394,8 @@ Reply in a short fixed form:
 - first line: `OK <output path> — <n> papers`, or `FAIL <reason>`;
 - when the digest listed candidates, a second line: `candidates: <k> of <m>
   taken` and the ids taken;
+- in deep-dive mode, a line per the deep-dive's questions, by number:
+  `questions: 1 answered, 2 partly, 3 not answered`;
 - then at most five lines, one per anomaly: a note you overwrote without being
   given it as the existing note; a matched paper whose full text was missing,
   or that barely touched the subtopic; a formulation you could not read

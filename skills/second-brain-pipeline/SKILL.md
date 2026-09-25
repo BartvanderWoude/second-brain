@@ -10,10 +10,14 @@ description: >
   a populated, linked Obsidian vault in one flow, rather than invoking
   research-problem-intake, second-brain-paper-downloader,
   second-brain-biomed-downloader, paper-summarizer and topic-summarizer
-  separately. Does not implement code/repo vault-build (cloning, running) or
-  an experiment plan — those stages of the pipeline spec are not built yet.
+  separately. Also runs stages 3–5 of a topic deep-dive (a profile with
+  `deep_dive_of`: a literature search for one topic note of an existing
+  vault) when second-brain-topic-deep-dive hands it one. Does not implement
+  code/repo vault-build (cloning, running) or an experiment plan — those
+  stages of the pipeline spec are not built yet.
   The deterministic steps run as scripts: `scripts/stage_prep.py` (duplicate
-  merge, fan-out planning, keyword index, topic digests),
+  merge, fan-out planning, keyword index, topic digests, deep-dive topic
+  reports),
   `scripts/link_papers.py` (paper-to-paper links, content similarity from
   SPECTER2 title+abstract embeddings, not full text),
   `scripts/fetch_fulltext.py` (full text), `scripts/find_papers.py` (whole
@@ -74,6 +78,12 @@ Also note its `profile_type`: `problem` (a concrete problem with data) or
 `problem`. This skill does not branch on it — every agent below reads the
 profile and handles both types itself — but the reports at stage 4 and at the
 end state it, and the final report has one topic-only line.
+
+**A profile with `deep_dive_of` is a topic deep-dive**: a literature search
+for one topic note of an existing vault. Resolve the plugin root now (next
+section), then read `<plugin root>/skills/second-brain-pipeline/deep-dive.md`.
+Its differences override the stages below; everything it does not mention runs
+as written here.
 
 ## Before stage 3: resolve the plugin root
 

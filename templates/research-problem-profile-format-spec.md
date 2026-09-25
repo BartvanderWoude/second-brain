@@ -27,7 +27,7 @@ Both types share the id, status, term lists, keywords, linking and vault-path fi
 
 ## Frontmatter schema
 
-Required: **all** = both types; **problem** / **topic** = required for that type and absent (or ignored) for the other; **no** = optional.
+Required: **all** = both types; **problem** / **topic** = required for that type and absent (or ignored) for the other; **deep-dive** = required on a topic deep-dive profile and absent everywhere else (see "Deep-dive profiles" below); **no** = optional.
 
 | Field | Type | Required | Description | Primarily used by |
 |---|---|---|---|---|
@@ -51,7 +51,7 @@ Required: **all** = both types; **problem** / **topic** = required for that type
 | `review_purpose` | string | topic | Why the review is being done — entering a field, grant background, judging whether a method is mature, etc. | Summarizers (steers relevance) |
 | `review_questions` | list[string] | topic | 1–5 guiding questions the review should answer. The topic-profile counterpart of `observed_failure_mode`: the anchor every relevance section ties back to. | Summarizers + pipeline report |
 | `core_questions` | list[int] | topic | The 1-based numbers of the `review_questions` whose papers must be covered **completely**, usually one: the question the researcher's own work is compared against. The discovery legs do not cap its papers, and the citation chaser covers it exhaustively. `[]` means none (a broad survey): nothing is uncapped and citation chasing is skipped. Missing on a topic profile means the pipeline asks for it before discovery. A problem profile has no field: its core is always the direct comparators, papers doing its `task` on its `domain`. See "Core question" below. | Discovery legs + citation chaser |
-| `seed_papers` | list[string] | no | Known key papers (title, DOI or arXiv id) or authors. Extra query anchors for discovery, not an allowlist. Topic profiles mostly, but valid on either type. | Paper-search group |
+| `seed_papers` | list[string] | no | Known key papers (title, DOI or arXiv id) or authors. Extra query anchors for discovery, not an allowlist. Topic profiles mostly, but valid on either type. Write each as `"<exact title> — <doi>"`, or `"<exact title>"` without a DOI, or a bare DOI, PMID, PMCID or arXiv id. `find_papers.py` takes a DOI from anywhere in the string, but otherwise reads the whole string as one id or one exact title, so a vault id or a trailing `# comment` makes a seed unfindable. | Paper-search group |
 | `date_window_years` | integer | no | How many years back the main discovery sweep reaches. Missing means `3`; `0` means no lower bound. Either type. | Paper-search group |
 | `recall_probes` | list[string] | no | 1–3 boolean queries in PubMed syntax for the **core** category — on a problem profile, papers doing its own task on its own condition. Not discovery-leg input: the citation chaser runs them, whole and without a date window, as its first round. Missing means the chaser drafts its own and reports them. Either type. See "Recall probes" below. | Citation chaser |
 | `close_field_terms` | list[string] | all | Direct search terms for pass 1 of discovery | **Paper-search group — this is a primary input** |
@@ -61,6 +61,10 @@ Required: **all** = both types; **problem** / **topic** = required for that type
 | `related_projects` | list[string] | no | IDs of other problem-profile notes to check against | Obsidian group |
 | `paper_vault_path` | string | no | Local path for this problem's downloaded PDFs, e.g. `<project-root>/second-brain/paper_vault/<id>/`. Blank if the intake skill didn't have filesystem access when it ran. | **Paper-search group — where to save PDFs** |
 | `code_vault_path` | string | no | Local path for this problem's cloned repos, e.g. `<project-root>/second-brain/code_vault/<id>/`. Blank if the intake skill didn't have filesystem access when it ran. | **Paper-search group — where to clone repos** |
+| `deep_dive_of` | string | deep-dive | The `id` of the vault this deep-dive deepens. Its presence is what makes a profile a deep-dive. | Pipeline |
+| `vault_profile` | string | deep-dive | Absolute path to that vault's own profile. Every stage that writes vault content (summaries, links, vault-build) uses that profile, not this one. | Pipeline |
+| `topic_note` | string | deep-dive | The kebab-case slug of the topic note being deepened or created. | Pipeline + `topic-summarizer` |
+| `topic_aliases` | list[string] | deep-dive | Other slugs the note covers. `[]` when none. | Pipeline (digest) |
 
 ## Keyword vocabulary
 
@@ -96,6 +100,18 @@ A problem profile needs no field: its core is always the direct comparators, pap
 - **Discovery legs do not read this field.** The chaser runs after them, and whatever the probes find that the legs missed is what it adds.
 - **Absent is not an error.** Older profiles have none; the chaser drafts 1–3 from the core question, `task` and `domain`, and labels them as drafted in its report so the researcher can add them here.
 
+## Deep-dive profiles
+
+A **topic deep-dive** runs a literature search for one topic note of an existing vault: it deepens the note when it exists and creates it when it does not. The `second-brain-topic-deep-dive` skill drafts its profile through `research-problem-intake` and hands it to `second-brain-pipeline`.
+
+- **It is a topic profile** (`profile_type: topic`), valid on its own, so every discovery leg and the citation chaser run on it unchanged. Its `review_scope`, `review_purpose`, 1–4 `review_questions` and `core_questions` are about the topic alone; its `keywords_of_interest` is `[<topic_note>]`; its body describes only the deep-dive.
+- **Inherited from the vault profile:** `paper_vault_path` (new papers land in the vault's own paper vault and are deduplicated against it), `code_vault_path`, `date_window_years`, `cross_project_linking` and `related_projects`, and `domain` and `task` when the topic is anchored in the vault's domain. The vault profile's OUT exclusions carry over into `review_scope`.
+- **Id:** `<topic_note>-deep-dive-<yyyymmdd>`, with `-2` on a same-day collision.
+- **Where it lives:** `<root>/deep_dives/<vault-id>/<id>.md`. Never in the paper vault: every script reads each `.md` file at its top level as a paper record.
+- **Who reads it.** The discovery legs and the citation chaser read it as their profile. `paper-summarizer` and `build_vault.py` never do: they get the vault profile, so new summaries tag the vault's review questions and carry its `related_problem`. `topic-summarizer` reads both, the vault profile for relevance and this one for scope, questions and depth.
+- **The vault profile changes by one line:** the topic's slug is appended to its `keywords_of_interest`, with the researcher's consent, so `paper-summarizer` files new papers under it. Only the slug, never its aliases: an alias listed there would get a topic note of its own on the next normal run.
+- **Seeds** are papers already in the note, at most 8, in the format the `seed_papers` row gives.
+
 ## Body
 
 Free-text paragraph(s) restating the problem in plain language, underneath the frontmatter. This is for human readability in Obsidian — the frontmatter is the machine-consumable part. Neither group should need to parse the body for structured data; if a field is missing from frontmatter, that's a gap to flag back to intake, not something to extract from prose.
@@ -108,7 +124,8 @@ Intake also ensures three shared local directories exist (Claude Code sessions o
 <root>/
 ├── obsidian_vault/   # one Obsidian vault per problem id (obsidian_vault/<id>/ is the vault you open) — Obsidian group owns everything inside it
 ├── paper_vault/      # downloaded PDFs, one subfolder per problem id
-└── code_vault/       # cloned repos, one subfolder per problem id
+├── code_vault/       # cloned repos, one subfolder per problem id
+└── deep_dives/       # topic deep-dive profiles, one subfolder per vault id
 ```
 
 Intake only creates the folders — it never writes into `obsidian_vault/`, and it only creates the empty per-problem subfolders under `paper_vault/`/`code_vault/`, not their contents. If `paper_vault_path`/`code_vault_path` are blank in a given note, the paper-search group should create the folder itself before writing rather than assuming it exists.

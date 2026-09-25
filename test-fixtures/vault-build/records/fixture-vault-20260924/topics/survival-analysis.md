@@ -6,6 +6,7 @@ type: topic
 keyword: survival-analysis
 aliases: [time-to-event]
 related_problem: fixture-vault-20260924
+deep_dive: survival-analysis-deep-dive-20260925
 paper_count: 2
 papers:
   - 2023_lee_park

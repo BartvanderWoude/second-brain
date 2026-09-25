@@ -20,10 +20,10 @@ diff -ruN a/fixture-vault-20260924/fixture-vault-20260924.md b/fixture-vault-202
 diff -ruN a/fixture-vault-20260924/papers/2021_smith_jones.md b/fixture-vault-20260924/papers/2021_smith_jones.md
 --- a/fixture-vault-20260924/papers/2021_smith_jones.md
 +++ b/fixture-vault-20260924/papers/2021_smith_jones.md
-@@ -32,13 +32,3 @@
- 
+@@ -34,13 +34,3 @@
  - [[fixture-vault-20260924]]
  - [[topics/calibration]]
+ - [[topics/survival-analysis]]
 -
 -## Related
 -
@@ -101,16 +101,18 @@ diff -ruN a/fixture-vault-20260924/topics/my-own-topic.md b/fixture-vault-202609
 diff -ruN a/fixture-vault-20260924/topics/survival-analysis.md b/fixture-vault-20260924/topics/survival-analysis.md
 --- a/fixture-vault-20260924/topics/survival-analysis.md
 +++ b/fixture-vault-20260924/topics/survival-analysis.md
-@@ -6,7 +6,7 @@
+@@ -6,8 +6,8 @@
  keyword: survival-analysis
  aliases: [time-to-event]
  related_problem: fixture-vault-20260924
+-deep_dive: survival-analysis-deep-dive-20260925
 -paper_count: 2
++deep_dive: an-older-deep-dive-20260101
 +paper_count: 99
  papers:
    - 2023_lee_park
    - 2022_wu_chen
-@@ -14,7 +14,7 @@
+@@ -15,7 +15,7 @@
  
  ## Summary
  
@@ -119,3 +121,11 @@ diff -ruN a/fixture-vault-20260924/topics/survival-analysis.md b/fixture-vault-2
  
  ## Core technical details
  
+@@ -29,3 +29,7 @@
+ ## Related topics
+ 
+ - [[topics/calibration]] (3 shared papers)
++
++## My notes
++
++A section the researcher added below the owned ones.

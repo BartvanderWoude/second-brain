@@ -1,0 +1,20 @@
+Resolution: new topic; no papers carry the slug yet.
+
+Vault: 4 papers (3 full text, 1 abstract-only), 4 summaries, 2 topic notes.
+Vault profile: fixture-dd-20260925, status confirmed, 3 review questions.
+In the vault profile's keywords_of_interest: no.
+
+Carry the slug (0):
+  none
+
+Name it without carrying it (0):
+  none
+
+Same name, spelled differently (0):
+  none
+
+Names sharing a word (0):
+  none
+
+On at least half of the topic's papers (0):
+  none

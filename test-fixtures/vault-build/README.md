@@ -51,6 +51,14 @@ and leaves the fixture unchanged. The parent folder is `records/` rather than
   its `## Code notes`, below the summarizer's prose.
 - `2024_orphan.md` is a saved paper with no summary. It gets no note and is
   named under `papers_without_summary`.
+- `survival-analysis` and `calibration` share three papers, so each gets a
+  `## Related topics` section linking the other, after `## Papers`. Both
+  notes list `2022_wu_chen` and `2023_lee_park`. `2021_smith_jones` is listed
+  only by `calibration` but carries the alias `time-to-event`, and a paper
+  tagged with a topic counts as one of its papers, just as it links to that
+  topic in `## Links`. `ghost_paper` does not count.
+- `survival-analysis` carries `deep_dive:`, as a note a topic deep-dive
+  wrote does.
 
 `researcher-edits.patch` applies these researcher edits to `expected-first/`.
 The re-run must keep or undo each one as described, which
@@ -66,5 +74,6 @@ The re-run must keep or undo each one as described, which
 | `2023_lee_park`: a hand-added line inside `## Links` | replaced (an owned section) |
 | `2021_smith_jones`: `## Related` deleted | re-added |
 | `calibration` (not rebuilt): `## Summary` edited | kept |
-| `survival-analysis` (rebuilt): `## Summary` edited, `paper_count: 99` | replaced from the record |
+| `survival-analysis` (rebuilt): `## Summary` edited, `paper_count: 99`, `deep_dive` changed | replaced from the record |
+| `survival-analysis` (rebuilt): `## My notes` after `## Related topics` | kept, in place |
 | `topics/my-own-topic.md`, a note with no record | untouched |

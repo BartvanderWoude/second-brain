@@ -6,6 +6,7 @@ type: topic
 keyword: <keyword-slug>
 aliases: []
 related_problem: <id of the problem-profile note this topic was built for>
+deep_dive: <id of the topic deep-dive that wrote this note; blank otherwise>
 paper_count: <number of papers carrying this keyword>
 papers: []
 ---
@@ -18,6 +19,9 @@ section. `aliases` lists other slugs merged into this topic because they name
 the same subtopic; a paper carrying an alias belongs to this note too. Write it
 block style, one `  - slug` per line, or `aliases: []` when there are none.
 Obsidian reads `aliases` natively, so searching an old slug finds this note.
+`deep_dive` is set when a topic deep-dive (a literature search for this one
+topic) wrote the note. It is the deep-dive profile's id, never a link, and it
+tells a later rewrite that this note's length is a floor.
 
 ## Summary
 
@@ -53,6 +57,11 @@ ones it answers, how far, and what stays open. If it genuinely doesn't bear on
 the problem or the questions, say so plainly rather than manufacturing a
 connection.
 
+On a note with `deep_dive` set: one paragraph per question of the deep-dive
+profile, in order, each opening with the question in bold and saying how far
+the papers answer it; then one paragraph tying the topic back to the linked
+problem or its `review_questions`.
+
 ## Papers
 
 Wikilinks to the paper notes this topic draws on, as
@@ -61,4 +70,13 @@ which is this problem's own folder (`obsidian_vault/<problem-id>/`). Never
 prefix it with the problem id: that form resolves only from a vault opened one
 level up, and is dead in the vault the researcher actually opens. Every other
 wikilink in the note, including inline attributions in the prose, uses the same
-form. `<paper-id>` is the id listed in `papers` above, in the same order.
+form, except a deep-dive's inline links to other topic notes,
+`[[topics/<slug>]]`. `<paper-id>` is the id listed in `papers` above, in the
+same order.
+
+## Related topics
+
+Written by vault-build, not by topic-summarizer: the other topic notes that
+share at least two papers with this one, counting the papers a note lists and
+the papers tagged with its slug or an alias. Leave this section out of the
+note.

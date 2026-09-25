@@ -27,3 +27,7 @@ From [[papers/2023_lee_park|Deep Survival Models for Recurrence]]: a formula.
 - [[papers/2021_smith_jones|Calibration of Clinical Risk Scores]]
 - [[papers/2022_wu_chen|Time-to-Event Learning / A Review of (Deep) Methods]]
 - [[papers/2023_lee_park|Deep Survival Models for Recurrence]]
+
+## Related topics
+
+- [[topics/survival-analysis]] (3 shared papers)

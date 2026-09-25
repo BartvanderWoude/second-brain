@@ -20,14 +20,17 @@ and every other section stays verbatim in its position:
                 by keyword or lists it in `papers`), ## Citation, ## Related,
                 and the repo link lines in ## Code notes (its prose is left
                 alone)
-  topic note    ## Papers; for a --rebuilt-topics slug also ## Summary,
-                ## Across the papers, ## Core technical details and
-                ## Relevance to the problem
+  topic note    ## Papers, ## Related topics (the other topic notes sharing
+                at least 2 papers, a topic's papers being the ones it lists
+                and the ones whose keywords name it; at most 5, symmetric); for a
+                --rebuilt-topics slug also ## Summary, ## Across the papers,
+                ## Core technical details and ## Relevance to the problem
   repo note     ## Papers
 
 In frontmatter the vault's value wins for every key except `related_notes`
 and `related_basis` on a paper (the linker's output) and, on a rebuilt topic,
-`paper_count`, `papers` and `aliases`. A key only the record has is added.
+`paper_count`, `papers`, `aliases` and `deep_dive`. A key only the record has
+is added.
 
 BibTeX comes from arXiv's own metadata: one batched query-API request, with
 OAI-PMH per id as the fallback, cached in <paper_vault_path>/.vault/arxiv_meta.json.
@@ -62,7 +65,7 @@ TOPIC_CONTENT = ["Summary", "Across the papers", "Core technical details", "Rele
 ORDER = {
     "problem": ["Papers", "Topics", "Repos"],
     "paper": ["Code notes", "Links", "Citation", "Related"],
-    "topic": TOPIC_CONTENT + ["Papers"],
+    "topic": TOPIC_CONTENT + ["Papers", "Related topics"],
     "repo": ["Papers"],
 }
 
@@ -451,6 +454,22 @@ def related(p, papers, report, pid):
     return "\n".join(out) if out else None
 
 
+def related_topics(kept, floor=2, cap=5):
+    """{topic: [(other, shared papers)]}: pairs sharing >= floor papers, taken
+    greedily by shared count (then name) while both still have a free slot, so
+    every link has its way back and the result does not depend on file order."""
+    sets = {t: set(v) for t, v in kept.items()}
+    pairs = sorted(((len(sets[a] & sets[b]), a, b) for a in sets for b in sets if a < b), key=lambda p: (-p[0], p[1], p[2]))
+    out = {t: [] for t in sets}
+    for n, a, b in pairs:
+        if n < floor:
+            break
+        if len(out[a]) < cap and len(out[b]) < cap:
+            out[a].append((b, n))
+            out[b].append((a, n))
+    return out
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--profile", required=True, type=Path)
@@ -531,21 +550,34 @@ def main():
                    {"related_notes", "related_basis"}, st,
                    code_links=[f"- [[repos/{r}]]" for r in sorted(code.get(x, []))])
 
+    kept = {}
     for t, rec in sorted(topics.items()):
-        keep = []
+        kept[t] = []
         for x in rec["papers"]:
             if x in papers:
-                keep.append(x)
+                kept[t].append(x)
             else:
                 report["dropped_unknown_ids"].append({"note": f"topics/{t}", "field": "papers", "id": x})
-        owned = {"Papers": "".join(f"- {plink(x, papers)}\n" for x in keep) or "No paper in this vault carries this keyword.\n"}
+    # a topic's papers, for ## Related topics: the ones it lists and the ones
+    # tagged with its slug or an alias, the same two ways a paper links to it
+    member = {t: set(v) for t, v in kept.items()}
+    for x, p in papers.items():
+        for k in p["keywords"]:
+            if by_kw.get(k):
+                member[by_kw[k]].add(x)
+    near = related_topics(member)
+
+    for t, rec in sorted(topics.items()):
+        keep = kept[t]
+        owned = {"Papers": "".join(f"- {plink(x, papers)}\n" for x in keep) or "No paper in this vault carries this keyword.\n",
+                 "Related topics": "".join(f"- [[topics/{o}]] ({n} shared papers)\n" for o, n in near.get(t, [])) or None}
         fm_owned = set()
         if t in rebuilt:
             _, rsecs = sections(split(rec["text"])[1])
             for name, text in rsecs:
                 if name in TOPIC_CONTENT:
                     owned[name] = text.split("\n", 1)[1] if "\n" in text else ""
-            fm_owned = {"paper_count", "papers", "aliases"}
+            fm_owned = {"paper_count", "papers", "aliases", "deep_dive"}
         write_note(vault / "topics" / f"{t}.md", "topic", rec["text"], owned, fm_owned, st)
 
     for r, rec in sorted(repos.items()):

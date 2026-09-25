@@ -8,6 +8,7 @@ related_problem: fixture-vault-20260924
 keywords:
   - calibration
   - risk-scores
+  - time-to-event
 related_notes:
   - 2023_lee_park
   - 2022_wu_chen
