@@ -143,10 +143,15 @@ discovery to "fix" a missing key.
 ### Then core coverage — the citation chaser
 
 Once the three paper legs have returned, dispatch
-`second-brain-citation-chaser` with the confirmed profile path and
-`<plugin root>/scripts/find_papers.py`. It runs after the legs, not beside
-them: it chases citations from the core papers they saved, so it needs those
-on disk.
+`second-brain-citation-chaser` with:
+
+```
+profile: <confirmed profile path>
+find_papers: <plugin root>/scripts/find_papers.py
+```
+
+It runs after the legs, not beside them: it chases citations from the core
+papers they saved, so it needs those on disk.
 
 The legs can report what they found, never what their queries failed to
 retrieve. On the reRD run they found 5 of the 19 papers on its core question,
