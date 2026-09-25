@@ -124,8 +124,10 @@ open the vault at the end, and never installs Obsidian.
 
 ## Plugin mechanics
 
-- **Install and the arXiv dependency.** The repo is its own marketplace
-  (`.claude-plugin/marketplace.json`). `plugin.json` declares `arxiv-mcp-server`
+- **Install and the arXiv dependency.** The home repo is
+  `github.com/BartvanderWoude/second-brain`, and it is its own marketplace
+  (`.claude-plugin/marketplace.json`): users add it with
+  `/plugin marketplace add BartvanderWoude/second-brain`. `plugin.json` declares `arxiv-mcp-server`
   (marketplace `arxiv-mcp`) as a dependency, which is auto-installed only once
   that marketplace is registered. Without it the install command still reports
   success, but Claude Code refuses to load this plugin at all, in a real install and under `--plugin-dir` alike. So no agent

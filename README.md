@@ -53,7 +53,7 @@ You need [Claude Code](https://docs.claude.com/en/docs/claude-code/overview),
    marketplaces before installing, or the plugin will not load.
    ```
    /plugin marketplace add blazickjp/arxiv-mcp-server
-   /plugin marketplace add ofulla/second-brain-researcher
+   /plugin marketplace add BartvanderWoude/second-brain
    /plugin install second-brain-researcher@second-brain-researcher
    ```
 2. In a terminal, add the arXiv server with PDF support, so it can also read
