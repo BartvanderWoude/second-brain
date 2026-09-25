@@ -23,8 +23,8 @@ sees goes in `README.md`.
 
 ## PROJECT_CONTEXT.md: search it, never read it whole
 
-At 64 KB `PROJECT_CONTEXT.md` is meant to be searched, not read: reading it
-whole adds ~16k tokens to the context, paid again on every later turn. Never
+At 24 KB `PROJECT_CONTEXT.md` is meant to be searched, not read: reading it
+whole adds ~6k tokens to the context, paid again on every later turn. Never
 `Read` it without `offset`/`limit`, never `cat` it, and never `@`-import it
 here.
 
@@ -34,11 +34,10 @@ here.
   sections and decision entries.
 - **Read:** only the entry you need, by its line numbers:
   `sed -n '<from>,<to>p' PROJECT_CONTEXT.md`, or `Read` with `offset`/`limit`.
-- **Write:** add a new decision as its own entry, found and placed the same
-  way; do not load the file to edit it.
-
-A large file here is fine. Shrinking it is not the fix; reading it only in
-pieces is.
+- **Write:** add a new decision as its own entry, in the section it belongs
+  to, found and placed the same way; do not load the file to edit it. When a
+  decision is reversed, rewrite or delete its entry rather than striking it
+  through: git keeps the old one.
 
 ## How it works
 
@@ -122,6 +121,15 @@ open the vault at the end, and never installs Obsidian.
   does not depend on the main session's model.
 - **The main conversation reads compact script reports**, never papers,
   summaries or notes: every turn there re-reads the whole conversation.
+- **Prompts carry instructions, not history.** Agents, skills and templates
+  are read by a model on every run: no past-run anecdotes, no measurements, no
+  citations of `PROJECT_CONTEXT.md` (an installed plugin's agents cannot use
+  it). A reason stays only where it decides an edge case. The story goes in
+  `PROJECT_CONTEXT.md`.
+- **Descriptions stay short**, about 80 words at most: what it does, when to
+  use it, its inputs, and the reimplementation warning. Every skill's and
+  agent's description is loaded into every session of everyone who installs
+  the plugin.
 - **Experiment-plan code reuse** (when built) targets the researcher's existing
   project repo, not a new one.
 
@@ -140,7 +148,7 @@ open the vault at the end, and never installs Obsidian.
   reinstall after edits. The dependency must still be installed.
 - **The `[pdf]` extra.** The `arxiv-mcp-server` plugin launches plain
   `uvx arxiv-mcp-server`, which cannot extract arXiv papers that have no HTML
-  version (one run lost 17 that way). The README has users add a second
+  version. The README has users add a second
   server named `arxiv` with the extra, at user scope (`-s user`; the default
   local scope exists only in the directory where it was added). Without the
   extra that failure is permanent: the arXiv leg does not retry, and hands the
@@ -166,15 +174,18 @@ open the vault at the end, and never installs Obsidian.
   command fields, not in skill or agent Markdown and not in Bash. Never write
   repo-relative paths into skills or agents. The skills resolve the plugin root
   themselves (the env var, then repo-relative for dev, then a scan of
-  `~/.claude/plugins/marketplaces/*/`) and pass absolute paths on. That third
-  case is not yet verified against a real marketplace install of this plugin.
+  `~/.claude/plugins/marketplaces/*/`), stop when none resolves, and pass
+  every template and script to an agent as an absolute path in a labelled
+  prompt (`profile:`, `identity spec:`, `format:`, `fetcher:`,
+  `find_papers:`). That third case is not yet verified against a real
+  marketplace install of this plugin.
 - **Keys come from the environment only**, never plugin config:
   `ASTA_API_KEY`, `SEMANTIC_SCHOLAR_API_KEY`, `UNPAYWALL_EMAIL`,
   `OPENALEX_API_KEY`, `NCBI_API_KEY`. The README tells users to export them in
   their shell profile. For dev, `.env` (gitignored; `.env.example` is the
   committed template) is loaded with `set -a; source .env; set +a` before
   `claude`, because Claude Code does not read `.env` itself. The cross-field
-  agent's skip message names the `.env` route.
+  agent's skip message points installed users to the README's "API keys".
 - **Waves.** Agents go out in waves no larger than
   `CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS` (20 by default): a call past it is
   refused, not queued. Raising it in `~/.claude/settings.json` saves wall-clock
@@ -190,11 +201,9 @@ open the vault at the end, and never installs Obsidian.
   → Unpaywall (needs `UNPAYWALL_EMAIL`). It first fills any missing
   DOI/PMID/PMCID from Semantic Scholar. A download that does not start with
   `%PDF-` is refused.
-- **It replaced `paper-search-mcp`'s `download_with_fallback`** for open access.
-  On the 42-paper run 16 of 20 clinical papers ended up abstract-only through
-  it: PMC called open-access papers closed, Europe PMC's PDFs returned 403,
-  HTML error pages were saved as `.pdf` and reported as success, CORE failed on
-  every DOI, and the Sci-Hub mirror did not resolve.
+- **Never `download_with_fallback`** from `paper-search-mcp` for open access:
+  it lost most of one run's clinical full texts (PROJECT_CONTEXT.md, "Full
+  text comes from `fetch_fulltext.py`").
 - **Docling converts PDFs** and is optional: without it a PDF-only paper stays
   abstract-only, with the reason in the report. `--image-export-mode
   placeholder`, because base64 figures made one paper 545 KB instead of 56 KB;
@@ -292,7 +301,8 @@ use a scratch copy of 3–5 records from a real vault instead.
 | `second-brain-paper-downloader` (arXiv) | a copy of `test-fixtures/sample-topic-profile.md` with `paper_vault_path:` pointing at a scratch dir | saved records have the identity header (`stage_prep.py merge <dir> --dry-run`: `no_header` empty) |
 | `second-brain-biomed-downloader` | a copy of `test-fixtures/find-papers/fixture-recall-20260924.md` with a `paper_vault_path:` line added, pointing at a scratch dir | as above |
 | `second-brain-citation-chaser` | that profile, pointing at a scratch copy of `test-fixtures/find-papers/records/fixture-recall-20260924/` | its reply's rounds and stop reason; `merge --dry-run` |
-| `second-brain-crossfield-searcher`, `second-brain-code-finder` | as for the arXiv leg | as above; code-finder: `repos/*.md` |
+| `second-brain-crossfield-searcher` | as for the arXiv leg, with a methodology term added (the sample profile has none). Without `ASTA_API_KEY` in Claude Code's environment it stops at its key check, which tests only pre-flight | as above, or its skip reply |
+| `second-brain-code-finder` | as for the arXiv leg, on a scratch copy of a vault with saved papers (the arXiv leg's T2 output will do) | `repos/*.md` fields and headings against `templates/repo-note-template.md`; `check_vault.py records`; `code_vault` empty |
 
 Give the agent the pipeline's own prompt template for that step
 (`skills/second-brain-pipeline/SKILL.md`), filled in with the scratch paths.
@@ -362,7 +372,9 @@ left out; measure that on a real full run.
 | citation chaser, 4 rounds | ~1.4M |
 | cross-field leg, stopped at its key check | ~45k |
 
-Estimates for T2, until measured: `paper-summarizer` on the sample paper
-50–100k; `topic-summarizer` on a 4-paper digest 200–500k; a capped leg or a
-1-round chaser 150–600k. Replace an estimate with the measured figure after the
-first such run.
+Measured at T2 (2026-09-25, the cleanup session), weighted tokens:
+`paper-summarizer` on the sample paper ~120k; `topic-summarizer` deepening the
+2-paper fixture note ~120k; the arXiv, biomedical and code legs with the
+`TEST RUN` cap ~250k each; the chaser capped ~120k (its paper cap was reached
+in round 0, so no chase round ran); the cross-field leg stopped at its key
+check ~50k.
