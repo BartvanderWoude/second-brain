@@ -37,6 +37,8 @@ diff $V/2025_gan_cao_2.md $B/expected_2025_gan_cao_2.md
 cmp $V/2025_gan_cao.md $B/records/fixture-recall-20260924/2025_gan_cao.md
 ```
 
+`bash test-fixtures/run_offline.sh find-papers` runs the commands above and checks every expectation below; change the README and the runner together.
+
 No output means everything passes. `--offline` answers every request from
 `cache.json`, which holds the real PubMed E-utilities and OpenAlex responses
 for these commands, recorded on 2026-09-25 by running them with

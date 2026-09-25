@@ -8,6 +8,8 @@ diff <(python3 scripts/link_papers.py --summaries test-fixtures/linker/summaries
      test-fixtures/linker/expected_report.json
 ```
 
+`bash test-fixtures/run_offline.sh linker` runs the commands above and checks every expectation below; change the README and the runner together.
+
 No output means it passes. `--dry-run` writes nothing, so the fixture stays
 unchanged.
 

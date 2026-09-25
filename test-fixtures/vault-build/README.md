@@ -21,6 +21,8 @@ diff -r $T/rerun $B/expected-rerun
 python3 scripts/check_vault.py vault $T/rerun/fixture-vault-20260924
 ```
 
+`bash test-fixtures/run_offline.sh vault-build` runs the commands above and checks every expectation below; change the README and the runner together.
+
 No `diff` output means both pass, and the vault check must report
 `"dead_count": 0`. Running either build a second time must report
 `"merged": []`: the script is idempotent. `--offline` keeps it off the network

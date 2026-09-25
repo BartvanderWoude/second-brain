@@ -29,6 +29,8 @@ python3 scripts/fetch_fulltext.py --record $T/2020_antaki_kahwati.md $T/bad.md \
       assert r["still_abstract_only"] == ["bad"] and "error" in r["records"][1]; print("3 passes")'
 ```
 
+`bash test-fixtures/run_offline.sh fetch` runs the commands above and checks every expectation below; change the README and the runner together.
+
 Test 1 passes when `diff` prints nothing; tests 2 and 3 print `2 passes` and `3 passes`.
 
 - `2020_antaki_kahwati.md` — an abstract-only record in the "Saved paper file"

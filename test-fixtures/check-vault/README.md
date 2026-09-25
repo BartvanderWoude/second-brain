@@ -10,6 +10,8 @@ diff <(python3 scripts/check_vault.py vault $B/vault/fixture-problem-20260924) \
      $B/expected_vault_report.json
 ```
 
+`bash test-fixtures/run_offline.sh check-vault` runs the commands above and checks every expectation below; change the README and the runner together.
+
 No output means both pass. Neither command is run with `--fix`, so the fixture
 stays unchanged. To test `--fix`, copy `records/fixture-problem-20260924` to a
 scratch directory and run it there: it must strip the two markup lines at the

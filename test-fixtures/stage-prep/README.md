@@ -21,6 +21,8 @@ python3 scripts/stage_prep.py digest $T/fixture-prep-20260924 \
 diff $T/fixture-prep-20260924/.digests/survival-analysis.md $B/expected_digest_survival-analysis.md
 ```
 
+`bash test-fixtures/run_offline.sh stage-prep` runs the commands above and checks every expectation below; change the README and the runner together.
+
 No `diff` output means everything passes. After the real merge,
 `2023_lee_park.md` must read `source: arxiv, pubmed`, `doi: 10.1000/jrec.2024.1`
 and `pmid: "38000001"`, and `2024_lee_park.md` and `2021_smith_jones.md` must
@@ -96,6 +98,8 @@ O=$(mktemp -d); cp -r $B/records/fixture-dd-20260925 $O/; O=$O/fixture-dd-202609
 sed -i 's/^id: 2021_smith_jones$/id: smith-cox-models-20260924/' $O/summaries/2021_smith_jones_summary.md
 python3 scripts/stage_prep.py topic $O --profile $P --topic survival-analysis | grep -c '^WARNING: old-style ids'   # 1
 ```
+
+`bash test-fixtures/run_offline.sh stage-prep-deep-dive` runs the commands above and checks every expectation below; change the README and the runner together.
 
 No `diff` output, and the counts and exit codes in the comments, mean it
 passes.
