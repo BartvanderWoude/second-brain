@@ -15,7 +15,7 @@
 set -u
 cd "$(dirname "$0")/.." || exit 2
 
-ALL=(check-vault fetch find-papers linker schema-copies stage-prep stage-prep-deep-dive vault-build)
+ALL=(check-vault fetch find-papers linker plugin-root schema-copies stage-prep stage-prep-deep-dive vault-build)
 SUITES=("${ALL[@]}")
 
 # fail LABEL TEXT: record a failure for the suite that is running.
@@ -110,6 +110,26 @@ suite_find_papers() {
 suite_linker() {
   same report <(python3 scripts/link_papers.py --summaries test-fixtures/linker/summaries \
     --state test-fixtures/linker/state --offline --dry-run) test-fixtures/linker/expected_report.json
+}
+
+suite_plugin_root() {
+  awk '/^## Before stage 3/{s=1} s && /^```bash/{p=1; next} p && /^```/{exit} p' \
+    skills/second-brain-pipeline/SKILL.md > "$T/resolve.sh"
+  mk() { mkdir -p "$1/.claude-plugin" "$1/templates" "$1/scripts"; echo "{\"name\": \"$2\"}" > "$1/.claude-plugin/plugin.json"; }
+  root() { (cd "$1" && env -u CLAUDE_PLUGIN_ROOT -u CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS HOME="$2" "${@:3}" bash "$T/resolve.sh"); }
+  local P=.claude/plugins
+  mkdir -p "$T/proj/scripts" "$T/proj/templates"; mk "$T/home1/$P/marketplaces/arxiv-mcp" arxiv-mcp-server
+  expect dev "plugin root: $(pwd -P)|wave size: 20" "$(root "$PWD" "$T/home1" | paste -sd'|')"
+  expect look-alike "plugin root: NOT FOUND" "$(root "$T/proj" "$T/home1" | head -1)"
+  expect env-var "plugin root: $PWD" "$(root "$T/proj" "$T/home1" CLAUDE_PLUGIN_ROOT="$PWD" | head -1)"
+  mk "$T/home2/$P/cache/sbr/second-brain-researcher/0.1.0" second-brain-researcher
+  mk "$T/home2/$P/marketplaces/second-brain-researcher" second-brain-researcher
+  expect marketplace "plugin root: $T/home2/$P/marketplaces/second-brain-researcher" \
+    "$(root "$T/proj" "$T/home2" | head -1)"
+  echo "{\"plugins\": {\"second-brain-researcher@sbr\": [{\"installPath\": \"$T/home2/$P/cache/sbr/second-brain-researcher/0.1.0\"}]}}" \
+    > "$T/home2/$P/installed_plugins.json"
+  expect installed "plugin root: $T/home2/$P/cache/sbr/second-brain-researcher/0.1.0" \
+    "$(root "$T/proj" "$T/home2" | head -1)"
 }
 
 suite_schema_copies() {

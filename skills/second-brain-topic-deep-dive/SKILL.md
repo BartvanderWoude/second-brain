@@ -38,9 +38,10 @@ Stop and say why if the profile is not `status: confirmed`, or its
 
 ## 2. The plugin root
 
-Resolve it as `second-brain-pipeline`'s SKILL.md does ("Before stage 3"), in
-the same three places, and note `<plugin root>/scripts/stage_prep.py`. If none
-resolves, stop: the topic report below is the only way to check the vault.
+Run the Bash call under "Before stage 3" in `second-brain-pipeline`'s SKILL.md
+(`../second-brain-pipeline/SKILL.md` from this skill's directory), as written
+there, and note `<plugin root>/scripts/stage_prep.py`. On `NOT FOUND`, stop:
+the topic report below is the only way to check the vault.
 
 ## 3. The topic
 

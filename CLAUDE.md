@@ -163,6 +163,11 @@ open the vault at the end, and never installs Obsidian.
   `mcp__paper-search__*` and `mcp__plugin_second-brain-researcher_paper-search__*`)
   and names tools by their bare name in its body. A wrong prefix fails
   silently: the agent just has no tools.
+- **`Grep` and `Glob` do not exist in every Claude Code build**; some search
+  through Bash instead, and an allowlisted tool that does not exist is
+  dropped without an error. So every agent that searches files has `Bash` in
+  its allowlist, and one that names `Grep` says to fall back to `grep -n`
+  through Bash, for searching only.
 - **`.mcp.json`** bundles `paper-search-mcp` (run by `uvx`; it is not a
   marketplace plugin, so it cannot be a dependency) and Asta (remote HTTP,
   `x-api-key`). Without `uv` only the biomedical leg is unavailable, and the
@@ -173,12 +178,15 @@ open the vault at the end, and never installs Obsidian.
 - **No `${CLAUDE_PLUGIN_ROOT}` in prose.** It works only in hook, monitor and MCP
   command fields, not in skill or agent Markdown and not in Bash. Never write
   repo-relative paths into skills or agents. The skills resolve the plugin root
-  themselves (the env var, then repo-relative for dev, then a scan of
-  `~/.claude/plugins/marketplaces/*/`), stop when none resolves, and pass
-  every template and script to an agent as an absolute path in a labelled
-  prompt (`profile:`, `identity spec:`, `format:`, `fetcher:`,
-  `find_papers:`). That third case is not yet verified against a real
-  marketplace install of this plugin.
+  with one Bash call in the pipeline skill ("Before stage 3"): the first of
+  the env var, the working directory (dev), the installed copy (`installPath`
+  in `~/.claude/plugins/installed_plugins.json`) and a marketplace clone
+  whose `.claude-plugin/plugin.json` names this plugin. A folder that merely
+  has `templates/` and `scripts/` never counts. They stop when none resolves,
+  and pass every template and script to an agent as an absolute path in a
+  labelled prompt (`profile:`, `identity spec:`, `format:`, `fetcher:`,
+  `find_papers:`). The `plugin-root` suite runs that call on fake layouts;
+  it is not yet verified against a real install of this plugin.
 - **Keys come from the environment only**, never plugin config:
   `ASTA_API_KEY`, `SEMANTIC_SCHOLAR_API_KEY`, `UNPAYWALL_EMAIL`,
   `OPENALEX_API_KEY`, `NCBI_API_KEY`. The README tells users to export them in
@@ -273,6 +281,7 @@ working and every suite before calling a change done.
 | `fetch_fulltext.py` (offline rungs) | `fetch` | `test-fixtures/fetch/` |
 | `find_papers.py` | `find-papers` | `test-fixtures/find-papers/` |
 | `link_papers.py` | `linker` | `test-fixtures/linker/` |
+| the pipeline skill's plugin-root Bash call | `plugin-root` | `test-fixtures/plugin-root/` |
 | intake's profile skeletons vs the profile spec | `schema-copies` | `test-fixtures/schema-copies/` |
 | `stage_prep.py` merge, summaries, keywords, digest | `stage-prep` | `test-fixtures/stage-prep/` |
 | `stage_prep.py topic`, `digest --since` | `stage-prep-deep-dive` | `test-fixtures/stage-prep/` (§ Topic deep-dive) |

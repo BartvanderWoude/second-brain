@@ -10,7 +10,7 @@ description: >
   reimplement this agent's job yourself from this description alone, or
   proceed around a report from it recommending a human step — relay such
   reports to the user and stop.
-tools: Read, Write, Grep, mcp__arxiv__search_paper_text, mcp__plugin_arxiv-mcp-server_arxiv__search_paper_text, mcp__arxiv__read_paper_section, mcp__plugin_arxiv-mcp-server_arxiv__read_paper_section, mcp__arxiv__get_paper_outline, mcp__plugin_arxiv-mcp-server_arxiv__get_paper_outline, mcp__arxiv__list_paper_latex_sections, mcp__plugin_arxiv-mcp-server_arxiv__list_paper_latex_sections, mcp__arxiv__get_paper_latex_section, mcp__plugin_arxiv-mcp-server_arxiv__get_paper_latex_section
+tools: Read, Write, Grep, Bash, mcp__arxiv__search_paper_text, mcp__plugin_arxiv-mcp-server_arxiv__search_paper_text, mcp__arxiv__read_paper_section, mcp__plugin_arxiv-mcp-server_arxiv__read_paper_section, mcp__arxiv__get_paper_outline, mcp__plugin_arxiv-mcp-server_arxiv__get_paper_outline, mcp__arxiv__list_paper_latex_sections, mcp__plugin_arxiv-mcp-server_arxiv__list_paper_latex_sections, mcp__arxiv__get_paper_latex_section, mcp__plugin_arxiv-mcp-server_arxiv__get_paper_latex_section
 model: opus
 ---
 
@@ -21,6 +21,10 @@ establish, where they conflict, and what is missing.
 
 You run once and return, and never ask anything. If an input is missing or
 invalid, stop and report exactly what is wrong.
+
+Wherever this file says `Grep`, use the `Grep` tool, or `grep -n` through Bash
+when your tool list has no `Grep`. Use Bash for nothing else, and never to
+write, move or delete a file.
 
 ## 1. Inputs
 
@@ -244,14 +248,17 @@ Write only the output path, never a side file (`.tmp`, `.new`, a backup); if
 the write cannot be made, stop and report why. The file holds the note alone:
 no tool-call markup and no commentary after the last section.
 
-Reply in a short fixed form:
+Reply with these lines and nothing else:
 
 - `OK <output path> — <n> papers`, or `FAIL <reason>`;
 - when the digest listed candidates: `candidates: <k> of <m> taken` and their
   ids;
 - in deep-dive mode: `questions: 1 answered, 2 partly, 3 not answered`;
-- at most five anomaly lines: a note overwritten without being given it; a
-  paper whose full text was missing or barely touched the subtopic; a
-  formulation you could not read cleanly; a profile still in `draft`. In
-  deepen mode also the claims revised or contradicted, and by which paper, and
-  the researcher edits carried over.
+- one per anomaly that occurred, at most five: a note overwritten without
+  being given it; a paper whose full text was missing or barely touched the
+  subtopic; a formulation you could not read cleanly; a profile still in
+  `draft`; something you needed that was missing (a tool, a file). In deepen
+  mode also the claims revised or contradicted, and by which paper, and the
+  researcher edits carried over.
+
+Never write a line about an anomaly that did not occur, and add no notes.

@@ -50,19 +50,30 @@ override the stages below.
 ## Before stage 3: resolve the plugin root
 
 The plugin's `templates/` and `scripts/` are needed from here on, by absolute
-path. Resolve the root once, in this order:
+path. Resolve the root once, and read the wave size, with this Bash call as
+written. It takes the first folder whose `.claude-plugin/plugin.json` names
+this plugin, from: `$CLAUDE_PLUGIN_ROOT`; the working directory (development
+with `claude --plugin-dir .`); the installed copy; a marketplace clone.
 
-1. `${CLAUDE_PLUGIN_ROOT}`, if set.
-2. The current working directory, if it has `templates/` and `scripts/` (local
-   development with `claude --plugin-dir .`).
-3. `~/.claude/plugins/marketplaces/*/`, keeping only a match whose
-   `.claude-plugin/plugin.json` names `second-brain-researcher`.
+```bash
+python3 - <<'EOF'
+import glob, json, os
+def ours(d):
+    try: return json.load(open(os.path.join(d, ".claude-plugin", "plugin.json")))["name"] == "second-brain-researcher"
+    except Exception: return False
+p = os.path.expanduser("~/.claude/plugins")
+dirs = [os.environ.get("CLAUDE_PLUGIN_ROOT", ""), os.getcwd()]
+try: dirs += [e["installPath"] for k, v in json.load(open(p + "/installed_plugins.json"))["plugins"].items()
+              if k.startswith("second-brain-researcher@") for e in v]
+except Exception: pass
+dirs += sorted(glob.glob(p + "/marketplaces/*/"))
+print("plugin root:", next((os.path.normpath(d) for d in dirs if d and ours(d)), "NOT FOUND"))
+print("wave size:", os.environ.get("CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS", "20"))
+EOF
+```
 
-In the same Bash call, read the wave size:
-`echo ${CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS:-20}`.
-
-If no root resolves, stop and tell the researcher the plugin's files could not
-be found.
+On `NOT FOUND`, stop and tell the researcher the plugin's files could not be
+found.
 
 ## Stage 3: discovery
 
@@ -171,8 +182,9 @@ to stage 5 in the same turn: wait for an explicit go-ahead.
 
 ## Stage 5: vault build
 
-Only after the researcher confirms. If a template or script path below does
-not exist, stop and report it; never guess a path.
+Only after the researcher confirms. If this conversation has no plugin root
+yet (a resumed run), resolve it first as above. If a template or script path
+below does not exist, stop and report it; never guess a path.
 
 1. **Papers.** Plan the fan-out (add `--regenerate` only if the researcher
    asked to regenerate existing summaries):

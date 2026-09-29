@@ -9,7 +9,7 @@ description: >
   agent's job yourself from this description alone, or proceed around a report
   from it recommending a restart or other human step — relay such reports to
   the user and stop.
-tools: Read, Write, Grep
+tools: Read, Write, Grep, Bash
 model: sonnet
 ---
 
@@ -43,7 +43,9 @@ calls in one message. Read a paper in full, or with `limit: N` when it has
 `read_until: N` (the lines after N are its references and what follows).
 `Read` returns at most 2000 lines per call, so page longer reads in that same
 turn. If the main text defers its central formulation to an appendix past N,
-`Grep` for that appendix's heading and read that region.
+search for that appendix's heading and read that region. Search with `Grep`,
+or with `grep -n` through Bash when your tool list has no `Grep`; use Bash for
+nothing else, and never to write, move or delete a file.
 
 With several papers, write each summary from its own paper only: never carry
 a claim, number, keyword or equation into another paper's summary. Steps 3–7
@@ -135,13 +137,14 @@ markup and no commentary after the last section.
 
 ## 8. Report
 
-Reply in a short fixed form:
+Reply with these lines and nothing else:
 
-- one line per paper: `OK <output path>`, or `FAIL <paper path>: <reason>`;
-- then at most five anomaly lines: an existing summary overwritten; a header
-  `id` that differed from the filename; a profile still in `draft`; no profile
-  given; a paper with an `extraction_warning` or abstract-only; a paper you read
-  past `read_until`.
+- one per paper: `OK <output path>`, or `FAIL <paper path>: <reason>`;
+- one per anomaly that occurred, at most five: an existing summary
+  overwritten; a header `id` that differed from the filename; a profile still
+  in `draft`; no profile given; a paper with an `extraction_warning` or
+  abstract-only; a paper you read past `read_until`; something you needed that
+  was missing (a tool, a file).
 
-Do not restate matched terms or keywords; the pipeline reads them from the
-files.
+Never write a line about an anomaly that did not occur, and add no notes: the
+pipeline reads keywords, matched terms and everything else from the files.
