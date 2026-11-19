@@ -53,6 +53,11 @@ again under the same name replaces that list, so after a second query use only
 the numbers it printed. Never pass `--window` or `--max`, and `--top` only
 as pairs mode's step 3 and upstream mode's step 4 say.
 
+Screen every candidate a list printed. If the output you see holds fewer
+numbered lines than the list's count, it was cut from view: run the same
+`pubmed` call again with `> <vault>/.candidates/<name>.txt` and `Read` that
+file in parts until you have seen every line.
+
 Each query is a PubMed query with double quotes and `*` in it. Pass it in
 single quotes, exactly as written, writing any `'` inside it as `'\''`.
 
@@ -181,6 +186,13 @@ systematic review, umbrella review or meta-analysis of `a`'s risk factors in
 humans passes. The query's first OR-group shows which words stand for `a`. A
 paper that studies `a` only as a cause of something else, only how common `a`
 is, how to diagnose it, or animals or cells does not pass.
+
+**Same variables, both modes.** The paper's variables must be the nodes
+themselves, not a distinct condition that shares a word with one: gestational
+diabetes is not diabetes, postoperative anemia is not preoperative anemia. A
+paper whose population differs from the profile's `causal_setting` still
+passes when its variables are the nodes; the setting only decides the order
+below.
 
 Work in two passes, to keep abstracts out of your context unless they decide
 something:
