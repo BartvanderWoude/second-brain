@@ -144,8 +144,17 @@ open the vault at the end, and never installs Obsidian.
   success, but Claude Code refuses to load this plugin at all, in a real install and under `--plugin-dir` alike. So no agent
   re-checks the dependency. Adding the marketplace later self-heals without a
   restart.
-- **Local dev:** `claude --plugin-dir .` loads the working tree live, with no
-  reinstall after edits. The dependency must still be installed.
+- **Use vs. dev.** Real runs, the author's included, use the marketplace
+  install, from any project folder, with the keys in `~/.claude/settings.json`
+  (below). It runs from a cached copy of what was pushed to `develop`, so
+  edits reach it only after a push and `claude plugin update
+  second-brain-researcher@second-brain-researcher` plus a restart. Whether
+  that update picks up new commits without a `version` bump in `plugin.json`
+  is not yet checked. `claude --plugin-dir <repo>` is for testing: it loads
+  the working tree live, with no reinstall after edits. Started outside the
+  repo it also needs `CLAUDE_PLUGIN_ROOT=<repo>`, or the root lookup takes the
+  installed copy, or reports `NOT FOUND` when there is none (checked with
+  `claude -p`). The dependency must be installed either way.
 - **The `[pdf]` extra.** The `arxiv-mcp-server` plugin launches plain
   `uvx arxiv-mcp-server`, which cannot extract arXiv papers that have no HTML
   version. The README has users add a second
@@ -185,15 +194,21 @@ open the vault at the end, and never installs Obsidian.
   has `templates/` and `scripts/` never counts. They stop when none resolves,
   and pass every template and script to an agent as an absolute path in a
   labelled prompt (`profile:`, `identity spec:`, `format:`, `fetcher:`,
-  `find_papers:`). The `plugin-root` suite runs that call on fake layouts;
-  it is not yet verified against a real install of this plugin.
+  `find_papers:`). The `plugin-root` suite runs that call on fake layouts,
+  and on a real install, from a folder outside the repo with
+  `CLAUDE_PLUGIN_ROOT` unset, it returns
+  `~/.claude/plugins/cache/second-brain-researcher/second-brain-researcher/<version>`.
 - **Keys come from the environment only**, never plugin config:
   `ASTA_API_KEY`, `SEMANTIC_SCHOLAR_API_KEY`, `UNPAYWALL_EMAIL`,
-  `OPENALEX_API_KEY`, `NCBI_API_KEY`. The README tells users to export them in
-  their shell profile. For dev, `.env` (gitignored; `.env.example` is the
-  committed template) is loaded with `set -a; source .env; set +a` before
-  `claude`, because Claude Code does not read `.env` itself. The cross-field
-  agent's skip message points installed users to the README's "API keys".
+  `OPENALEX_API_KEY`, `NCBI_API_KEY`. The README puts them in the `env` block
+  of `~/.claude/settings.json`, which every session reads, desktop app
+  included; a shell profile reaches only sessions started from a terminal.
+  `claude mcp get plugin:second-brain-researcher:asta` shows whether the Asta
+  header is set (the value is redacted). For a dev session from a terminal,
+  `.env` (gitignored; `.env.example` is the committed template) can be loaded
+  with `set -a; source .env; set +a` before `claude`, because Claude Code does
+  not read `.env` itself. The cross-field agent's skip message points
+  installed users to the README's "API keys".
 - **Waves.** Agents go out in waves no larger than
   `CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS` (20 by default): a call past it is
   refused, not queued. Raising it in `~/.claude/settings.json` saves wall-clock

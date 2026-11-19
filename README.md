@@ -76,11 +76,29 @@ You need [Claude Code](https://docs.claude.com/en/docs/claude-code/overview),
 5. *Optional:* add API keys (below).
 6. Restart Claude Code.
 
+To update the plugin later, run this in a terminal and restart Claude Code:
+
+```bash
+claude plugin update second-brain-researcher@second-brain-researcher
+```
+
 ### API keys (all optional)
 
 The plugin works without any of them: a source without its key is skipped or
-slower. To add one, put `export NAME=value` in your `~/.bashrc` (or
-`~/.zshrc`) and open a new terminal. All of them are free.
+slower. All of them are free. Add the ones you have to the `env` block of
+`~/.claude/settings.json`, then restart Claude Code. Keep the rest of the
+file as it is; if it has no `env` block yet, add one:
+
+```json
+"env": {
+  "ASTA_API_KEY": "your-key",
+  "UNPAYWALL_EMAIL": "you@example.org"
+}
+```
+
+Every Claude Code session reads this file, in the terminal and in the desktop
+app. An `export NAME=value` line in `~/.bashrc` also works, but only for
+Claude Code started from a terminal.
 
 | Key | What it adds | Get it |
 |---|---|---|
@@ -139,7 +157,8 @@ sections and keeps your changes.
 
 ## Working on the plugin
 
-Run `claude --plugin-dir .` in a clone of this repository to load the plugin
-from your working copy. Install steps 1 and 2 are still needed: the plugin does
-not load without the arXiv server. How it is built, its rules and how to test
-it are in [CLAUDE.md](CLAUDE.md).
+To use the plugin, install it as above, also when you are working on it. To
+test changes, run `claude --plugin-dir .` in a clone of this repository: it
+loads the plugin from your working copy. Install steps 1 and 2 are still
+needed, because the plugin does not load without the arXiv server. How it is
+built, its rules and how to test it are in [CLAUDE.md](CLAUDE.md).
