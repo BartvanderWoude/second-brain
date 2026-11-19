@@ -7,6 +7,7 @@ domain: fixture surgery
 task: predict the fixture outcome within 30 days of elective fixture surgery
 causal_target: Fixture outcome
 causal_setting: adults undergoing elective fixture surgery at a fixture centre; outcome within 30 days
+prediction_time: at the preoperative visit, before fixture surgery
 exclude_papers:
   - "Fixture risk factors in a cross-sectional survey — 10.9999/FIXTURE.2018.005"
 pair_search_k: 3

@@ -211,7 +211,9 @@ The canonical nodes and which raw names map to them.
       "level_map": {"yes": ["diabetic", "DM"], "no": ["non-diabetic", "no diabetes"]},
       "unit": null,
       "description": "A diagnosis of diabetes mellitus before surgery.",
-      "measurement_note": "Two papers used HbA1c >= 6.5% instead of a diagnosis."
+      "measurement_note": "Two papers used HbA1c >= 6.5% instead of a diagnosis.",
+      "timing": "baseline",
+      "exogenous": false
     }
   ],
   "unmapped": ["comorbidities", "other factors"]
@@ -229,6 +231,8 @@ The canonical nodes and which raw names map to them.
 | `nodes[].unit` | text or null | A continuous or discrete node's unit. |
 | `nodes[].description` | text | What the variable is, in one sentence. |
 | `nodes[].measurement_note` | text or null | How the papers' operationalizations differ, when they do. |
+| `nodes[].timing` | `baseline`, `later`, `target_measure`, `unknown` | When the variable is known, judged against the profile's `prediction_time`: `baseline`, known by the prediction time; `later`, measured after it, before or around the outcome; `target_measure`, a measure or early form of the target itself (a preoperative delirium score for postoperative delirium); `unknown` when the papers do not say. Missing or null means `unknown`. |
+| `nodes[].exogenous` | `true`, `false` | `true` for a variable nothing in the graph can cause (age, sex, genotype, calendar time). Missing or null means `false`. |
 | `unmapped` | list of text | Raw names too vague to be one variable. |
 
 - **Mapping.** A raw name maps to a node when, normalized, it equals the
@@ -242,6 +246,13 @@ The canonical nodes and which raw names map to them.
   node (obesity and body mass index are one node, typed as the majority
   operationalization, the others described in `measurement_note`). Distinct
   constructs stay apart even when they are correlated.
+- **Timing.** `assemble` drops a `target_measure` node and all its edges
+  from both graphs, and every edge into an `exogenous` node, before cycles
+  are broken. A `later` node stays in both graphs; its description there ends
+  with "Measured after the prediction time." `pairs` leaves out
+  `target_measure` nodes and pairs of two `exogenous` nodes; `upstream` skips
+  `exogenous` and `target_measure` causes. The target's own `timing` and
+  `exogenous` are not used.
 - **Later passes.** A harmonizer that finds `variables.json` already written
   keeps every node's name and every existing mapping, and only adds aliases,
   level-map entries and nodes for the new names.
@@ -258,24 +269,27 @@ The pairs of top causes with no claim between them yet, for the pair search.
   "max_papers": 40,
   "pairs": [
     {"n": 1, "a": "Diabetes", "b": "Obesity", "support": 31,
-     "query": "(\"diabetes mellitus\"[tiab] OR diabetes[tiab]) AND (obesity[tiab] OR \"body mass index\"[tiab])",
-     "narrow": "(...) AND (...) AND (cohort[tiab] OR \"risk factor*\"[tiab] OR \"odds ratio\"[tiab] OR \"mendelian randomi*\"[tiab] OR meta-analysis[tiab])"}
+     "query": "(\"diabetes mellitus\"[ti] OR diabetes[ti]) AND (obesity[ti] OR \"body mass index\"[ti]) AND (cohort[tiab] OR \"risk factor*\"[tiab] OR \"odds ratio\"[tiab] OR \"mendelian randomi*\"[tiab] OR meta-analysis[tiab])",
+     "narrow": "(\"diabetes mellitus\"[ti] OR diabetes[ti]) AND (obesity[ti] OR \"body mass index\"[ti]) AND (\"systematic review\"[tiab] OR meta-analys*[tiab] OR \"umbrella review\"[tiab])"}
   ]
 }
 ```
 
 | Field | Values | Meaning |
 |---|---|---|
-| `k` | integer | How many top causes were paired: the profile's `pair_search_k`, 15 when missing. |
+| `k` | integer | How many top causes were paired: the profile's `pair_search_k`, 15 when missing. `target_measure` nodes are left out before the top `k` are taken. |
 | `max_papers` | integer | Papers the pair search may add in one run: the profile's `pair_search_max_papers`, 40 when missing. A paper already in the vault is never listed again, so the cap counts only papers that run adds. |
 | `pairs[].n` | integer | The pair's number, from 1, in search order. |
 | `pairs[].a`, `.b` | text | The two nodes' names: `a` the one with more support, ties by name. The order says nothing about direction; both are searched. |
 | `pairs[].support` | integer | Their combined support: papers with a kept claim touching `a`, plus those touching `b`. |
-| `pairs[].query` | text | A PubMed query: one block per node, its name and aliases OR-ed, each `[tiab]`, the two blocks AND-ed. |
-| `pairs[].narrow` | text | `query` AND a block of study-design terms, for when `query` is too broad. |
+| `pairs[].query` | text | A PubMed query: one block per node, its name and aliases OR-ed, each in the title (`[ti]`), the two blocks AND-ed, AND a block of study-design terms (`cohort`, `risk factor*`, `odds ratio`, `mendelian randomi*`, `meta-analysis`, each `[tiab]`). |
+| `pairs[].narrow` | text | The same two title blocks AND a review block (`systematic review`, `meta-analys*`, `umbrella review`, each `[tiab]`), for when `query` is too broad. |
 
 Pairs are ordered by `support`, most first. No pair has a kept claim between
-its nodes in either direction.
+its nodes in either direction, a `target_measure` node, or two `exogenous`
+nodes. `query` is run first, `narrow` when `query` is too broad; when
+`narrow` is too broad as well, the searcher reruns it with `--top 50`, as for
+`upstream.json` below.
 
 ## `upstream.json`: `causal_graphs/<id>/.work/upstream.json`
 
@@ -299,7 +313,7 @@ one's own causes.
 | `k` | integer | How many top causes of the target were taken: the profile's `upstream_search_k`, 5 when missing. |
 | `max_papers` | integer | Papers the upstream round may add in one run: the profile's `upstream_search_max_papers`, 15 when missing. A paper already in the vault is never listed again, so the cap counts only papers that run adds. |
 | `entries[].n` | integer | The entry's number, from 1, in search order. |
-| `entries[].a` | text | A cause of the target: a node, other than the target, with a kept claim into the target that shows an effect (direction `increases`, `decreases` or `unclear`). |
+| `entries[].a` | text | A cause of the target: a node, other than the target, with a kept claim into the target that shows an effect (direction `increases`, `decreases` or `unclear`), and neither `exogenous` nor a `target_measure`: those are skipped and the next cause by support takes their place. |
 | `entries[].support` | integer | Papers with a kept claim touching `a`, as in `pairs.json`. |
 | `entries[].query` | text | A PubMed query for reviews and meta-analyses of `a`'s risk factors: `a`'s block (its name and aliases OR-ed, as in `pairs.json` but each `[ti]`) AND a risk-factor block in the title (`risk factor*`, `determinant*`, `etiolog*`, `aetiolog*`, `predictor*`, `factors associated with`, each `[ti]`) AND a review block (`[tiab]`). Both in the title, so a paper on `a` as a risk factor for something else mostly falls out. |
 | `entries[].fallback` | text or null | A PubMed query for primary studies in the setting: `a`'s block AND the risk-factor block, both as in `query`, AND a block of the profile's `setting_terms` OR-ed, each `[tiab]`. `null` when the profile has no `setting_terms`. |

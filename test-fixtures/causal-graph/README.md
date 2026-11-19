@@ -65,6 +65,33 @@ $G assemble $T/side --variables $T/variables-side.json --profile $P --out $T/sid
   | python3 -c "import json,sys; print(' '.join(d['graph']+':'+d['to'] for d in json.load(sys.stdin)['off_path']))"   # strict:Retinopathy full:Retinopathy
 cat $T/side-out/*.dag.yaml | grep -c 'Retinopathy'                                                 # 0
 
+# timing: a copy of variables.json with tags changed, "node:key:json value" each
+tag() { python3 -c "
+import json, sys
+v = json.load(open(sys.argv[1]))
+for arg in sys.argv[3:]:
+    name, key, val = arg.split(':', 2)
+    [n for n in v['nodes'] if n['name'] == name][0][key] = json.loads(val)
+json.dump(v, open(sys.argv[2], 'w'))" "$@"; }
+tag $VJ $T/variables-timing.json 'Operative duration:timing:"target_measure"' 'BMI:timing:"later"' \
+  'Physical activity:exogenous:true'
+$G assemble $V --variables $T/variables-timing.json --profile $P --out $T/timing-out | python3 -c "
+import json,sys; r=json.load(sys.stdin)
+print(r['target_measures'], r['later'], [d['from']+'>'+d['to'] for d in r['into_exogenous']], len(r['cycle_drops']), r['edges'])"   # ['Operative duration'] ['BMI'] ['BMI>Physical activity'] 0 [5, 6]
+cat $T/timing-out/*.dag.yaml | grep -c 'Operative duration'                                        # 0
+cat $T/timing-out/*.dag.yaml | grep -cF 'Body mass index before surgery. Measured after the prediction time.'   # 2
+grep -cE '^- (Timing: later, measured after the prediction time|Timing: baseline; exogenous|Operative duration: a measure of the target, not a cause; its edges left out of both graphs: Operative duration → Fixture outcome|BMI → Physical activity: suggested \(1\); nothing in the graph causes Physical activity)' \
+  $T/timing-out/fixture-causal-20261119.evidence.md                                                # 4
+tag $VJ $T/variables-tags.json 'Diabetes:exogenous:true' 'Physical activity:exogenous:true' \
+  'BMI:timing:"target_measure"'
+$G pairs $V --variables $T/variables-tags.json --profile $P --out $T/pairs-tags.json > /dev/null
+python3 -c "import json; print(', '.join(p['a']+'-'+p['b'] for p in json.load(open('$T/pairs-tags.json'))['pairs']))"   # Diabetes-Fixture prophylaxis, Physical activity-Fixture prophylaxis
+$G upstream $V --variables $T/variables-tags.json --profile $P --out $T/up-tags.json > /dev/null
+python3 -c "import json; print(', '.join(str(e['n'])+' '+e['a'] for e in json.load(open('$T/up-tags.json'))['entries']))"   # 1 Fixture prophylaxis, 2 Operative duration, 3 Smoking
+tag $VJ $T/variables-bad-timing.json 'BMI:timing:"preoperative"'
+$G assemble $V --variables $T/variables-bad-timing.json --profile $P --out $T/bad-timing > $T/bad-timing.out
+echo $? $(cat $T/bad-timing.out)   # 2 {"error": "variables file variables-bad-timing.json: node 'BMI': timing 'preoperative' is not one of baseline, later, target_measure, unknown"}
+
 # refused: a profile whose causal_target is not variables.json's target
 sed 's/^causal_target: .*/causal_target: Other outcome/' $P > $T/other-target.md
 diff <($G assemble $V --variables $VJ --profile $T/other-target.md --out $T/bad) $B/expected_bad_target.json
@@ -116,9 +143,10 @@ What the outputs must show:
 - `pairs`: k 3 from the profile; support Diabetes 3, Physical activity 3,
   BMI 2; Physical activity–BMI already linked; two pairs, Diabetes–Physical
   activity (6) then Diabetes–BMI (5), `a` the better-supported node and
-  Diabetes first on the tie by name; each query block the node's name and
-  aliases, normalized, multi-word terms quoted; `narrow` adds the design
-  block; `max_papers` 10 from the profile.
+  Diabetes first on the tie by name; each node block the node's name and
+  aliases, normalized, multi-word terms quoted, each `[ti]`; `query` is the
+  two title blocks AND the design block, `narrow` the two title blocks AND
+  the review block; `max_papers` 10 from the profile.
 - `upstream`: k 4 and `max_papers` 6 from the profile. The causes of the
   target are six nodes; ranked by the same support as `pairs` (Diabetes 3,
   Physical activity 3, BMI 2, then Fixture prophylaxis, Operative duration
@@ -164,10 +192,34 @@ What the outputs must show:
   - `comorbidities`: one unmapped claim; `presents_dag`: `2023_garner_hale`;
     one excluded paper; no warnings; `off_path` empty (every node leads
     into the target).
+  - timing: every node but the target is tagged `baseline`, not exogenous,
+    so nothing is dropped for timing and the DAGs are as without tags;
+    `target_measures`, `later` and `into_exogenous` are empty. The target
+    carries no tags (they are not used on it; missing ones default). The
+    evidence report has a `- Timing:` line per node (`the target` for the
+    target) and empty "Target measures" and "Into exogenous variables"
+    sections under "Dropped".
 - ancestors only: a copy with one extra adjusted-cohort claim, Diabetes →
   Retinopathy, and a Retinopathy node with no path into the target. The edge
   is probable, yet it is in neither graph: `off_path` lists it for both, and
-  neither DAG names Retinopathy.
+  neither DAG names Retinopathy. Its Retinopathy node has no `timing` or
+  `exogenous`: a file without the tags loads.
+- timing, a copy of `variables.json` with Operative duration a
+  `target_measure`, BMI `later` and Physical activity exogenous: Operative
+  duration and its edge into the target leave both graphs (`target_measures`,
+  full 6 edges) and the DAGs never name it; BMI stays, and its description in
+  both DAGs ends with "Measured after the prediction time." (`later`); BMI →
+  Physical activity, an edge into an exogenous node, is dropped before
+  cycles are broken (`into_exogenous`), so the full graph has no cycle drop.
+  The evidence report shows the later and exogenous timings and lists the
+  target measure with its edge and the edge into the exogenous node.
+- tags in `pairs` and `upstream`, a copy with Diabetes and Physical activity
+  exogenous and BMI a `target_measure`: `pairs` ranks without BMI (Fixture
+  prophylaxis takes the third place on the tie by name) and skips
+  Diabetes–Physical activity, both exogenous; `upstream` skips Diabetes and
+  Physical activity (the top two causes) and BMI, so its k of 4 gets only
+  the three causes left, numbered from 1.
+- a `timing` outside the four values exits 2 with an `error`.
 - refused: a profile whose `causal_target` differs from `variables.json`'s
   target exits 2 with an `error` and writes nothing.
 - an empty vault: both graphs hold the target alone, the report warns, and the

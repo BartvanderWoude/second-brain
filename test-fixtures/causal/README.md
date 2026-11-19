@@ -26,14 +26,17 @@ grep -F 'reported less leisure-time' $C/records/fixture-causal-20261119/*.md   #
   a title with an upper-case DOI that matches `2018_keane_lowe` by DOI.
   `pair_search_k: 3` and `pair_search_max_papers: 10`, so `pairs` has a real
   cut; `upstream_search_k: 4` and `upstream_search_max_papers: 6`, so
-  `upstream` has one too, and `setting_terms` with a multi-word term. It has no `paper_vault_path`; a test copy adds one pointing at its
+  `upstream` has one too, and `setting_terms` with a multi-word term;
+  `prediction_time` at the preoperative visit. It has no `paper_vault_path`; a test copy adds one pointing at its
   scratch copy of the records.
 - `records/fixture-causal-20261119/`: five paper records with identity
   headers, and `claims/` with one hand-written claims file each.
 - `variables.json`: the harmonized nodes for the records once
   `2018_keane_lowe` is excluded: seven nodes, the target among them with its
   synonyms `FO` and `postoperative fixture outcome`, and `comorbidities`
-  unmapped.
+  unmapped. Every node but the target has `timing: baseline` and
+  `exogenous: false`, so no timing rule changes the graphs; the target has
+  neither (its own tags are not used).
 - `names.txt`: what `causal_graph.py names` writes for the records after
   `exclude` and `check`, on pass 1 (no `variables.json` yet). The harmonizer's
   T2 input.

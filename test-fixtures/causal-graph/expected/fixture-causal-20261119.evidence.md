@@ -16,6 +16,7 @@ Grades: established (3) for an RCT, a Mendelian randomization study, or a meta-a
 - In: strict, full
 - Aliases: FO, postoperative fixture outcome
 - Type: categorical; levels: no, yes
+- Timing: the target
 - Shares: [0.915, 0.085] from yes: median of 0.09 (2020_ashford_bell), 0.08 (2022_ellery_finch); no: the complement
 - Description: The fixture outcome within 30 days of elective fixture surgery.
 
@@ -24,6 +25,7 @@ Grades: established (3) for an RCT, a Mendelian randomization study, or a meta-a
 - In: strict, full
 - Aliases: body mass index
 - Type: continuous; unit: kg/m²
+- Timing: baseline
 - Description: Body mass index before surgery.
 
 ### Diabetes
@@ -31,6 +33,7 @@ Grades: established (3) for an RCT, a Mendelian randomization study, or a meta-a
 - In: strict, full
 - Aliases: diabetes mellitus, DM
 - Type: categorical; levels: no, yes
+- Timing: baseline
 - Shares: [0.82, 0.18] from yes: 0.18 (2020_ashford_bell); no: the complement
   - not used: yes 0.25 (2023_garner_hale, other setting)
 - Description: A diagnosis of diabetes mellitus before surgery.
@@ -40,6 +43,7 @@ Grades: established (3) for an RCT, a Mendelian randomization study, or a meta-a
 - In: strict, full
 - Aliases: none
 - Type: categorical; levels: no, yes
+- Timing: baseline
 - Description: Fixture prophylaxis given around surgery.
 
 ### Operative duration
@@ -47,6 +51,7 @@ Grades: established (3) for an RCT, a Mendelian randomization study, or a meta-a
 - In: full
 - Aliases: none
 - Type: continuous; unit: minutes
+- Timing: baseline
 - Description: The duration of the operation.
 
 ### Physical activity
@@ -54,6 +59,7 @@ Grades: established (3) for an RCT, a Mendelian randomization study, or a meta-a
 - In: strict, full
 - Aliases: leisure-time physical activity
 - Type: continuous; unit: MET-hours per week
+- Timing: baseline
 - Description: Habitual physical activity.
 - Measurement: One paper recorded leisure-time physical activity in hours per week instead of MET-hours.
 
@@ -62,6 +68,7 @@ Grades: established (3) for an RCT, a Mendelian randomization study, or a meta-a
 - In: strict, full
 - Aliases: smoking status
 - Type: categorical; levels: never, former, current
+- Timing: baseline
 - Shares: [0.48, 0.3, 0.22] from never: 0.48 (2020_ashford_bell); former: 0.3 (2020_ashford_bell); current: 0.22 (2020_ashford_bell)
 - Description: Smoking status before surgery.
 
@@ -162,6 +169,14 @@ Grades: established (3) for an RCT, a Mendelian randomization study, or a meta-a
 - Operative duration → Fixture outcome: suggested (1), below probable
 - Physical activity → Fixture outcome: speculative (0), below probable
 - BMI → Physical activity: suggested (1), below probable; also dropped from the full graph (cycle)
+
+### Target measures
+
+None.
+
+### Into exogenous variables
+
+None.
 
 ### Leading nowhere near the target
 

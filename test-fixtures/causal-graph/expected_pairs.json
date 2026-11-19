@@ -7,16 +7,16 @@
       "a": "Diabetes",
       "b": "Physical activity",
       "support": 6,
-      "query": "(diabetes[tiab] OR \"diabetes mellitus\"[tiab] OR dm[tiab]) AND (\"physical activity\"[tiab] OR \"leisure-time physical activity\"[tiab])",
-      "narrow": "(diabetes[tiab] OR \"diabetes mellitus\"[tiab] OR dm[tiab]) AND (\"physical activity\"[tiab] OR \"leisure-time physical activity\"[tiab]) AND (cohort[tiab] OR \"risk factor*\"[tiab] OR \"odds ratio\"[tiab] OR \"mendelian randomi*\"[tiab] OR meta-analysis[tiab])"
+      "query": "(diabetes[ti] OR \"diabetes mellitus\"[ti] OR dm[ti]) AND (\"physical activity\"[ti] OR \"leisure-time physical activity\"[ti]) AND (cohort[tiab] OR \"risk factor*\"[tiab] OR \"odds ratio\"[tiab] OR \"mendelian randomi*\"[tiab] OR meta-analysis[tiab])",
+      "narrow": "(diabetes[ti] OR \"diabetes mellitus\"[ti] OR dm[ti]) AND (\"physical activity\"[ti] OR \"leisure-time physical activity\"[ti]) AND (\"systematic review\"[tiab] OR meta-analys*[tiab] OR \"umbrella review\"[tiab])"
     },
     {
       "n": 2,
       "a": "Diabetes",
       "b": "BMI",
       "support": 5,
-      "query": "(diabetes[tiab] OR \"diabetes mellitus\"[tiab] OR dm[tiab]) AND (bmi[tiab] OR \"body mass index\"[tiab])",
-      "narrow": "(diabetes[tiab] OR \"diabetes mellitus\"[tiab] OR dm[tiab]) AND (bmi[tiab] OR \"body mass index\"[tiab]) AND (cohort[tiab] OR \"risk factor*\"[tiab] OR \"odds ratio\"[tiab] OR \"mendelian randomi*\"[tiab] OR meta-analysis[tiab])"
+      "query": "(diabetes[ti] OR \"diabetes mellitus\"[ti] OR dm[ti]) AND (bmi[ti] OR \"body mass index\"[ti]) AND (cohort[tiab] OR \"risk factor*\"[tiab] OR \"odds ratio\"[tiab] OR \"mendelian randomi*\"[tiab] OR meta-analysis[tiab])",
+      "narrow": "(diabetes[ti] OR \"diabetes mellitus\"[ti] OR dm[ti]) AND (bmi[ti] OR \"body mass index\"[ti]) AND (\"systematic review\"[tiab] OR meta-analys*[tiab] OR \"umbrella review\"[tiab])"
     }
   ]
 }

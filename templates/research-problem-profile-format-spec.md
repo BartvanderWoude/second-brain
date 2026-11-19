@@ -67,6 +67,7 @@ Required: **all** = both types; **problem** / **topic** = required for that type
 | `upstream_search_k` | integer | causal | How many top causes of the target get an upstream search for their own causes. Missing means 5. | `upstream` |
 | `upstream_search_max_papers` | integer | causal | Papers the upstream round may add in one run. Missing means 15. | `causal-pair-searcher` |
 | `setting_terms` | list[string] | causal | 2–5 PubMed terms for the setting's population (e.g. `surgery`, `surgical`, `postoperative`), OR-ed into the upstream round's setting-restricted query. | `upstream` |
+| `prediction_time` | string | causal | When the prediction is made, in words (e.g. `at hospital admission, before surgery`); proposed from the task and confirmed at intake. The harmonizer judges each variable's timing against it. | harmonizer |
 
 ## Keyword vocabulary
 
@@ -135,6 +136,7 @@ A **causal profile** asks what causes a prediction target, so that the `second-b
 - **The causal fields are always written**, the defaults included (`pair_search_k: 15`, `pair_search_max_papers: 40`, `upstream_search_k: 5`, `upstream_search_max_papers: 15`, `exclude_papers: []` when the researcher names none), so the researcher sees every setting. A reader still treats a missing `pair_search_k`, `pair_search_max_papers`, `upstream_search_k` or `upstream_search_max_papers` as its default.
 - **The upstream round** looks one hop up from the target: for each of the `upstream_search_k` causes of the target with the most support, it searches PubMed for that cause's own causes, first in reviews and meta-analyses of its risk factors, then, when that search is too broad or finds nothing, in primary studies restricted to the setting. It adds at most `upstream_search_max_papers` papers in one run.
 - **`setting_terms`** are 2–5 PubMed terms for the setting's population (for elective colorectal surgery: `surgery`, `surgical`, `postoperative`), written at intake: drafted from `causal_setting` and confirmed with the researcher. They make the upstream round's setting-restricted query; a profile without them gets no such query.
+- **`prediction_time`** says when the prediction is made (for a complication after elective surgery: `at the preoperative assessment, before surgery`), proposed from `task` at intake and confirmed with the researcher. The harmonizer tags each variable against it as known by then (`baseline`), measured after it (`later`), a measure of the target itself (`target_measure`) or `unknown`, and marks the variables nothing can cause (`exogenous`; see `causal-claims-spec.md`, `variables.json`). Target measures leave the graph; later variables stay in it, flagged.
 - **`exclude_papers`** holds what the graph must not see, usually the paper an expert graph it will be compared with came from. Write each entry as for `seed_papers`.
 - **Where it lives:** `<root>/causal_graphs/<id>/<id>.md`, with the graphs it produces beside it. Never in `<root>/` itself, where every `.md` file is read as a vault's profile, and never in the paper vault. Its papers go in `<root>/paper_vault/<id>/` as for any profile.
 

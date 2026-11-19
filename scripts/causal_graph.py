@@ -26,16 +26,21 @@ compact JSON on stdout; exit 0 on a result, 2 on bad input with {"error": ...}.
 
   pairs <paper_vault> --variables V --profile P --out F
       Writes pairs.json: the pairs of the top pair_search_k nodes with no kept
-      claim between them, each with a PubMed query.
+      claim between them, target measures left out and a pair of two
+      exogenous nodes skipped, each with a PubMed query (both nodes in the
+      title AND the design block) and a narrower one (both nodes in the title
+      AND the review block).
 
   upstream <paper_vault> --variables V --profile P --out F
       Writes upstream.json: the top upstream_search_k causes of the target,
-      each with a PubMed query for reviews of its risk factors and a fallback
+      exogenous causes and target measures skipped for the next ones, each with a PubMed query for reviews of its risk factors and a fallback
       for primary studies in the setting (from setting_terms).
 
   assemble <paper_vault> --variables V --profile P --out D
-      Grades the claims, builds the strict and the full DAG and the evidence
-      report, and writes <id>.dag.yaml, <id>.full.dag.yaml and
+      Grades the claims, applies the nodes' timing (a target measure leaves
+      with its edges, an edge into an exogenous node goes, a later node is
+      flagged in its description), builds the strict and the full DAG and the
+      evidence report, and writes <id>.dag.yaml, <id>.full.dag.yaml and
       <id>.evidence.md into D (<id> is the profile's id).
 
 Choices the design leaves open, made here:
@@ -52,10 +57,12 @@ Choices the design leaves open, made here:
   .excluded/ file replaces it.
 - `names --new-only` also leaves out the names in variables.json's
   `unmapped`: the harmonizer has judged them already.
-- `pairs` ranks only nodes with at least one kept claim. A query block lists
-  the node's name and aliases, normalized, most-used first (papers using the
-  name), the name first among equals, at most 8; a term with anything but
-  letters, digits and `*` is quoted.
+- `pairs` ranks only nodes with at least one kept claim, and no target
+  measure. A query block lists the node's name and aliases, normalized,
+  most-used first (papers using the name), the name first among equals, at
+  most 8, each [ti]; a term with anything but letters, digits and `*` is
+  quoted. A pair of two exogenous nodes is left out without a count (it is
+  not `already_linked`).
 - `upstream` ranks the causes of the target (nodes other than the target
   with a kept claim into it that shows an effect: direction increases,
   decreases or unclear; a node whose only claims into the target say `none`
@@ -69,9 +76,25 @@ Choices the design leaves open, made here:
   profile's setting_terms in the order written, normalized and deduplicated,
   each quoted as in `pairs`, with no cap on their number; a setting_terms
   that is not a list is an error. With no causes it writes `entries: []`.
-- variables.json: a node needs `name`; its other keys default to empty. An
-  unknown key, a name or level claimed by two nodes or levels, or a missing
-  target node is an error (exit 2).
+  An exogenous cause or a target measure is skipped before the top
+  upstream_search_k are taken, so the next cause by rank takes its place;
+  entries are numbered after the skip.
+- variables.json: a node needs `name`; its other keys default to empty,
+  `timing` (absent or null) to unknown and `exogenous` (absent or null) to
+  false, so files written before the tags load as they are. An unknown key,
+  a timing outside baseline, later, target_measure and unknown, an exogenous
+  that is not true or false, a name or level claimed by two nodes or levels,
+  or a missing target node is an error (exit 2).
+- Timing: the target's own `timing` and `exogenous` are not used. Before
+  cycles are broken, every edge with a target measure at either end is
+  dropped, then every remaining edge into an exogenous node; neither counts
+  as a cycle drop or as off_path. `target_measures` lists every target
+  measure in variables.json, with or without edges; `later` the later nodes
+  in the full graph; `into_exogenous` the dropped edges in edge order. A
+  later node's GraphCreator description is its description, a space, and
+  "Measured after the prediction time." (that sentence alone without a
+  description); the evidence report shows the description as written and
+  the timing on its own line.
 - Grades: a meta-analysis with an empty meta_analysis_of is speculative; a
   pooled cohort counts as adjusted or not by the claim's `adjusted`.
 - Levels are looked up only on a node that has levels; on a node without
@@ -130,7 +153,10 @@ CLAIM_KEYS = ("cause", "effect", "cause_level", "cause_reference", "effect_level
 PREV_KEYS = ("variable", "level", "proportion", "quote", "section")
 MEAS_KEYS = ("variable", "var_type", "levels", "unit")
 VAR_KEYS = ("target", "nodes", "unmapped")
-NODE_KEYS = ("name", "aliases", "var_type", "levels", "level_map", "unit", "description", "measurement_note")
+NODE_KEYS = ("name", "aliases", "var_type", "levels", "level_map", "unit", "description", "measurement_note",
+             "timing", "exogenous")
+TIMINGS = ("baseline", "later", "target_measure", "unknown")
+LATER_NOTE = "Measured after the prediction time."
 GRADES = {3: "established", 2: "probable", 1: "suggested", 0: "speculative"}
 STRICT = 2              # the strict DAG keeps edges graded probable or better
 QUOTE_MAX = 400
@@ -400,7 +426,8 @@ class Variables:
             nd = {"name": name, "aliases": node.get("aliases") or [], "var_type": node.get("var_type"),
                   "levels": node.get("levels") or [], "level_map": node.get("level_map") or {},
                   "unit": node.get("unit"), "description": node.get("description"),
-                  "measurement_note": node.get("measurement_note")}
+                  "measurement_note": node.get("measurement_note"),
+                  "timing": node.get("timing"), "exogenous": node.get("exogenous")}
             if not all(isinstance(x, str) for x in nd["aliases"] + nd["levels"]):
                 raise Bad(f"{where}: node {name!r}: aliases or levels are not text")
             if nd["var_type"] is not None and nd["var_type"] not in VAR_TYPES:
@@ -410,6 +437,14 @@ class Variables:
             for k in ("unit", "description", "measurement_note"):
                 if not opt_text(nd[k]):
                     raise Bad(f"{where}: node {name!r}: {k} is not text or null")
+            if nd["timing"] is None:
+                nd["timing"] = "unknown"
+            if nd["timing"] not in TIMINGS:
+                raise Bad(f"{where}: node {name!r}: timing {nd['timing']!r} is not one of {', '.join(TIMINGS)}")
+            if nd["exogenous"] is None:
+                nd["exogenous"] = False
+            if not isinstance(nd["exogenous"], bool):
+                raise Bad(f"{where}: node {name!r}: exogenous is not true or false")
             self.nodes[name] = nd
             for raw in [name] + nd["aliases"]:
                 other = self.by.setdefault(norm(raw), name)
@@ -439,6 +474,13 @@ class Variables:
     def level(self, node, raw):
         """The canonical level `raw` maps to on `node`, or None."""
         return self.level_of[node].get(norm(raw))
+
+    def timing(self, node):
+        """The node's timing; the target's own tags are not used."""
+        return "target" if node == self.target else self.nodes[node]["timing"]
+
+    def exogenous(self, node):
+        return node != self.target and self.nodes[node]["exogenous"]
 
 
 def variables(path, target=None):
@@ -619,17 +661,20 @@ def cmd_pairs(a):
     max_papers = int_field(fm, "pair_search_max_papers", DEFAULT_MAX_PAPERS)
     _, files, _ = load_claims(a.path)
     support, linked, _, rank = support_of(v, files)
-    top = sorted((n for n in v.nodes if n != v.target and support[n]), key=rank)[:k]
+    top = sorted((n for n in v.nodes if n != v.target and support[n] and v.timing(n) != "target_measure"),
+                 key=rank)[:k]
     use = name_usage(files)
     pairs, already = [], 0
     for x, y in combinations(top, 2):
         if frozenset((x, y)) in linked:
             already += 1
             continue
+        if v.exogenous(x) and v.exogenous(y):
+            continue
         x, y = sorted((x, y), key=rank)
-        q = f"{block(v, x, use)} AND {block(v, y, use)}"
-        pairs.append({"a": x, "b": y, "support": len(support[x]) + len(support[y]), "query": q,
-                      "narrow": f"{q} AND {DESIGN_BLOCK}"})
+        both = f"{block(v, x, use, 'ti')} AND {block(v, y, use, 'ti')}"
+        pairs.append({"a": x, "b": y, "support": len(support[x]) + len(support[y]),
+                      "query": f"{both} AND {DESIGN_BLOCK}", "narrow": f"{both} AND {REVIEW_BLOCK}"})
     pairs.sort(key=lambda p: (-p["support"], p["a"].casefold(), p["b"].casefold()))
     pairs = [{"n": n, **p} for n, p in enumerate(pairs, 1)]
     a.out.parent.mkdir(parents=True, exist_ok=True)
@@ -659,7 +704,8 @@ def cmd_upstream(a):
     support, _, causes, rank = support_of(v, files)
     use = name_usage(files)
     entries = []
-    for n, x in enumerate(sorted(causes, key=rank)[:k], 1):
+    eligible = [x for x in sorted(causes, key=rank) if not v.exogenous(x) and v.timing(x) != "target_measure"]
+    for n, x in enumerate(eligible[:k], 1):
         node = f"{block(v, x, use, 'ti')} AND {RISK_BLOCK}"
         entries.append({"n": n, "a": x, "support": len(support[x]), "query": f"{node} AND {REVIEW_BLOCK}",
                         "fallback": f"{node} AND {setting}" if setting else None})
@@ -1104,8 +1150,11 @@ def node_dict(v, name, shares, warnings):
                 out["shares"] = shares
         else:
             warnings.append(f"node {name!r}: levels on a node that is not categorical or ordinal, left out")
-    if nd["description"]:
-        out["description"] = nd["description"]
+    desc = nd["description"] or ""
+    if v.timing(name) == "later":
+        desc = f"{desc} {LATER_NOTE}" if desc.strip() else LATER_NOTE
+    if desc:
+        out["description"] = desc
     if nd["unit"]:
         if nd["var_type"] in ("continuous", "discrete"):
             out["unit"] = nd["unit"]
@@ -1161,8 +1210,14 @@ def build(a):
         (edges if e.exists else no_effect)[key] = e
     notes = {k: e.note(designs, setting) for k, e in edges.items()}
 
-    strict_keys, strict_drops = break_cycles({k: e for k, e in edges.items() if e.grade >= STRICT}, "strict")
-    full_keys, full_drops = break_cycles(edges, "full")
+    # timing, before cycles: a target measure leaves with its edges; an edge into an exogenous node goes
+    measures = sorted((n for n in v.nodes if v.timing(n) == "target_measure"), key=lambda n: (n.casefold(), n))
+    measure_drops = [k for k in edges if v.timing(k[0]) == "target_measure" or v.timing(k[1]) == "target_measure"]
+    exo_drops = [k for k in edges if k not in measure_drops and v.exogenous(k[1])]
+    usable = {k: e for k, e in edges.items() if k not in measure_drops and k not in exo_drops}
+
+    strict_keys, strict_drops = break_cycles({k: e for k, e in usable.items() if e.grade >= STRICT}, "strict")
+    full_keys, full_drops = break_cycles(usable, "full")
     strict_keys, strict_off = ancestors_only(strict_keys, v.target)
     full_keys, full_off = ancestors_only(full_keys, v.target)
     strict_keys = sorted(strict_keys, key=edge_order(v.target))
@@ -1197,6 +1252,9 @@ def build(a):
         "target_edges": into,
         "cycle_drops": [{k: d[k] for k in ("graph", "from", "to", "grade", "papers")} for d in strict_drops + full_drops],
         "off_path": off_path,
+        "target_measures": measures,
+        "later": [n["name"] for n in graphs["full"]["nodes"] if v.timing(n["name"]) == "later"],
+        "into_exogenous": [{"from": a, "to": b} for a, b in exo_drops],
         "unmapped_claims": lost_claims,
         "top_unmapped": [[n, c] for n, c in sorted(lost.items(), key=lambda t: (-t[1], t[0]))[:TOP_UNMAPPED]],
         "presents_dag": dag,
@@ -1205,7 +1263,7 @@ def build(a):
     }
     ctx = {"prof": prof, "v": v, "recs": recs, "files": files, "edges": edges, "no_effect": no_effect,
            "strict": set(strict_keys), "full": set(full_keys), "drops": strict_drops + full_drops,
-           "off_path": off_path,
+           "off_path": off_path, "measures": measures, "measure_drops": measure_drops, "exo_drops": exo_drops,
            "shares": shares, "lost": lost, "excluded": excluded, "dag": dag, "bad": bad, "notes": notes,
            "graphs": graphs}
     return prof, graphs, rep, evidence(ctx)
@@ -1272,6 +1330,11 @@ def edge_block(ctx, k, e, where, h="###"):
     return out + [""]
 
 
+TIMING_TEXT = {"target": "the target", "baseline": "baseline", "unknown": "unknown",
+               "later": "later, measured after the prediction time",
+               "target_measure": "target measure, left out of both graphs"}
+
+
 def evidence(ctx):
     prof, v, files, edges = ctx["prof"], ctx["v"], ctx["files"], ctx["edges"]
     pid_ = prof["id"]
@@ -1310,6 +1373,7 @@ def evidence(ctx):
         if nd["unit"]:
             typ += f"; unit: {nd['unit']}"
         lines.append(f"- Type: {typ}")
+        lines.append(f"- Timing: {TIMING_TEXT[v.timing(n)]}" + ("; exogenous" if v.exogenous(n) else ""))
         if sh or used or unused:
             txt = "[" + ", ".join(num(round(s, 3)) for s in sh) + "]" if sh else "none"
             src = defaultdict(list)
@@ -1337,11 +1401,27 @@ def evidence(ctx):
     lines += ["## Dropped", "", "### Below the strict threshold", ""]
     below = [k for k in sorted(edges, key=edge_order(v.target)) if edges[k].grade < STRICT]
     full_off = {(d["from"], d["to"]) for d in ctx["off_path"] if d["graph"] == "full"}
+    def why_not_full(k):
+        if k in ctx["measure_drops"]:
+            return "a target measure"
+        if k in ctx["exo_drops"]:
+            return "into an exogenous variable"
+        return "leads nowhere near the target" if k in full_off else "cycle"
     lines += [f"- {a} → {b}: {GRADES[edges[(a, b)].grade]} ({edges[(a, b)].grade}), below probable"
-              + ("" if (a, b) in ctx["full"] else
-                 "; also dropped from the full graph (" + ("leads nowhere near the target" if (a, b) in full_off
-                                                           else "cycle") + ")")
+              + ("" if (a, b) in ctx["full"] else f"; also dropped from the full graph ({why_not_full((a, b))})")
               for a, b in below] or ["None."]
+    lines += ["", "### Target measures", ""]
+    for n in ctx["measures"]:
+        ks = [k for k in ctx["measure_drops"] if n in k]
+        lines.append(f"- {n}: a measure of the target, not a cause; " + (
+            "its edges left out of both graphs: " + ", ".join(
+                f"{a} → {b} ({GRADES[edges[(a, b)].grade]} ({edges[(a, b)].grade}))" for a, b in ks)
+            if ks else "no edge"))
+    if not ctx["measures"]:
+        lines.append("None.")
+    lines += ["", "### Into exogenous variables", ""]
+    lines += [f"- {a} → {b}: {GRADES[edges[(a, b)].grade]} ({edges[(a, b)].grade}); nothing in the graph causes {b}, "
+              "so the edge is left out of both graphs" for a, b in ctx["exo_drops"]] or ["None."]
     lines += ["", "### Leading nowhere near the target", ""]
     lines += [f"- {d['graph']} graph: {d['from']} → {d['to']}: {d['to']} has no path into the target"
               for d in ctx["off_path"]] or ["None."]

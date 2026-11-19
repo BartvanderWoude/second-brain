@@ -19,7 +19,9 @@
       "level_map": {"no": ["non-diabetic"], "yes": ["diabetic"]},
       "unit": null,
       "description": "A diagnosis of diabetes mellitus before surgery.",
-      "measurement_note": null
+      "measurement_note": null,
+      "timing": "baseline",
+      "exogenous": false
     },
     {
       "name": "Smoking",
@@ -29,7 +31,9 @@
       "level_map": {"never": ["never smokers", "never smoked"], "former": ["former smokers"], "current": ["current smokers"]},
       "unit": null,
       "description": "Smoking status before surgery.",
-      "measurement_note": null
+      "measurement_note": null,
+      "timing": "baseline",
+      "exogenous": false
     },
     {
       "name": "BMI",
@@ -39,7 +43,9 @@
       "level_map": {},
       "unit": "kg/m²",
       "description": "Body mass index before surgery.",
-      "measurement_note": null
+      "measurement_note": null,
+      "timing": "baseline",
+      "exogenous": false
     },
     {
       "name": "Physical activity",
@@ -49,7 +55,9 @@
       "level_map": {},
       "unit": "MET-hours per week",
       "description": "Habitual physical activity.",
-      "measurement_note": "One paper recorded leisure-time physical activity in hours per week instead of MET-hours."
+      "measurement_note": "One paper recorded leisure-time physical activity in hours per week instead of MET-hours.",
+      "timing": "baseline",
+      "exogenous": false
     },
     {
       "name": "Fixture prophylaxis",
@@ -59,7 +67,9 @@
       "level_map": {"no": ["placebo"], "yes": ["prophylaxis"]},
       "unit": null,
       "description": "Fixture prophylaxis given around surgery.",
-      "measurement_note": null
+      "measurement_note": null,
+      "timing": "baseline",
+      "exogenous": false
     },
     {
       "name": "Operative duration",
@@ -69,7 +79,9 @@
       "level_map": {},
       "unit": "minutes",
       "description": "The duration of the operation.",
-      "measurement_note": null
+      "measurement_note": null,
+      "timing": "baseline",
+      "exogenous": false
     }
   ],
   "unmapped": ["comorbidities"]
