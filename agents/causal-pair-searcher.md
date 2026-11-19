@@ -51,7 +51,7 @@ passed with the wrong list name and say which list holds it. Name pair `n`'s
 list `pair-<n>`, and upstream entry `n`'s list `up-<n>`. Running `pubmed`
 again under the same name replaces that list, so after a second query use only
 the numbers it printed. Never pass `--window` or `--max`, and `--top` only
-as upstream mode's step 4 says.
+as pairs mode's step 3 and upstream mode's step 4 say.
 
 Each query is a PubMed query with double quotes and `*` in it. Pass it in
 single quotes, exactly as written, writing any `'` inside it as `'\''`.
@@ -97,19 +97,25 @@ direction: you look for an effect either way.
    ```
 
 2. If it is `TOO BROAD`, run `narrow` the same way, with the same list name.
-   If `narrow` is too broad as well, skip the pair and report it as too
-   broad. Never split, rewrite or widen either query, whatever the report
-   suggests: a pair no study-design term narrows enough is reported, not
-   chased.
-3. A query that prints `ERROR` was not searched: report the pair with the
+   Never split, rewrite or widen either query, whatever the report suggests.
+3. If `narrow` is too broad as well, run it once more with `--top 50`, with
+   the same list name:
+
+   ```bash
+   python3 <find_papers> pubmed <vault> --list pair-<n> --query '<narrow>' --top 50
+   ```
+
+   This lists the 50 most relevant hits only; screen them as any list, and
+   report the pair as `top 50 of <N>`, never as searched whole.
+4. A query that prints `ERROR` was not searched: report the pair with the
    error and go on to the next.
-4. Screen the list (section 4), then save the chosen papers with one call:
+5. Screen the list (section 4), then save the chosen papers with one call:
 
    ```bash
    python3 <find_papers> add <vault> --list pair-<n> <N> <N> ...
    ```
 
-5. Count the records under `saved` toward the total. Once the total reaches
+6. Count the records under `saved` toward the total. Once the total reaches
    the pairs file's `max_papers`, stop: search no further pair. When the
    papers chosen for a pair would take the total past `max_papers`, add only
    as many as fit, the most preferred first.
@@ -217,10 +223,11 @@ Reply `OK`, then these lines, compactly. In pairs mode:
 - `pairs:` how many of the file's pairs were searched, of how many;
 - one line per searched pair:
   `pair <n> (<a> / <b>): <hits> hits, <screened> screened, <added> added`,
-  with `(narrow)` when its narrow query was the one used; `<hits>` is the
-  PubMed count of the query used, `<screened>` the candidates listed;
-- `too broad:` the pairs whose narrow query was still too broad, as
-  `pair <n> (<a> / <b>)`, or none;
+  with `(narrow)` when its narrow query was the one used, followed by
+  `; top 50 of <N>` when step 3 ran; `<hits>` is the PubMed count of the
+  query used, `<screened>` the candidates listed;
+- `too broad:` the pairs that ran step 3, as
+  `pair <n> (<a> / <b>): top 50 of <N>`, or none;
 - `errors:` pairs not searched because of an `ERROR`, with the error, or none;
 - `cap:` `hit` or `not hit`, with the total added and `max_papers`
   (`cap: hit, 40 of 40; pairs 9–15 not searched`);
