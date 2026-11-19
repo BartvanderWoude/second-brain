@@ -71,6 +71,11 @@ Choices the design leaves open, made here:
   comparison otherwise. A claim against its comparison's direction is
   contrary; claims that give no sign always support.
 - Strength: from the supporting claims with a value, the highest-grade ones.
+- Each graph keeps only the target's ancestors (decided with the researcher
+  after the design): after cycles are broken, an edge stays when its effect
+  is the target or has a path into it, so causes of causes stay and a
+  variable that leads nowhere near the target goes. Dropped edges are
+  `off_path` in the report and listed in the evidence report.
 - Evidence: papers by grade, best first, then year, oldest first, then id.
 - Edges into the target come first, then the rest, each by name; nodes are
   the target, then the rest by name. The full graph is named
@@ -952,6 +957,24 @@ def break_cycles(edges, label):
 
 # ---------------------------------------------------------------- assemble
 
+def ancestors_only(keys, target):
+    """(kept, dropped): an edge stays when its effect is the target or one of
+    the target's ancestors in this graph, so the graph holds the target's
+    causes, their causes, and the edges among them, and nothing downstream of
+    a cause that leads nowhere near the target. `keys` must be acyclic."""
+    into = defaultdict(set)
+    for a, b in keys:
+        into[b].add(a)
+    keep, todo = {target}, [target]
+    while todo:
+        for a in into[todo.pop()]:
+            if a not in keep:
+                keep.add(a)
+                todo.append(a)
+    kept = [k for k in keys if k[1] in keep]
+    return kept, [k for k in keys if k[1] not in keep]
+
+
 def ident(rec, pid):
     if rec["pmid"]:
         return f"PMID:{rec['pmid']}"
@@ -1077,8 +1100,12 @@ def build(a):
 
     strict_keys, strict_drops = break_cycles({k: e for k, e in edges.items() if e.grade >= STRICT}, "strict")
     full_keys, full_drops = break_cycles(edges, "full")
+    strict_keys, strict_off = ancestors_only(strict_keys, v.target)
+    full_keys, full_off = ancestors_only(full_keys, v.target)
     strict_keys = sorted(strict_keys, key=edge_order(v.target))
     full_keys = sorted(full_keys, key=edge_order(v.target))
+    off_path = [{"graph": g, "from": a, "to": b} for g, ks in (("strict", strict_off), ("full", full_off))
+                for a, b in sorted(ks, key=edge_order(v.target))]
     shares = shares_of(v, files)
 
     graphs = {}
@@ -1106,6 +1133,7 @@ def build(a):
         "edges": [len(strict_keys), len(full_keys)],
         "target_edges": into,
         "cycle_drops": [{k: d[k] for k in ("graph", "from", "to", "grade", "papers")} for d in strict_drops + full_drops],
+        "off_path": off_path,
         "unmapped_claims": lost_claims,
         "top_unmapped": [[n, c] for n, c in sorted(lost.items(), key=lambda t: (-t[1], t[0]))[:TOP_UNMAPPED]],
         "presents_dag": dag,
@@ -1114,6 +1142,7 @@ def build(a):
     }
     ctx = {"prof": prof, "v": v, "recs": recs, "files": files, "edges": edges, "no_effect": no_effect,
            "strict": set(strict_keys), "full": set(full_keys), "drops": strict_drops + full_drops,
+           "off_path": off_path,
            "shares": shares, "lost": lost, "excluded": excluded, "dag": dag, "bad": bad, "notes": notes,
            "graphs": graphs}
     return prof, graphs, rep, evidence(ctx)
@@ -1244,9 +1273,15 @@ def evidence(ctx):
 
     lines += ["## Dropped", "", "### Below the strict threshold", ""]
     below = [k for k in sorted(edges, key=edge_order(v.target)) if edges[k].grade < STRICT]
+    full_off = {(d["from"], d["to"]) for d in ctx["off_path"] if d["graph"] == "full"}
     lines += [f"- {a} → {b}: {GRADES[edges[(a, b)].grade]} ({edges[(a, b)].grade}), below probable"
-              + ("" if (a, b) in ctx["full"] else "; also dropped from the full graph (cycle)")
+              + ("" if (a, b) in ctx["full"] else
+                 "; also dropped from the full graph (" + ("leads nowhere near the target" if (a, b) in full_off
+                                                           else "cycle") + ")")
               for a, b in below] or ["None."]
+    lines += ["", "### Leading nowhere near the target", ""]
+    lines += [f"- {d['graph']} graph: {d['from']} → {d['to']}: {d['to']} has no path into the target"
+              for d in ctx["off_path"]] or ["None."]
     lines += ["", "### Cycles", ""]
     if not ctx["drops"]:
         lines += ["None.", ""]

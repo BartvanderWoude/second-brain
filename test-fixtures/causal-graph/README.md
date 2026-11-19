@@ -34,6 +34,19 @@ diff <($G assemble $V --variables $VJ --profile $P --out $T/out) $B/expected_ass
 diff -r $T/out $B/expected
 python3 $B/validate_dags.py $V $VJ $P $T/out
 
+# an edge out of a cause into a variable with no path into the target is in neither graph
+cp -r $V $T/side; python3 -c "
+import json, sys
+f, vj, out = sys.argv[1:]
+d = json.load(open(f)); c = dict(d['claims'][0])
+c.update(cause='diabetes', effect='retinopathy', cause_level=None, cause_reference=None, effect_level=None)
+d['claims'].append(c); json.dump(d, open(f, 'w'))
+v = json.load(open(vj)); v['nodes'].append({'name': 'Retinopathy', 'aliases': ['retinopathy']})
+json.dump(v, open(out, 'w'))" $T/side/claims/2020_ashford_bell.json $VJ $T/variables-side.json
+$G assemble $T/side --variables $T/variables-side.json --profile $P --out $T/side-out \
+  | python3 -c "import json,sys; print(' '.join(d['graph']+':'+d['to'] for d in json.load(sys.stdin)['off_path']))"   # strict:Retinopathy full:Retinopathy
+cat $T/side-out/*.dag.yaml | grep -c 'Retinopathy'                                                 # 0
+
 # refused: a profile whose causal_target is not variables.json's target
 sed 's/^causal_target: .*/causal_target: Other outcome/' $P > $T/other-target.md
 diff <($G assemble $V --variables $VJ --profile $T/other-target.md --out $T/bad) $B/expected_bad_target.json
@@ -112,7 +125,12 @@ What the outputs must show:
     `[0.82, 0.18]` (the other setting's 25% not used, the excluded 40% gone),
     Smoking `[0.48, 0.3, 0.22]` (`never smoked` through `level_map`).
   - `comorbidities`: one unmapped claim; `presents_dag`: `2023_garner_hale`;
-    one excluded paper; no warnings.
+    one excluded paper; no warnings; `off_path` empty (every node leads
+    into the target).
+- ancestors only: a copy with one extra adjusted-cohort claim, Diabetes →
+  Retinopathy, and a Retinopathy node with no path into the target. The edge
+  is probable, yet it is in neither graph: `off_path` lists it for both, and
+  neither DAG names Retinopathy.
 - refused: a profile whose `causal_target` differs from `variables.json`'s
   target exits 2 with an `error` and writes nothing.
 - an empty vault: both graphs hold the target alone, the report warns, and the

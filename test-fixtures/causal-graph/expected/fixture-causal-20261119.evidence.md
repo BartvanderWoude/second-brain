@@ -163,6 +163,10 @@ Grades: established (3) for an RCT, a Mendelian randomization study, or a meta-a
 - Physical activity → Fixture outcome: speculative (0), below probable
 - BMI → Physical activity: suggested (1), below probable; also dropped from the full graph (cycle)
 
+### Leading nowhere near the target
+
+None.
+
 ### Cycles
 
 - full graph: BMI → Physical activity dropped from the cycle BMI → Physical activity → BMI: the worst-supported edge (suggested (1), 1 supporting paper)
