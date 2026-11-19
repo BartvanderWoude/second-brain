@@ -45,6 +45,10 @@ The spec has 7 stages. 1–5 are built. Stage 6 (cross-linking) is built only
 in reduced form: topic notes from shared keywords, `## Related topics`, and
 `link_papers.py`'s paper-to-paper edges. Stage 7 (experiment plan) is not
 built, and neither are repo cloning, running, or the Docker sandbox.
+**Designed, not built:** a `second-brain-causal-graph` skill that builds a
+causal DAG of a prediction target from the literature;
+[CAUSAL_GRAPH_DESIGN.md](CAUSAL_GRAPH_DESIGN.md) is the brief, with its
+phases and waves.
 
 | Stage | Piece | Job |
 |---|---|---|
@@ -77,7 +81,9 @@ Templates: `paper-identity-spec.md` (when two hits are one paper, filename,
 id, the identity header every saved record carries);
 `research-problem-profile-format-spec.md` (the profile schema, a contract kept
 in `templates/` because there is no `docs/`); `paper-page-template.md`,
-`topic-note-template.md`, `repo-note-template.md` (note formats).
+`topic-note-template.md`, `repo-note-template.md` (note formats);
+`graphcreator-dag-format.md` (the researcher's `graphcreator/0.1` DAG format,
+kept verbatim; the causal-graph design's output).
 
 A run writes into the researcher's own project, never into this repo, under
 `<project>/second-brain/`: `paper_vault/<id>/` (records, `summaries/`,
