@@ -1,6 +1,6 @@
 {
   "name": "second-brain-researcher",
-  "description": "Turns a research problem or review topic into a linked Obsidian vault of papers, topic notes and code repositories.",
+  "description": "Turns a research problem or review topic into a linked Obsidian vault of papers, topic notes and code repositories, or a prediction target into a literature-grounded causal graph.",
   "version": "0.1.2",
   "author": { "name": "Bart van der Woude" },
   "repository": "https://github.com/BartvanderWoude/second-brain",

@@ -7,7 +7,7 @@
     {
       "name": "second-brain-researcher",
       "source": "./",
-      "description": "Turns a research problem or review topic into a linked Obsidian vault of papers, topic notes and code repositories."
+      "description": "Turns a research problem or review topic into a linked Obsidian vault of papers, topic notes and code repositories, or a prediction target into a literature-grounded causal graph."
     }
   ]
 }

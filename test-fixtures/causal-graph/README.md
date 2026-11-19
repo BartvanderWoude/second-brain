@@ -83,6 +83,9 @@ diff <($G plan $V) $B/expected_plan.json
 diff <($G plan $V --redo --solo-kb 1) $B/expected_plan_solo.json
 ```
 
+`bash test-fixtures/run_offline.sh causal-graph` runs the commands above and
+checks every expectation below; change the README and the runner together.
+
 Every `diff` and `validate_dags.py` print nothing when they pass; the lines
 with a trailing comment (other than the `export`) must print what their
 comments say. Nothing writes into the
