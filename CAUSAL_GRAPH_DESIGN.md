@@ -1,6 +1,6 @@
 # Causal graph design
 
-**Status:** design agreed 2026-11-19, extended the same day (causes of causes); waves 1–3 of 4 done (phases 1–7, 9–11). This document is the
+**Status:** design agreed 2026-11-19, extended the same day (causes of causes); implemented: all 4 waves done (phases 1–11); the T3 run found follow-ups (see Open issues). This document is the
 brief for the implementation sessions. It extends the plugin described in
 [CLAUDE.md](CLAUDE.md); the output format is
 [templates/graphcreator-dag-format.md](templates/graphcreator-dag-format.md).
@@ -1005,12 +1005,12 @@ After landing: `e09199c` (a cause needs a claim into the target that shows
 an effect) and `6f20cfa` (upstream queries in the title; top 50 when still
 too broad), the second after the T2 test of phase 10.
 
-### Wave 4: integration [ ]
+### Wave 4: integration [x]
 
 Phases: 8. Parallel: single phase. Integration check after the wave:
 `bash test-fixtures/run_offline.sh`, and the T3 run.
 
-#### Phase 8: Integration [ ]
+#### Phase 8: Integration [x] (8c30f5d)
 
 - **Goal:** the feature is wired into the suites and documented, and has run
   once end to end at small scale.
@@ -1066,6 +1066,12 @@ harmonizer ~0.08M per pass, pair searcher on one 25-hit pair ~0.09M, upstream
 mode ~0.11–0.13M per test (one or two entries, up to 3 papers).
 
 ## Open issues
+
+- **Found by the T3 run (2026-11-19), not yet decided:** the upstream round
+  picks causes nothing can cause (Age won on support); pair queries for
+  common causes are too broad even narrowed, so a small run gets no edges
+  among causes; the skill's `run_in_background: false` names a parameter not
+  every Agent tool has.
 
 - **Transitive edges** are kept as reported: if A→M→Y and A→Y are all
   claimed, all three stay. Pruning by mediation needs claims about adjusted
