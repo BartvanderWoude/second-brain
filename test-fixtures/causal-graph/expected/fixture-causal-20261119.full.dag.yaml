@@ -1,0 +1,82 @@
+schema: graphcreator/0.1
+name: Fixture outcome (full)
+nodes:
+  - name: Fixture outcome
+    role: outcome
+    var_type: categorical
+    levels: ["no", "yes"]
+    shares: [0.915, 0.085]
+    description: The fixture outcome within 30 days of elective fixture surgery.
+  - name: BMI
+    var_type: continuous
+    description: Body mass index before surgery.
+    unit: kg/m²
+  - name: Diabetes
+    var_type: categorical
+    levels: ["no", "yes"]
+    shares: [0.82, 0.18]
+    description: A diagnosis of diabetes mellitus before surgery.
+  - name: Fixture prophylaxis
+    var_type: categorical
+    levels: ["no", "yes"]
+    description: Fixture prophylaxis given around surgery.
+  - name: Operative duration
+    var_type: continuous
+    description: The duration of the operation.
+    unit: minutes
+  - name: Physical activity
+    var_type: continuous
+    description: Habitual physical activity.
+    unit: MET-hours per week
+  - name: Smoking
+    var_type: categorical
+    levels: [never, former, current]
+    shares: [0.48, 0.3, 0.22]
+    description: Smoking status before surgery.
+edges:
+  - from: BMI
+    to: Fixture outcome
+    sign: positive
+    evidence:
+      - "PMID:99000101"
+    note: probable; 1 cohort; 1 paper; no conflict; no strength (per-unit estimate only)
+  - from: Diabetes
+    to: Fixture outcome
+    sign: positive
+    strength: medium
+    evidence:
+      - "PMID:99000101"
+      - "PMID:99000104"
+    note: probable; 2 cohort; 2 papers, 1 outside the setting; no conflict (weaker contrary evidence from 1 paper); strength from 1 OR (d 0.41)
+  - from: Fixture prophylaxis
+    to: Fixture outcome
+    sign: negative
+    strength: small
+    evidence:
+      - "PMID:99000103"
+    note: established; 1 rct; 1 paper; no conflict; strength from 1 RR (d 0.25; RR read as an OR)
+  - from: Operative duration
+    to: Fixture outcome
+    evidence:
+      - "PMID:99000104"
+    note: suggested; 1 cohort; 1 paper, 1 outside the setting; no conflict; no strength (no estimate)
+  - from: Physical activity
+    to: Fixture outcome
+    sign: negative
+    evidence:
+      - "PMID:99000102"
+    note: speculative; 1 case-control; 1 paper; conflict, one grade lower; no strength (per-unit estimate only)
+  - from: Smoking
+    to: Fixture outcome
+    sign: {never: negative, former: negative, current: positive}
+    strength: medium
+    evidence:
+      - "PMID:99000101"
+    note: probable; 1 cohort; 1 paper; no conflict; strength from 2 ORs (median d 0.33)
+  - from: Physical activity
+    to: BMI
+    sign: negative
+    strength: medium
+    evidence:
+      - "PMID:99000101"
+    note: probable; 1 cohort; 1 paper; no conflict; strength from 1 standardized beta (d 0.34)

@@ -1,0 +1,35 @@
+{
+ "nodes": [
+  6,
+  7
+ ],
+ "edges": [
+  5,
+  7
+ ],
+ "target_edges": [
+  4,
+  6
+ ],
+ "cycle_drops": [
+  {
+   "graph": "full",
+   "from": "BMI",
+   "to": "Physical activity",
+   "grade": 1,
+   "papers": 1
+  }
+ ],
+ "unmapped_claims": 1,
+ "top_unmapped": [
+  [
+   "comorbidities",
+   1
+  ]
+ ],
+ "presents_dag": [
+  "2023_garner_hale"
+ ],
+ "excluded": 1,
+ "warnings": []
+}

@@ -1,0 +1,13 @@
+{
+ "papers": 4,
+ "claims_kept": 13,
+ "claims_rejected": 1,
+ "by_paper": {
+  "2019_carver_dunn": 1
+ },
+ "invalid": [],
+ "missing": [],
+ "presents_dag": [
+  "2023_garner_hale"
+ ]
+}

@@ -42,10 +42,11 @@ there was and never drop the rest silently. Stdlib only.
 Every list is <paper_vault_path>/.candidates/<NAME>.json; rerunning a name
 replaces it. Candidate numbers carry on from list to list, so a number passed
 to show or add with the wrong list name is refused rather than taken as
-another paper. Papers already in the vault or its .merged/ are counted, never
-listed. A list named core-* also leaves out the candidates of the run's other
-core-* lists, so the chaser never screens a paper twice; --fresh (pubmed,
-chase) deletes those lists first, at the start of a run.
+another paper. Papers already in the vault, its .merged/ or its .excluded/
+are counted, never listed, and add never saves them again. A list named
+core-* also leaves out the candidates of the run's other core-* lists, so the
+chaser never screens a paper twice; --fresh (pubmed, chase) deletes those
+lists first, at the start of a run.
 
 --cache F keeps every API response in a JSON file keyed by URL and reuses it;
 --offline answers from that cache only. Exit 0 on a result, 2 on bad input.
@@ -71,6 +72,7 @@ ARXIV_DOI = "10.48550/arxiv."
 FOLD = str.maketrans({"ø": "o", "ł": "l", "đ": "d", "ð": "d", "þ": "th", "ß": "ss",
                       "æ": "ae", "œ": "oe", "ı": "i"})
 CANDIDATES = ".candidates"
+EXCLUDED = ".excluded"   # records a causal profile's exclude_papers moved aside
 EFETCH_BATCH = 200
 OA_BATCH = 100          # OpenAlex refuses more OR-values per filter, and pages 100 at most
 OA_SELECT = ("id,doi,ids,title,publication_year,type,authorships,primary_location,"
@@ -303,10 +305,12 @@ def resolve(api, seeds):
 # ---------------------------------------------------------------- vault, lists
 
 def known(root):
-    """(id, record) for every saved paper, the vault's own before .merged/'s."""
+    """(id, record) for every saved paper, the vault's own before .merged/'s
+    and .excluded/'s."""
     out = [(i, p) for i, p in papers(root).items()]
-    if (root / MERGED).is_dir():
-        out += [(f"{MERGED}/{i}", p) for i, p in papers(root / MERGED).items()]
+    for aside in (MERGED, EXCLUDED):
+        if (root / aside).is_dir():
+            out += [(f"{aside}/{i}", p) for i, p in papers(root / aside).items()]
     return out
 
 

@@ -1,0 +1,28 @@
+{
+ "to_extract": 4,
+ "skipped_existing": 0,
+ "dispatch_count": 4,
+ "dispatches": [
+  {
+   "papers": [
+    "2019_carver_dunn"
+   ]
+  },
+  {
+   "papers": [
+    "2020_ashford_bell"
+   ],
+   "read_until": 57
+  },
+  {
+   "papers": [
+    "2022_ellery_finch"
+   ]
+  },
+  {
+   "papers": [
+    "2023_garner_hale"
+   ]
+  }
+ ]
+}

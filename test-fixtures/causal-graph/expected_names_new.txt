@@ -1,0 +1,2 @@
+# papers | name | cause, effect | levels | quote
+1 | dm | cause 1, effect 0 | levels: no; yes | DM was associated with the fixture outcome (adjusted OR 1.6, 95% CI 1.2–2.1)

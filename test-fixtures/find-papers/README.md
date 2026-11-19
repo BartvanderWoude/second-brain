@@ -103,3 +103,31 @@ What the outputs must show:
   None of them is listed again.
 - `add --pmid`: Zhou saved as `2023_zhou_lu.md`, Gan under the collision
   suffix, Catania (38682863) skipped as already in the vault by DOI.
+
+## Excluded records
+
+A record that `causal_graph.py exclude` moved into `.excluded/` counts as in
+the vault, as `.merged/`'s do. From the repo root, with `B`, `F` and `P2` as
+above:
+
+```
+T=$(mktemp -d); cp -r $B/records/fixture-recall-20260924 $T/; V=$T/fixture-recall-20260924
+python3 scripts/find_papers.py pubmed $V --list pair-1 --max 40 --query "$P2" $F | grep -c '^1\. 2023 Zhou'   # 1
+mkdir $V/.excluded; cp $B/expected_2023_zhou_lu.md $V/.excluded/2023_zhou_lu.md
+diff <(python3 scripts/find_papers.py add $V --no-fetch --list pair-1 1 $F) $B/expected_add_excluded.json
+ls $V/2023_zhou_lu.md 2> /dev/null | wc -l                                                                   # 0
+diff <(python3 scripts/find_papers.py pubmed $V --list pair-1 --max 40 --query "$P2" $F) \
+     $B/expected_pubmed_excluded.txt
+```
+
+Not yet in `run_offline.sh`'s `find-papers` suite: the causal-graph
+integration adds it there. The diffs print nothing when they pass; the two
+commented lines must print what their comments say.
+
+- Zhou's nomogram paper is not in the vault, so `pubmed` with q2 lists it as
+  candidate 1.
+- Its record (the one `add --pmid` writes) is then put in `.excluded/`, as
+  `exclude` leaves it. `add` of candidate 1 skips it as already in the vault
+  by PMID, naming `.excluded/2023_zhou_lu`, and saves nothing.
+- The same `pubmed` again counts it in the vault (5 instead of 4) and no
+  longer lists it.
