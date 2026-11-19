@@ -1,6 +1,6 @@
 # Causal graph design
 
-**Status:** design agreed 2026-11-19, not implemented yet. This document is the
+**Status:** design agreed 2026-11-19; wave 1 of 3 done (phases 1–2). This document is the
 brief for the implementation sessions. It extends the plugin described in
 [CLAUDE.md](CLAUDE.md); the output format is
 [templates/graphcreator-dag-format.md](templates/graphcreator-dag-format.md).
@@ -138,15 +138,17 @@ paper_vault_path: <root>/paper_vault/ssi-colorectal-causes-20261119/
 
 New fields, added to `templates/research-problem-profile-format-spec.md` with
 a new **causal** value in its "Required" column (required on a causal profile,
-absent elsewhere) and a "Causal profiles" section:
+absent elsewhere) and a "Causal profiles" section. The skill always writes all
+five, the defaults included (`exclude_papers: []` when none); a reader still
+treats a missing `pair_search_k` or `pair_search_max_papers` as its default:
 
 | Field | Type | Required | Meaning | Used by |
 |---|---|---|---|---|
 | `causal_target` | string | causal | The prediction target as the outcome node's name, e.g. `Surgical site infection`. Its presence makes a profile causal. | harmonizer, `assemble` |
 | `causal_setting` | string | causal | Population, setting and time horizon. A claim from another population counts one grade lower. | extractor (`setting_match`), `assemble` |
-| `exclude_papers` | list[string] | no | Papers the graph must not see, typically the source of the expert graph. Same string forms as `seed_papers`. | `exclude` |
-| `pair_search_k` | integer | no | How many top causes get the pair search. Missing means 15. | `pairs` |
-| `pair_search_max_papers` | integer | no | Papers the pair search may add in total. Missing means 40. | `causal-pair-searcher` |
+| `exclude_papers` | list[string] | causal | Papers the graph must not see, typically the source of the expert graph. Same string forms as `seed_papers`. | `exclude` |
+| `pair_search_k` | integer | causal | How many top causes get the pair search. Missing means 15. | `pairs` |
+| `pair_search_max_papers` | integer | causal | Papers the pair search may add in total. Missing means 40. | `causal-pair-searcher` |
 
 How the Q&A fills the shared fields on a causal profile:
 
@@ -291,8 +293,8 @@ stdout. Every report is compact JSON (the main conversation reads it).
 | `plan <paper_vault> [--redo] [--solo-kb 60]` | Plans extractor dispatches for records without a claims file, exactly as `stage_prep.py summaries` plans summarizer dispatches (one long paper with `read_until`, or up to `BATCH` short ones). | `{"to_extract", "skipped_existing", "dispatch_count", "dispatches": [{"papers": [id], "read_until"?: N}]}` |
 | `check <paper_vault>` | Validates every claims file against the spec and checks each quote against the paper's text (below). Moves failing claims and prevalences to `rejected`, rewriting the file. Idempotent. | `{"papers", "claims_kept", "claims_rejected", "by_paper": {id: rejected}, "invalid": [file: reason], "missing": [ids with no claims file], "presents_dag": [ids]}` |
 | `exclude <paper_vault> --profile P` | Moves every record matching an `exclude_papers` entry (DOI, PMID, PMCID, arXiv id, or exact title via `seed_ident` and `same`) to `.excluded/`, with its claims file. | `{"excluded": [{"id", "matched"}], "not_found": [entries]}` |
-| `names <paper_vault> --variables V [--new-only] --out F` | Writes every raw variable name in the kept claims, prevalences and measurements, one line each: paper count, as cause / as effect, one quote cut to 160 characters, sorted by paper count. `--new-only`: only names `V` does not map yet. `V` may not exist on pass 1. | `{"names", "written": F}` |
-| `pairs <paper_vault> --variables V --profile P --out F` | Ranks the non-target nodes by the number of papers with a kept claim touching them; takes the top `pair_search_k`; writes every pair with no claim in either direction to `F`, ordered by combined support. | `{"k", "pairs", "already_linked", "written": F}` |
+| `names <paper_vault> --variables V [--new-only] --out F` | Writes every raw variable name in the kept claims, prevalences and measurements, one line each in the `names.txt` format of `templates/causal-claims-spec.md` (paper count, as cause / as effect, the raw level names, one quote cut to 160 characters), sorted by paper count, then name. `--new-only`: only names `V` does not map yet. `V` may not exist on pass 1. | `{"names", "written": F}` |
+| `pairs <paper_vault> --variables V --profile P --out F` | Ranks the non-target nodes by the number of papers with a kept claim touching them; takes the top `pair_search_k`; writes every pair with no claim in either direction to `F`, ordered by combined support; within a pair `a` is the better-supported node, ties by name. | `{"k", "pairs", "already_linked", "written": F}` |
 | `assemble <paper_vault> --variables V --profile P --out D` | Builds both graphs and the evidence report (see "Graph assembly") and writes `<id>.dag.yaml`, `<id>.full.dag.yaml`, `<id>.evidence.md` into `D`. | `{"nodes": [strict, full], "edges": [strict, full], "target_edges": [strict, full], "cycle_drops", "unmapped_claims", "top_unmapped": [[name, n]], "presents_dag": [ids], "excluded": n, "warnings": [...]}` |
 
 ### `scripts/graphcreator.py`
@@ -507,8 +509,9 @@ From the edge's highest-grade claims that have a `value`:
 - `beta_std` and `d`: `|value|`.
 - `scale: per_unit` gives no strength: a per-unit estimate depends on the
   unit.
-- The edge's d is the median; bands on d: below 0.1 no strength, 0.1–0.3
-  `small`, 0.3–0.6 `medium`, 0.6 and above `large`. So OR 1.4 → small, OR 2 →
+- The edge's d is the median; bands on d, each including its lower
+  bound: below 0.1 no strength, 0.1 to below 0.3 `small`, 0.3 to below 0.6
+  `medium`, 0.6 and above `large`. So OR 1.4 → small, OR 2 →
   medium (d 0.38), OR 3.5 → large (d 0.69).
 
 ### Shares
@@ -529,7 +532,10 @@ written.
 
 ### Edge fields
 
-`evidence`: one entry per supporting paper, `PMID:<pmid>`, else
+`evidence`: one entry per supporting paper (a paper with an existence
+claim on the edge whose direction agrees with the sign, or `unclear`; a paper
+whose claims only contradict the edge is named in the evidence report, not
+here), `PMID:<pmid>`, else
 `doi:<doi>`, else `arXiv:<id>`, else `vault:<paper id>`, ordered by grade then
 year. `note`: one line, e.g. `probable; 2 cohort, 1 case-control; 3 papers; no
 conflict; strength from 2 ORs (median d 0.41)`.
@@ -659,6 +665,8 @@ The discovery agents, the citation chaser, `stage_prep.py`,
 | Output folder | `second-brain/causal_graphs/<id>/` | Inside the paper vault | Matches `obsidian_vault/`, `deep_dives/` |
 | Profile location | `causal_graphs/<id>/<id>.md` | `<root>/<id>.md` | The deep-dive would mistake it for a vault |
 | Doc location | `CAUSAL_GRAPH_DESIGN.md` at the root | In the skill folder; `docs/` | No running model reads it as instructions |
+| Optional causal fields | Required `causal`, always written with defaults | Required `no` | Found in wave 1: the doc said both; `no` would break the schema-copies check |
+| Gaps settled in wave 1 | `names.txt` line format in the claims spec, with raw levels; strength bands include their lower bound; `evidence` lists supporting papers only; pair `a` is the better-supported node | — | Raised by the phase 1 agent; the doc left them open |
 | Defaults set in the design, not discussed | A `none` claim can be a conflict; per-unit estimates give no strength; window 10; 5 papers per pair; cycle tie-break by grade, papers, name; strength below d 0.1 omitted | — | Change in this doc if they prove wrong |
 
 ## Implementation phases
@@ -684,12 +692,12 @@ estimate first, T2 needs no approval, T3 needs the researcher's yes.
 | 7 | The skill | 1 | 2 | `skills/second-brain-causal-graph/SKILL.md` |
 | 8 | Integration | 2–7 | 3 | `test-fixtures/run_offline.sh`, `test-fixtures/plugin-root/README.md`, `test-fixtures/schema-copies/README.md`, `CLAUDE.md`, `README.md`, `PROJECT_CONTEXT.md`, `.claude-plugin/plugin.json`, `CAUSAL_GRAPH_DESIGN.md` |
 
-### Wave 1: contracts and the writer [ ]
+### Wave 1: contracts and the writer [x]
 
 Phases: 1, 2. Parallel: yes. Integration check after the wave:
 `bash test-fixtures/run_offline.sh`.
 
-#### Phase 1: Contracts [ ]
+#### Phase 1: Contracts [x] (1f21eeb)
 
 - **Goal:** the schemas every later phase codes against exist, with shared
   fixtures.
@@ -724,7 +732,7 @@ Phases: 1, 2. Parallel: yes. Integration check after the wave:
   table matches this doc's.
 - **Out of scope:** any script or agent.
 
-#### Phase 2: GraphCreator writer [ ]
+#### Phase 2: GraphCreator writer [x] (16d9123)
 
 - **Goal:** `scripts/graphcreator.py` validates and writes `graphcreator/0.1`
   files exactly as `templates/graphcreator-dag-format.md` specifies.

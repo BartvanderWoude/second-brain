@@ -268,7 +268,7 @@ The pairs of top causes with no claim between them yet, for the pair search.
 | `k` | integer | How many top causes were paired: the profile's `pair_search_k`, 15 when missing. |
 | `max_papers` | integer | Papers the pair search may add in total: the profile's `pair_search_max_papers`, 40 when missing. |
 | `pairs[].n` | integer | The pair's number, from 1, in search order. |
-| `pairs[].a`, `.b` | text | The two nodes' names. |
+| `pairs[].a`, `.b` | text | The two nodes' names: `a` the one with more support, ties by name. The order says nothing about direction; both are searched. |
 | `pairs[].support` | integer | Their combined support: papers with a kept claim touching `a`, plus those touching `b`. |
 | `pairs[].query` | text | A PubMed query: one block per node, its name and aliases OR-ed, each `[tiab]`, the two blocks AND-ed. |
 | `pairs[].narrow` | text | `query` AND a block of study-design terms, for when `query` is too broad. |
