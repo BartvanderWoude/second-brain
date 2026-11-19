@@ -1,6 +1,6 @@
 # Causal graph design
 
-**Status:** design agreed 2026-11-19, extended the same day (causes of causes); implemented: all 4 waves done (phases 1–11); the T3 run found follow-ups (see Open issues). This document is the
+**Status:** design agreed 2026-11-19, extended the same day (causes of causes; after the T3 run, timing and the T3 fixes); waves 1–4 done (phases 1–11), wave 5 to do. This document is the
 brief for the implementation sessions. It extends the plugin described in
 [CLAUDE.md](CLAUDE.md); the output format is
 [templates/graphcreator-dag-format.md](templates/graphcreator-dag-format.md).
@@ -158,6 +158,7 @@ treats a missing `pair_search_k` or `pair_search_max_papers` as its default:
 | `upstream_search_k` | integer | causal | How many top causes of the target get an upstream search for their own causes. Missing means 5. | `upstream` |
 | `upstream_search_max_papers` | integer | causal | Papers the upstream round may add in one run. Missing means 15. | `causal-pair-searcher` |
 | `setting_terms` | list[string] | causal | 2–5 PubMed terms for the setting's population (e.g. `surgery`, `surgical`, `postoperative`), OR-ed into the upstream round's setting-restricted query. | `upstream` |
+| `prediction_time` | string | causal | When the prediction is made, in words (e.g. `at hospital admission, before surgery`); proposed from the task and confirmed at intake. The harmonizer judges each variable's timing against it. | harmonizer |
 
 How the Q&A fills the shared fields on a causal profile:
 
@@ -272,6 +273,14 @@ Written by `causal-variable-harmonizer`, defined in the same spec:
   whitespace collapsing, it equals the node's `name` or one of its `aliases`.
   `level_map` maps raw level names the same way.
 - `unmapped`: names the harmonizer judged too vague to be one variable.
+- Each node also has `timing` and `exogenous`, set by the harmonizer (wave 5):
+  - `timing`: `baseline` (known by the profile's `prediction_time`),
+    `later` (measured after it, before or around the outcome),
+    `target_measure` (a measure or early form of the target itself, e.g. a
+    delirium assessment score before surgery), or `unknown`; missing means
+    `unknown`;
+  - `exogenous`: `true` for a variable nothing in the graph can cause (age,
+    sex, genotype, calendar time); missing means `false`.
 - The researcher may edit this file and re-run `assemble` (script only, free).
 
 ### `pairs.json`: `causal_graphs/<id>/.work/pairs.json`
@@ -330,8 +339,8 @@ stdout. Every report is compact JSON (the main conversation reads it).
 | `check <paper_vault>` | Validates every claims file against the spec and checks each quote against the paper's text (below). Moves failing claims and prevalences to `rejected`, rewriting the file. Idempotent. | `{"papers", "claims_kept", "claims_rejected", "by_paper": {id: rejected}, "invalid": [file: reason], "missing": [ids with no claims file], "presents_dag": [ids]}` |
 | `exclude <paper_vault> --profile P` | Moves every record matching an `exclude_papers` entry (DOI, PMID, PMCID, arXiv id, or exact title via `seed_ident` and `same`) to `.excluded/`, with its claims file. | `{"excluded": [{"id", "matched"}], "not_found": [entries]}` |
 | `names <paper_vault> --variables V [--new-only] --out F` | Writes every raw variable name in the kept claims, prevalences and measurements, one line each in the `names.txt` format of `templates/causal-claims-spec.md` (paper count, as cause / as effect, the raw level names, one quote cut to 160 characters), sorted by paper count, then name. `--new-only`: only names `V` does not map yet. `V` may not exist on pass 1. | `{"names", "written": F}` |
-| `pairs <paper_vault> --variables V --profile P --out F` | Ranks the non-target nodes by the number of papers with a kept claim touching them; takes the top `pair_search_k`; writes every pair with no claim in either direction to `F`, ordered by combined support; within a pair `a` is the better-supported node, ties by name. | `{"k", "pairs", "already_linked", "written": F}` |
-| `upstream <paper_vault> --variables V --profile P --out F` | Ranks the causes of the target (nodes with a kept claim into it) by support, takes the top `upstream_search_k`, and writes one entry each to `F` with its two queries (see "`upstream.json`"). Query terms as in `pairs`. | `{"k", "entries", "written": F}` |
+| `pairs <paper_vault> --variables V --profile P --out F` | Ranks the non-target nodes by the number of papers with a kept claim touching them; takes the top `pair_search_k`; writes every pair with no claim in either direction to `F`, ordered by combined support; within a pair `a` is the better-supported node, ties by name.  Wave 5: leaves out `target_measure` nodes and pairs of two exogenous nodes; `query` puts both nodes' terms in the title (`[ti]`) AND the design block, `narrow` both title blocks AND the review block. | `{"k", "pairs", "already_linked", "written": F}` |
+| `upstream <paper_vault> --variables V --profile P --out F` | Ranks the causes of the target (nodes with a kept claim into it) by support, takes the top `upstream_search_k`, and writes one entry each to `F` with its two queries (see "`upstream.json`"). Query terms as in `pairs`. Wave 5: skips `exogenous` and `target_measure` nodes and takes the next cause. | `{"k", "entries", "written": F}` |
 | `assemble <paper_vault> --variables V --profile P --out D` | Builds both graphs and the evidence report (see "Graph assembly") and writes `<id>.dag.yaml`, `<id>.full.dag.yaml`, `<id>.evidence.md` into `D`. | `{"nodes": [strict, full], "edges": [strict, full], "target_edges": [strict, full], "cycle_drops", "unmapped_claims", "top_unmapped": [[name, n]], "presents_dag": [ids], "excluded": n, "warnings": [...]}` |
 
 ### `scripts/graphcreator.py`
@@ -408,7 +417,7 @@ target to the `causal_target` node; names too vague to be one variable go to
 mapping, and only adds aliases or nodes for the new names. Reply:
 `OK <nodes> nodes, <mapped> names mapped, <unmapped> unmapped`.
 
-**`causal-pair-searcher`** (sonnet; tools `Read, Bash, Glob`). It has two
+**`causal-pair-searcher`** (sonnet; tools `Read, Bash, Glob`). Wave 5: in pairs mode too, a `narrow` that is still too broad is rerun with `--top 50` and reported as `top 50 of N`. It has two
 modes, chosen by the prompt's first label: `pairs:` (below) or `upstream:`.
 In upstream mode it reads `upstream.json`; per entry, list `up-<n>`: run
 `query` (reviews and meta-analyses); when it is too broad or no candidate
@@ -582,6 +591,13 @@ others; `var_type`, `levels`, `unit`, `description` from `variables.json`.
 enters a graph only through an edge in that graph; the target is always
 written.
 
+**Timing (wave 5).** Before cycles are broken: a `target_measure` node and
+its edges leave both graphs (listed as `target_measures` in the report); an
+edge into an `exogenous` node leaves both graphs (listed as
+`into_exogenous`). A `later` node stays in both graphs: its `description`
+ends with "Measured after the prediction time.", it is listed as `later`,
+and the evidence report shows every node's timing.
+
 **Ancestors only.** After cycles are broken, each graph keeps an edge only
 when its effect is the target or has a path into the target in that graph.
 So causes, their causes, and edges among them stay; an edge into a variable
@@ -703,6 +719,13 @@ The discovery agents, the citation chaser, `stage_prep.py`,
 | Upstream narrowing | Reviews and meta-analyses of each cause's risk factors first, then primary studies in the setting | Reviews only; setting-restricted only | Best evidence per paper; a fallback when no review exists |
 | Upstream queries (after the wave-3 T2) | Cause and risk words in the title; the top 50 by relevance, reported as such, when still too broad (user's choice) | Title words only, too-broad causes skipped; MeSH `/etiology` subheadings | With `[tiab]` the review query for preoperative anemia found only reviews of anemia as a cause of outcomes, and every common cause (frailty, diabetes) was too broad; in the title, frailty gave 126 on-topic hits, and diabetes' top 50 held an exposure-wide umbrella review of its risk factors |
 | Causes for the upstream round | Only nodes whose claims into the target show an effect | Any claim into the target | A node with only `none` claims is not a cause |
+| T3 evaluation (2026-11-19) | Fix: exogenous nodes, title-restricted pair queries, skill wording; add timing | Fix only the T3 issues; also record model selection (stepwise vs pre-specified) | The T3 graph held a target proxy (preoperative CAM-CR) and postoperative variables with no notion of prediction time; model selection was left for later |
+| Prediction time | A `prediction_time` profile field asked at intake (user's choice) | Inferred from the task | A vague task would give inconsistent timing tags |
+| Later variables | Kept in both graphs, flagged in the description and the report (user's choice) | Full graph only; dropped from both | They can be real mediators an expert DAG includes; filtering for prediction is the researcher's step |
+| Target measures | Dropped from both graphs, listed | Kept and flagged | A measure of the target is not a cause of it |
+| Exogenous variables | Tagged by the harmonizer; skipped by upstream; an edge into one is dropped; a pair of two is not searched | No tag | Nothing causes age or sex; the T3 upstream round was spent on Age |
+| Pair queries | Both nodes in the title AND the design block; narrow to reviews; top 50 when still too broad | `[tiab]` with a design block | Probe 2026-11-19: `[tiab]` + design was too broad for every pair tried (frailty × sarcopenia 1,411); in the title: 258, CHD × AF 20, dementia × stroke 41 as reviews, diabetes × obesity 423 reviews |
+| Skill wording | "Dispatch the wave's calls in one message and wait for them all to return" | Naming `run_in_background: false` | Not every Agent tool has that parameter |
 | Upstream size | Top 5 causes, at most 15 papers per run (user's choice) | Top 10 and 30; every cause and 60 | Cost (~+1M weighted) |
 | Upstream agent | The pair searcher with an upstream mode | A new agent | Same tools and screening; one agent to maintain |
 | Upstream stop | As the pair round: once, only on cap or manual downloads | Always stop before it | Consistent with the pair round |
@@ -762,6 +785,10 @@ estimate first, T2 needs no approval, T3 needs the researcher's yes.
 | 10 | Pair searcher upstream mode | 5 | 3 | `agents/causal-pair-searcher.md` |
 | 11 | Skill upstream round | 7 | 3 | `skills/second-brain-causal-graph/SKILL.md` |
 | 8 | Integration | 2–7, 9–11 | 4 | `test-fixtures/run_offline.sh`, `test-fixtures/plugin-root/README.md`, `test-fixtures/schema-copies/README.md`, `CLAUDE.md`, `README.md`, `PROJECT_CONTEXT.md`, `.claude-plugin/plugin.json`, `CAUSAL_GRAPH_DESIGN.md` |
+| 12 | Timing contracts and script | 9 | 5 | `templates/causal-claims-spec.md`, `templates/research-problem-profile-format-spec.md`, `scripts/causal_graph.py`, `test-fixtures/causal-graph/`, `test-fixtures/causal/` |
+| 13 | Harmonizer tags | 4 | 5 | `agents/causal-variable-harmonizer.md` |
+| 14 | Pair searcher top 50 in pairs mode | 10 | 5 | `agents/causal-pair-searcher.md` |
+| 15 | Skill: prediction time and wording | 11 | 5 | `skills/second-brain-causal-graph/SKILL.md` |
 
 ### Wave 1: contracts and the writer [x]
 
@@ -1036,6 +1063,83 @@ Phases: 8. Parallel: single phase. Integration check after the wave:
   the report; its measured cost is recorded in PROJECT_CONTEXT.md.
 - **Out of scope:** a full-scale run (only on the researcher's request).
 
+### Wave 5: T3 fixes and timing [ ]
+
+Phases: 12, 13, 14, 15. Parallel: yes. After the wave the orchestrator lands
+them, runs every suite, runs the T2 tests (the harmonizer's tags on the T3
+run's real names and claims, then `assemble` on that copy; the pair
+searcher's `top 50` in pairs mode), updates CLAUDE.md, README and
+PROJECT_CONTEXT.md, and bumps the version to 0.1.3.
+
+#### Phase 12: Timing contracts and script [ ]
+
+- **Goal:** the specs and `causal_graph.py` implement "Timing (wave 5)",
+  the wave-5 `pairs` and `upstream` rules and the new profile field.
+- **Depends on:** 9.
+- **Owns files:** `templates/causal-claims-spec.md`,
+  `templates/research-problem-profile-format-spec.md`,
+  `scripts/causal_graph.py`, `test-fixtures/causal-graph/`,
+  `test-fixtures/causal/`.
+- **Work:** `variables.json`'s `timing` and `exogenous` (spec, defaults when
+  missing, validation of `timing`'s values); `prediction_time` (profile spec
+  row, Required `causal`, "Causal profiles"); in `assemble`, the timing
+  rules and the three report keys, and the evidence report's timing line per
+  node and its lists; in `pairs`, the exclusions and the new `query` and
+  `narrow` (the same term helper with `[ti]`, `DESIGN` and review blocks);
+  in `upstream`, the skip. Fixture: `prediction_time` in the profile; tags
+  in `variables.json` that change no existing expected output unless the
+  change is the point; side cases for a target-measure node dropped, a
+  later node flagged, an edge into an exogenous node dropped, upstream
+  skipping an exogenous top cause, and the new pair queries.
+- **Done when:** the `causal-graph` README block and `run_offline.sh` pass;
+  `py_compile`.
+- **Out of scope:** the agents and the skill.
+
+#### Phase 13: Harmonizer tags [ ]
+
+- **Goal:** `causal-variable-harmonizer` sets `timing` and `exogenous` on
+  every node.
+- **Depends on:** 4.
+- **Owns files:** `agents/causal-variable-harmonizer.md`.
+- **Work:** read `prediction_time` and `causal_target` from the profile;
+  the four timings and how to judge them (a variable the papers measure at
+  or before the prediction time is `baseline`; one that can only exist
+  after it, such as a postoperative event, is `later`; one that measures the
+  target or its early form is `target_measure`; otherwise `unknown`);
+  `exogenous` for variables nothing can cause; passes 2 and 3 keep existing
+  tags and tag new nodes; the reply adds the counts per timing and the
+  exogenous names.
+- **Done when:** offline checks as in phase 4; the T2 test runs after
+  landing.
+- **Out of scope:** the script.
+
+#### Phase 14: Pair searcher top 50 in pairs mode [ ]
+
+- **Goal:** pairs mode reruns a still-too-broad `narrow` with `--top 50`.
+- **Depends on:** 10.
+- **Owns files:** `agents/causal-pair-searcher.md`.
+- **Work:** the pairs-mode loop and reply as in upstream mode's step 4
+  (`top 50 of N`, never "searched whole"); pairs mode's screening and caps
+  unchanged; the description stays under ~90 words.
+- **Done when:** offline checks as in phase 10; the T2 test runs after
+  landing.
+- **Out of scope:** upstream mode.
+
+#### Phase 15: Skill: prediction time and wording [ ]
+
+- **Goal:** the skill asks for `prediction_time` and no longer names
+  `run_in_background`.
+- **Depends on:** 11.
+- **Owns files:** `skills/second-brain-causal-graph/SKILL.md`.
+- **Work:** `prediction_time` in the Q&A (proposed from the task, confirmed)
+  and the skeleton; the wave rule reworded ("dispatch the wave's calls in
+  one message and wait for them all to return before the next"); the report
+  relays `target_measures`, `later` and `into_exogenous` and the
+  harmonizer's timing counts.
+- **Done when:** the Bash block still matches the pipeline's; the skeleton's
+  fields are in the spec (after phase 12 lands); names match this doc.
+- **Out of scope:** the agents.
+
 ## Tests
 
 - **`graphcreator`** (phase 2): format example round trip, YAML 1.1 quoting,
@@ -1067,11 +1171,11 @@ mode ~0.11–0.13M per test (one or two entries, up to 3 papers).
 
 ## Open issues
 
-- **Found by the T3 run (2026-11-19), not yet decided:** the upstream round
-  picks causes nothing can cause (Age won on support); pair queries for
-  common causes are too broad even narrowed, so a small run gets no edges
-  among causes; the skill's `run_in_background: false` names a parameter not
-  every Agent tool has.
+- **Model selection** is not recorded: most clinical risk-factor papers pick
+  their adjustment set by univariate screening and stepwise regression, so
+  their "adjusted" estimates are predictive, not causal, and still grade
+  `probable`. Recording it (and possibly grading it lower) was left for later
+  after the T3 evaluation.
 
 - **Transitive edges** are kept as reported: if A→M→Y and A→Y are all
   claimed, all three stay. Pruning by mediation needs claims about adjusted
