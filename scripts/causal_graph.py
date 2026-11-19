@@ -61,7 +61,11 @@ Choices the design leaves open, made here:
   decreases or unclear; a node whose only claims into the target say `none`
   is not a cause)
   by the same support as `pairs`: papers with a kept claim touching the node,
-  any claim. Its node block is `pairs`' block. The setting block holds the
+  any claim. Its node block is `pairs`' terms in the title ([ti]), and so is
+  its risk block, so a review must name the cause and its risk factors in
+  its title; a paper on the cause as a risk factor for something else
+  usually names the outcome too, and the agent screens it out. The setting
+  block ([tiab]) holds the
   profile's setting_terms in the order written, normalized and deduplicated,
   each quoted as in `pairs`, with no cap on their number; a setting_terms
   that is not a list is an error. With no causes it writes `entries: []`.
@@ -139,7 +143,8 @@ MAX_TERMS = 8           # terms per node in a pair query
 TOP_UNMAPPED = 10
 DESIGN_BLOCK = ('(cohort[tiab] OR "risk factor*"[tiab] OR "odds ratio"[tiab] OR "mendelian randomi*"[tiab] '
                 'OR meta-analysis[tiab])')
-RISK_BLOCK = '("risk factor*"[tiab] OR predictor*[tiab] OR determinant*[tiab])'
+RISK_BLOCK = ('("risk factor*"[ti] OR determinant*[ti] OR etiolog*[ti] OR aetiolog*[ti] OR predictor*[ti]'
+              ' OR "factors associated with"[ti])')
 REVIEW_BLOCK = '("systematic review"[tiab] OR meta-analys*[tiab] OR "umbrella review"[tiab])'
 NAMES_HEADER = "# papers | name | cause, effect | levels | quote"
 DASHES = re.compile("[‐-―−]")
@@ -576,16 +581,16 @@ def cmd_names(a):
 
 # ---------------------------------------------------------------- pairs
 
-def term(t):
+def term(t, field="tiab"):
     t = re.sub(r'["\[\]]', "", t).strip()
-    return (t if re.fullmatch(r"[\w*]+", t) else f'"{t}"') + "[tiab]"
+    return (t if re.fullmatch(r"[\w*]+", t) else f'"{t}"') + f"[{field}]"
 
 
-def block(v, node, use):
+def block(v, node, use, field="tiab"):
     terms = list(dict.fromkeys(norm(x) for x in [node] + v.nodes[node]["aliases"]))
     terms = [t for t in terms if t]
     terms.sort(key=lambda t: -len(use[t]["papers"]) if t in use else 0)
-    return "(" + " OR ".join(term(t) for t in terms[:MAX_TERMS]) + ")"
+    return "(" + " OR ".join(term(t, field) for t in terms[:MAX_TERMS]) + ")"
 
 
 def support_of(v, files):
@@ -655,7 +660,7 @@ def cmd_upstream(a):
     use = name_usage(files)
     entries = []
     for n, x in enumerate(sorted(causes, key=rank)[:k], 1):
-        node = f"{block(v, x, use)} AND {RISK_BLOCK}"
+        node = f"{block(v, x, use, 'ti')} AND {RISK_BLOCK}"
         entries.append({"n": n, "a": x, "support": len(support[x]), "query": f"{node} AND {REVIEW_BLOCK}",
                         "fallback": f"{node} AND {setting}" if setting else None})
     a.out.parent.mkdir(parents=True, exist_ok=True)

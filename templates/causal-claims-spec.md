@@ -288,8 +288,8 @@ one's own causes.
   "max_papers": 15,
   "entries": [
     {"n": 1, "a": "Diabetes", "support": 12,
-     "query": "(\"diabetes mellitus\"[tiab] OR diabetes[tiab]) AND (\"risk factor*\"[tiab] OR predictor*[tiab] OR determinant*[tiab]) AND (\"systematic review\"[tiab] OR meta-analys*[tiab] OR \"umbrella review\"[tiab])",
-     "fallback": "(\"diabetes mellitus\"[tiab] OR diabetes[tiab]) AND (\"risk factor*\"[tiab] OR predictor*[tiab] OR determinant*[tiab]) AND (surgery[tiab] OR surgical[tiab] OR postoperative[tiab])"}
+     "query": "(\"diabetes mellitus\"[ti] OR diabetes[ti]) AND (\"risk factor*\"[ti] OR determinant*[ti] OR etiolog*[ti] OR aetiolog*[ti] OR predictor*[ti] OR \"factors associated with\"[ti]) AND (\"systematic review\"[tiab] OR meta-analys*[tiab] OR \"umbrella review\"[tiab])",
+     "fallback": "(\"diabetes mellitus\"[ti] OR diabetes[ti]) AND (\"risk factor*\"[ti] OR determinant*[ti] OR etiolog*[ti] OR aetiolog*[ti] OR predictor*[ti] OR \"factors associated with\"[ti]) AND (surgery[tiab] OR surgical[tiab] OR postoperative[tiab])"}
   ]
 }
 ```
@@ -299,11 +299,15 @@ one's own causes.
 | `k` | integer | How many top causes of the target were taken: the profile's `upstream_search_k`, 5 when missing. |
 | `max_papers` | integer | Papers the upstream round may add in one run: the profile's `upstream_search_max_papers`, 15 when missing. A paper already in the vault is never listed again, so the cap counts only papers that run adds. |
 | `entries[].n` | integer | The entry's number, from 1, in search order. |
-| `entries[].a` | text | A cause of the target: a node, other than the target, with a kept claim whose effect is the target. |
+| `entries[].a` | text | A cause of the target: a node, other than the target, with a kept claim into the target that shows an effect (direction `increases`, `decreases` or `unclear`). |
 | `entries[].support` | integer | Papers with a kept claim touching `a`, as in `pairs.json`. |
-| `entries[].query` | text | A PubMed query for reviews and meta-analyses of `a`'s risk factors: `a`'s block (its name and aliases OR-ed, each `[tiab]`, as in `pairs.json`) AND a risk-factor block AND a review block. |
-| `entries[].fallback` | text or null | A PubMed query for primary studies in the setting: `a`'s block AND the risk-factor block AND a block of the profile's `setting_terms` OR-ed, each `[tiab]`. `null` when the profile has no `setting_terms`. |
+| `entries[].query` | text | A PubMed query for reviews and meta-analyses of `a`'s risk factors: `a`'s block (its name and aliases OR-ed, as in `pairs.json` but each `[ti]`) AND a risk-factor block in the title (`risk factor*`, `determinant*`, `etiolog*`, `aetiolog*`, `predictor*`, `factors associated with`, each `[ti]`) AND a review block (`[tiab]`). Both in the title, so a paper on `a` as a risk factor for something else mostly falls out. |
+| `entries[].fallback` | text or null | A PubMed query for primary studies in the setting: `a`'s block AND the risk-factor block, both as in `query`, AND a block of the profile's `setting_terms` OR-ed, each `[tiab]`. `null` when the profile has no `setting_terms`. |
 
 Entries are ordered by `support`, most first, ties by name. Per entry,
 `query` is run first; `fallback` is run when `query` is too broad or no
-candidate it finds passes screening, and is skipped when it is `null`.
+candidate it finds passes screening, and is skipped when it is `null`. When
+the entry ends with a too-broad query and nothing saved, the searcher reruns
+it with `--top 50` (the review `query` if it was too broad, else
+`fallback`): the 50 most relevant hits by PubMed's order, reported as
+`top 50 of N`, never as the whole set.

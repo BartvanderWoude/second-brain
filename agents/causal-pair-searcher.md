@@ -50,7 +50,8 @@ the next, so each number belongs to one list: `show` and `add` refuse a number
 passed with the wrong list name and say which list holds it. Name pair `n`'s
 list `pair-<n>`, and upstream entry `n`'s list `up-<n>`. Running `pubmed`
 again under the same name replaces that list, so after a second query use only
-the numbers it printed. Never pass `--window`, `--top` or `--max`.
+the numbers it printed. Never pass `--window` or `--max`, and `--top` only
+as upstream mode's step 4 says.
 
 Each query is a PubMed query with double quotes and `*` in it. Pass it in
 single quotes, exactly as written, writing any `'` inside it as `'\''`.
@@ -131,18 +132,28 @@ factors, and `fallback`, for primary studies of them in the profile's setting.
    `TOO BROAD` or when no candidate of its list passed (no hits included).
    When `fallback` is `null`, skip this step: the entry adds nothing, and a
    too-broad `query` is reported as too broad. When `fallback` is too broad
-   as well, skip the entry and report it as too broad. Otherwise screen the
-   fallback's list. Never split, rewrite or widen either query, whatever the
-   report suggests.
-4. A query that prints `ERROR` was not searched: report the entry with the
+   as well, go to step 4. Otherwise screen the fallback's list. Never split,
+   rewrite or widen either query, whatever the report suggests.
+4. When the entry has ended on a too-broad query (both too broad, or a
+   too-broad `query` with a `null` fallback), run once more with `--top 50`:
+   the review `query` if it was too broad, else `fallback`, with the same
+   list name:
+
+   ```bash
+   python3 <find_papers> pubmed <vault> --list up-<n> --query '<query>' --top 50
+   ```
+
+   This lists the 50 most relevant hits only; screen them as any list, and
+   report the entry as `top 50 of <N>`, never as searched whole.
+5. A query that prints `ERROR` was not searched: report the entry with the
    error and go on to the next.
-5. Save the chosen papers with one call, from the list you screened last:
+6. Save the chosen papers with one call, from the list you screened last:
 
    ```bash
    python3 <find_papers> add <vault> --list up-<n> <N> <N> ...
    ```
 
-6. Count the records under `saved` toward the total. Once the total reaches
+7. Count the records under `saved` toward the total. Once the total reaches
    the upstream file's `max_papers`, stop: search no further entry. When the
    papers chosen for an entry would take the total past `max_papers`, add
    only as many as fit, the most preferred first.
@@ -222,9 +233,11 @@ In upstream mode:
 - one line per searched entry:
   `up <n> (<a>): <hits> hits, <screened> screened, <added> added; <fallback>`,
   where `<fallback>` is `fallback not used`, `fallback used (query too
-  broad)`, `fallback used (none passed)` or `fallback null`; `<hits>` is the
-  PubMed count of the query screened last, `<screened>` its candidates listed;
-- `too broad:` the entries skipped as too broad, as `up <n> (<a>)`, or none;
+  broad)`, `fallback used (none passed)` or `fallback null`, followed by
+  `; top 50 of <N>` when step 4 ran; `<hits>` is the PubMed count of the
+  query screened last, `<screened>` its candidates listed;
+- `too broad:` the entries that ran step 4, as `up <n> (<a>): top 50 of <N>`,
+  or none;
 - `errors:` entries not searched because of an `ERROR`, with the error, or
   none;
 - `cap:` `hit` or `not hit`, with the total added and `max_papers`

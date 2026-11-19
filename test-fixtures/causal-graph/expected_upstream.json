@@ -6,29 +6,29 @@
       "n": 1,
       "a": "Diabetes",
       "support": 3,
-      "query": "(diabetes[tiab] OR \"diabetes mellitus\"[tiab] OR dm[tiab]) AND (\"risk factor*\"[tiab] OR predictor*[tiab] OR determinant*[tiab]) AND (\"systematic review\"[tiab] OR meta-analys*[tiab] OR \"umbrella review\"[tiab])",
-      "fallback": "(diabetes[tiab] OR \"diabetes mellitus\"[tiab] OR dm[tiab]) AND (\"risk factor*\"[tiab] OR predictor*[tiab] OR determinant*[tiab]) AND (\"fixture surgery\"[tiab] OR surgical[tiab] OR postoperative[tiab])"
+      "query": "(diabetes[ti] OR \"diabetes mellitus\"[ti] OR dm[ti]) AND (\"risk factor*\"[ti] OR determinant*[ti] OR etiolog*[ti] OR aetiolog*[ti] OR predictor*[ti] OR \"factors associated with\"[ti]) AND (\"systematic review\"[tiab] OR meta-analys*[tiab] OR \"umbrella review\"[tiab])",
+      "fallback": "(diabetes[ti] OR \"diabetes mellitus\"[ti] OR dm[ti]) AND (\"risk factor*\"[ti] OR determinant*[ti] OR etiolog*[ti] OR aetiolog*[ti] OR predictor*[ti] OR \"factors associated with\"[ti]) AND (\"fixture surgery\"[tiab] OR surgical[tiab] OR postoperative[tiab])"
     },
     {
       "n": 2,
       "a": "Physical activity",
       "support": 3,
-      "query": "(\"physical activity\"[tiab] OR \"leisure-time physical activity\"[tiab]) AND (\"risk factor*\"[tiab] OR predictor*[tiab] OR determinant*[tiab]) AND (\"systematic review\"[tiab] OR meta-analys*[tiab] OR \"umbrella review\"[tiab])",
-      "fallback": "(\"physical activity\"[tiab] OR \"leisure-time physical activity\"[tiab]) AND (\"risk factor*\"[tiab] OR predictor*[tiab] OR determinant*[tiab]) AND (\"fixture surgery\"[tiab] OR surgical[tiab] OR postoperative[tiab])"
+      "query": "(\"physical activity\"[ti] OR \"leisure-time physical activity\"[ti]) AND (\"risk factor*\"[ti] OR determinant*[ti] OR etiolog*[ti] OR aetiolog*[ti] OR predictor*[ti] OR \"factors associated with\"[ti]) AND (\"systematic review\"[tiab] OR meta-analys*[tiab] OR \"umbrella review\"[tiab])",
+      "fallback": "(\"physical activity\"[ti] OR \"leisure-time physical activity\"[ti]) AND (\"risk factor*\"[ti] OR determinant*[ti] OR etiolog*[ti] OR aetiolog*[ti] OR predictor*[ti] OR \"factors associated with\"[ti]) AND (\"fixture surgery\"[tiab] OR surgical[tiab] OR postoperative[tiab])"
     },
     {
       "n": 3,
       "a": "BMI",
       "support": 2,
-      "query": "(bmi[tiab] OR \"body mass index\"[tiab]) AND (\"risk factor*\"[tiab] OR predictor*[tiab] OR determinant*[tiab]) AND (\"systematic review\"[tiab] OR meta-analys*[tiab] OR \"umbrella review\"[tiab])",
-      "fallback": "(bmi[tiab] OR \"body mass index\"[tiab]) AND (\"risk factor*\"[tiab] OR predictor*[tiab] OR determinant*[tiab]) AND (\"fixture surgery\"[tiab] OR surgical[tiab] OR postoperative[tiab])"
+      "query": "(bmi[ti] OR \"body mass index\"[ti]) AND (\"risk factor*\"[ti] OR determinant*[ti] OR etiolog*[ti] OR aetiolog*[ti] OR predictor*[ti] OR \"factors associated with\"[ti]) AND (\"systematic review\"[tiab] OR meta-analys*[tiab] OR \"umbrella review\"[tiab])",
+      "fallback": "(bmi[ti] OR \"body mass index\"[ti]) AND (\"risk factor*\"[ti] OR determinant*[ti] OR etiolog*[ti] OR aetiolog*[ti] OR predictor*[ti] OR \"factors associated with\"[ti]) AND (\"fixture surgery\"[tiab] OR surgical[tiab] OR postoperative[tiab])"
     },
     {
       "n": 4,
       "a": "Fixture prophylaxis",
       "support": 1,
-      "query": "(\"fixture prophylaxis\"[tiab]) AND (\"risk factor*\"[tiab] OR predictor*[tiab] OR determinant*[tiab]) AND (\"systematic review\"[tiab] OR meta-analys*[tiab] OR \"umbrella review\"[tiab])",
-      "fallback": "(\"fixture prophylaxis\"[tiab]) AND (\"risk factor*\"[tiab] OR predictor*[tiab] OR determinant*[tiab]) AND (\"fixture surgery\"[tiab] OR surgical[tiab] OR postoperative[tiab])"
+      "query": "(\"fixture prophylaxis\"[ti]) AND (\"risk factor*\"[ti] OR determinant*[ti] OR etiolog*[ti] OR aetiolog*[ti] OR predictor*[ti] OR \"factors associated with\"[ti]) AND (\"systematic review\"[tiab] OR meta-analys*[tiab] OR \"umbrella review\"[tiab])",
+      "fallback": "(\"fixture prophylaxis\"[ti]) AND (\"risk factor*\"[ti] OR determinant*[ti] OR etiolog*[ti] OR aetiolog*[ti] OR predictor*[ti] OR \"factors associated with\"[ti]) AND (\"fixture surgery\"[tiab] OR surgical[tiab] OR postoperative[tiab])"
     }
   ]
 }
