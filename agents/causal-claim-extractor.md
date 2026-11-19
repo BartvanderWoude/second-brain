@@ -132,9 +132,13 @@ Quotes:
   number from 0 to 1; never derive one the text does not state. The quote is
   verbatim, as for a claim. For a trial, the target's incidence in the
   control arm counts; for a case-control study, no share of the target does.
-- **`measurements`**: for each variable in a claim or prevalence whose
-  measurement the paper describes, its `var_type`, `levels` in the paper's
-  words and `unit`. `null` or `[]` where the paper does not say.
+- **`measurements`**: one entry for **every** variable in a claim or
+  prevalence, the target included: its `var_type`, `levels` in the paper's
+  words and `unit`. A variable the paper treats as present or absent (a
+  diagnosis, an event, "had X") is `categorical` with its two levels, absence
+  first (`["no", "yes"]` or the paper's own words for them); a variable
+  compared by category is `categorical` or `ordinal` with the categories the
+  paper uses. `null` or `[]` only where the paper gives no way to tell.
 
 ## 6. Write
 

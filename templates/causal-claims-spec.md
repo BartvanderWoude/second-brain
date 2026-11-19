@@ -82,7 +82,7 @@ causes and effects, each claim with a quote that proves it.
 | `presents_dag` | bool | The paper itself draws a causal diagram for the target. |
 | `claims` | list | The paper's claims, below. `[]` when it reports none. |
 | `prevalences` | list | How common a variable's levels are in the paper's population, below. `[]` when none. |
-| `measurements` | list | How the paper measured its variables, below. `[]` when none. |
+| `measurements` | list | How the paper measured its variables, below: one entry for every variable in a claim or prevalence, the target included. `[]` when there are none. |
 | `rejected` | list | Written by `check`, never by the extractor: the claims and prevalences whose quote was not found, each with `reason`. The extractor writes `[]`. |
 
 ### Claim fields: `claims[]`
@@ -222,7 +222,7 @@ The canonical nodes and which raw names map to them.
 | `target` | text | Equal to the profile's `causal_target`. |
 | `nodes[].name` | text | The node's name in the graph: short and human (`Diabetes`, `BMI`), unique. |
 | `nodes[].aliases` | list of text | The raw names that mean this node, other than its name. |
-| `nodes[].var_type` | `categorical`, `ordinal`, `continuous`, `discrete`, null | The type of the majority operationalization in the papers' `measurements`; null when no paper says. |
+| `nodes[].var_type` | `categorical`, `ordinal`, `continuous`, `discrete`, null | The type of the majority operationalization in the papers' `measurements`; without measurements, the type the names' raw levels show (present/absent levels → categorical `["no", "yes"]`); null when neither says. |
 | `nodes[].levels` | list of text | A categorical or ordinal node's canonical levels, an ordinal one's in order; a two-level node's first level is the absence or lower one (`["no", "yes"]`). `[]` otherwise. |
 | `nodes[].level_map` | map: level → list of text | For each canonical level, the raw level names that mean it, other than the level itself. `{}` when none. |
 | `nodes[].unit` | text or null | A continuous or discrete node's unit. |

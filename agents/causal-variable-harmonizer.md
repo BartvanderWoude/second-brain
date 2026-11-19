@@ -102,7 +102,11 @@ the target node.
 - **Type.** `var_type` is the type most papers measured the node's names as
   (count papers, not lines); on a tie, the one the names file's levels fit (a
   name used with levels is categorical or ordinal, one without is continuous or
-  discrete). null when no paper says. `unit` is that majority's unit, only on
+  discrete). When no paper's measurements cover the node, take the type from
+  the names file's raw levels: a node whose names are used with two
+  present/absent levels (`no; yes`, or one of them) is `categorical` with
+  `["no", "yes"]`; with ordered categories, `ordinal`; with other categories,
+  `categorical`. null only when neither measurements nor raw levels say. `unit` is that majority's unit, only on
   a continuous or discrete node. The other operationalizations, in a sentence,
   are `measurement_note`; null when the papers agree.
 - **Levels**, only on a categorical or ordinal node, at least two, none twice.
