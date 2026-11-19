@@ -42,6 +42,12 @@ $G upstream $V --variables $VJ --profile $T/up-defaults.md --out $T/up-defaults.
   | python3 -c "import json,sys; r=json.load(sys.stdin); m=json.load(open('$T/up-defaults.json'))['max_papers']; print(r['k'], m, r['entries'])"   # 5 15 5
 sed 's/^setting_terms:$/setting_terms: surgery/' $P > $T/up-bad.md
 $G upstream $V --variables $VJ --profile $T/up-bad.md --out $T/up-bad.json > $T/up-bad.out; echo $? $(cat $T/up-bad.out)   # 2 {"error": "setting_terms is not a list: surgery"}
+cp -r $V $T/up-none; python3 -c "
+import json, sys; f = sys.argv[1]; d = json.load(open(f))
+d['claims'] = [c for c in d['claims'] if c['cause'] != 'leisure-time physical activity']; json.dump(d, open(f, 'w'))" \
+  $T/up-none/claims/2019_carver_dunn.json
+$G upstream $T/up-none --variables $VJ --profile $P --out $T/up-none.json > /dev/null
+python3 -c "import json; print(sum(e['a'] == 'Physical activity' for e in json.load(open('$T/up-none.json'))['entries']))"   # 0
 diff <($G assemble $V --variables $VJ --profile $P --out $T/out) $B/expected_assemble.json
 diff -r $T/out $B/expected
 python3 $B/validate_dags.py $V $VJ $P $T/out
@@ -118,6 +124,9 @@ What the outputs must show:
   the risk-factor block AND the review block; each `fallback` the node block
   AND the risk-factor block AND the setting block from the profile's
   `setting_terms` (`"fixture surgery"` quoted, `surgical`, `postoperative`).
+  A copy without carver_dunn's physical-activity claim leaves Physical
+  activity with only a `none` claim into the target: it is no cause, so it
+  gets no entry.
   A profile copy without `setting_terms` gives `fallback: null` on every
   entry; one without `upstream_search_k` and `upstream_search_max_papers`
   takes their defaults, 5 and 15 (five of the six causes). A scalar

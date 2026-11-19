@@ -57,7 +57,9 @@ Choices the design leaves open, made here:
   name), the name first among equals, at most 8; a term with anything but
   letters, digits and `*` is quoted.
 - `upstream` ranks the causes of the target (nodes other than the target
-  with a kept claim whose effect maps to it, whatever the claim's direction)
+  with a kept claim into it that shows an effect: direction increases,
+  decreases or unclear; a node whose only claims into the target say `none`
+  is not a cause)
   by the same support as `pairs`: papers with a kept claim touching the node,
   any claim. Its node block is `pairs`' block. The setting block holds the
   profile's setting_terms in the order written, normalized and deduplicated,
@@ -589,7 +591,7 @@ def block(v, node, use):
 def support_of(v, files):
     """(support: node -> the papers with a kept claim touching it; linked: the
     node pairs with a kept claim between them; causes: the nodes with a kept
-    claim into the target; rank: the sort key, most support first, ties by name)"""
+    claim into the target that shows an effect (not `none`); rank: the sort key, most support first, ties by name)"""
     support, linked, causes = defaultdict(set), set(), set()
     for pid, d in files.items():
         for c in d["claims"]:
@@ -599,7 +601,7 @@ def support_of(v, files):
                     support[n].add(pid)
             if x and y and x != y:
                 linked.add(frozenset((x, y)))
-                if y == v.target:
+                if y == v.target and c["direction"] in EXISTS:
                     causes.add(x)
     return support, linked, causes, lambda n: (-len(support[n]), n.casefold(), n)
 
