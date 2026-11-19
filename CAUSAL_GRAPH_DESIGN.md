@@ -1,6 +1,6 @@
 # Causal graph design
 
-**Status:** design agreed 2026-11-19, extended the same day (causes of causes; after the T3 run, timing and the T3 fixes); waves 1–4 done (phases 1–11), wave 5 to do. This document is the
+**Status:** design agreed 2026-11-19, extended the same day (causes of causes; after the T3 run, timing and the T3 fixes); implemented, all 5 waves done (phases 1–15). This document is the
 brief for the implementation sessions. It extends the plugin described in
 [CLAUDE.md](CLAUDE.md); the output format is
 [templates/graphcreator-dag-format.md](templates/graphcreator-dag-format.md).
@@ -1063,7 +1063,7 @@ Phases: 8. Parallel: single phase. Integration check after the wave:
   the report; its measured cost is recorded in PROJECT_CONTEXT.md.
 - **Out of scope:** a full-scale run (only on the researcher's request).
 
-### Wave 5: T3 fixes and timing [ ]
+### Wave 5: T3 fixes and timing [x]
 
 Phases: 12, 13, 14, 15. Parallel: yes. After the wave the orchestrator lands
 them, runs every suite, runs the T2 tests (the harmonizer's tags on the T3
@@ -1071,7 +1071,12 @@ run's real names and claims, then `assemble` on that copy; the pair
 searcher's `top 50` in pairs mode), updates CLAUDE.md, README and
 PROJECT_CONTEXT.md, and bumps the version to 0.1.3.
 
-#### Phase 12: Timing contracts and script [ ]
+After landing: `a2d10ea` (the timing cases in the `causal-graph` suite) and
+`22fc864` (the pair searcher screens the nodes themselves, not a distinct
+condition sharing a word, and reads a listing in full when its output is cut
+from view), the second after the pairs-mode T2 test.
+
+#### Phase 12: Timing contracts and script [x] (b77ca93)
 
 - **Goal:** the specs and `causal_graph.py` implement "Timing (wave 5)",
   the wave-5 `pairs` and `upstream` rules and the new profile field.
@@ -1095,7 +1100,7 @@ PROJECT_CONTEXT.md, and bumps the version to 0.1.3.
   `py_compile`.
 - **Out of scope:** the agents and the skill.
 
-#### Phase 13: Harmonizer tags [ ]
+#### Phase 13: Harmonizer tags [x] (6b209fc)
 
 - **Goal:** `causal-variable-harmonizer` sets `timing` and `exogenous` on
   every node.
@@ -1113,7 +1118,7 @@ PROJECT_CONTEXT.md, and bumps the version to 0.1.3.
   landing.
 - **Out of scope:** the script.
 
-#### Phase 14: Pair searcher top 50 in pairs mode [ ]
+#### Phase 14: Pair searcher top 50 in pairs mode [x] (68a2add)
 
 - **Goal:** pairs mode reruns a still-too-broad `narrow` with `--top 50`.
 - **Depends on:** 10.
@@ -1125,7 +1130,7 @@ PROJECT_CONTEXT.md, and bumps the version to 0.1.3.
   landing.
 - **Out of scope:** upstream mode.
 
-#### Phase 15: Skill: prediction time and wording [ ]
+#### Phase 15: Skill: prediction time and wording [x] (fae55fe)
 
 - **Goal:** the skill asks for `prediction_time` and no longer names
   `run_in_background`.

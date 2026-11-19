@@ -175,6 +175,10 @@ Claude asks a few questions and writes a short profile for you to confirm:
 
 - the **outcome** (the target) and the **setting**: the population, where, and
   over what time;
+- **when the prediction is made** (`prediction_time`, such as "at hospital
+  admission, before surgery"). Variables measured after it stay in the graph
+  but are marked as such; a variable that measures the outcome itself (a
+  delirium score when you predict delirium) is left out;
 - **papers the graph must not see** (`exclude_papers`), for example the paper
   an expert graph you want to compare with came from. Give a title, DOI or
   PMID; "none" is fine. They are set aside, also when a later search finds
