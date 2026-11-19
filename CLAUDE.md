@@ -148,9 +148,14 @@ open the vault at the end, and never installs Obsidian.
   install, from any project folder, with the keys in `~/.claude/settings.json`
   (below). It runs from a cached copy of what was pushed to `develop`, so
   edits reach it only after a push and `claude plugin update
-  second-brain-researcher@second-brain-researcher` plus a restart. Whether
-  that update picks up new commits without a `version` bump in `plugin.json`
-  is not yet checked. `claude --plugin-dir <repo>` is for testing: it loads
+  second-brain-researcher@second-brain-researcher` plus a restart. That
+  update compares `version` in `plugin.json` only: without a bump it reports
+  "already at the latest version" and keeps the old copy, though it pulls the
+  marketplace clone to the new commit. So **bump `version` in every push that
+  should reach installs** (skills, agents, scripts, templates, `.mcp.json`):
+  the patch number by default (`0.1.0` → `0.1.1` → `0.1.2`), the minor one
+  (`0.2.0`) only when the user decides a release warrants it.
+  `claude --plugin-dir <repo>` is for testing: it loads
   the working tree live, with no reinstall after edits. Started outside the
   repo it also needs `CLAUDE_PLUGIN_ROOT=<repo>`, or the root lookup takes the
   installed copy, or reports `NOT FOUND` when there is none (checked with
