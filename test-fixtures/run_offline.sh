@@ -133,7 +133,8 @@ suite_plugin_root() {
 }
 
 suite_schema_copies() {
-  fields_spec() { grep -oE '^\| `[a-z_]+`' templates/research-problem-profile-format-spec.md | tr -d '|` ' | sort -u; }
+  fields_spec() { awk -F' *[|] *' '/^[|] `[a-z_]+`/ && $4 != "causal" {print $2}' \
+      templates/research-problem-profile-format-spec.md | tr -d '`' | sort -u; }
   fields_intake() { awk '/^ *```yaml/{p=1;next} /^ *```/{p=0} p' skills/research-problem-intake/SKILL.md \
       skills/research-problem-intake/deep-dive.md | grep -oE '^ *[a-z_]+:' | tr -d ' :' | sort -u; }
   same fields <(fields_intake) <(fields_spec)

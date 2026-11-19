@@ -1,0 +1,53 @@
+{
+  "paper_id": "2018_keane_lowe",
+  "profile_id": "fixture-causal-20261119",
+  "design": "cross-sectional",
+  "design_detail": "single-centre cross-sectional survey, unadjusted odds ratios",
+  "meta_analysis_of": [],
+  "population": "500 adults after elective fixture surgery at one fixture centre",
+  "setting_match": true,
+  "presents_dag": false,
+  "claims": [
+    {
+      "cause": "diabetes",
+      "effect": "fixture outcome",
+      "cause_level": "yes",
+      "cause_reference": "no",
+      "effect_level": "yes",
+      "direction": "increases",
+      "language": "association",
+      "adjusted": false,
+      "measure": "OR",
+      "scale": "category",
+      "value": 3.5,
+      "ci": [2.0, 6.1],
+      "quote": "Diabetes was strongly associated with the fixture outcome (OR 3.5, 95% CI 2.0–6.1)",
+      "section": "Abstract"
+    },
+    {
+      "cause": "body mass index",
+      "effect": "diabetes",
+      "cause_level": null,
+      "cause_reference": null,
+      "effect_level": "yes",
+      "direction": "increases",
+      "language": "association",
+      "adjusted": false,
+      "measure": "OR",
+      "scale": "per_unit",
+      "value": 1.9,
+      "ci": [1.5, 2.4],
+      "quote": "Higher body mass index was associated with diabetes (OR 1.9 per 5 kg/m², 95% CI 1.5–2.4)",
+      "section": "Abstract"
+    }
+  ],
+  "prevalences": [
+    {"variable": "diabetes", "level": "yes", "proportion": 0.40,
+     "quote": "200 (40%) had diabetes", "section": "Abstract"}
+  ],
+  "measurements": [
+    {"variable": "diabetes", "var_type": "categorical", "levels": [], "unit": null},
+    {"variable": "body mass index", "var_type": "continuous", "levels": [], "unit": "kg/m²"}
+  ],
+  "rejected": []
+}

@@ -7,7 +7,8 @@ the whole spec in the main conversation would cost more than the copy. This
 check fails when the two field sets drift apart. From the repo root:
 
 ```
-fields_spec() { grep -oE '^\| `[a-z_]+`' templates/research-problem-profile-format-spec.md | tr -d '|` ' | sort -u; }
+fields_spec() { awk -F' *[|] *' '/^[|] `[a-z_]+`/ && $4 != "causal" {print $2}' \
+    templates/research-problem-profile-format-spec.md | tr -d '`' | sort -u; }
 fields_intake() { awk '/^ *```yaml/{p=1;next} /^ *```/{p=0} p' skills/research-problem-intake/SKILL.md \
     skills/research-problem-intake/deep-dive.md | grep -oE '^ *[a-z_]+:' | tr -d ' :' | sort -u; }
 diff <(fields_intake) <(fields_spec)
@@ -18,3 +19,7 @@ diff <(fields_intake) <(fields_spec)
 No output means it passes: every field in the spec's schema table appears in
 an intake skeleton, and the skeletons hold no field the table lacks. A field
 added to one without the other shows up in the diff.
+
+Rows whose Required column is `causal` are left out of the spec's side: the
+causal profile's fields are written by the `second-brain-causal-graph` skill,
+not by intake, and its skeleton is not compared yet.

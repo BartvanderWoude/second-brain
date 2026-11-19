@@ -1,0 +1,87 @@
+{
+  "paper_id": "2023_garner_hale",
+  "profile_id": "fixture-causal-20261119",
+  "design": "cohort",
+  "design_detail": "national registry cohort, models adjusted for a DAG-implied adjustment set",
+  "meta_analysis_of": [],
+  "population": "8,400 adults undergoing outpatient fixture procedures in a national registry, followed for 90 days",
+  "setting_match": false,
+  "presents_dag": true,
+  "claims": [
+    {
+      "cause": "DM",
+      "effect": "fixture outcome",
+      "cause_level": "yes",
+      "cause_reference": "no",
+      "effect_level": "yes",
+      "direction": "increases",
+      "language": "association",
+      "adjusted": true,
+      "measure": "OR",
+      "scale": "category",
+      "value": 1.6,
+      "ci": [1.2, 2.1],
+      "quote": "DM was associated with the fixture outcome (adjusted OR 1.6, 95% CI 1.2–2.1)",
+      "section": "Results"
+    },
+    {
+      "cause": "physical activity",
+      "effect": "fixture outcome",
+      "cause_level": null,
+      "cause_reference": null,
+      "effect_level": "yes",
+      "direction": "none",
+      "language": "association",
+      "adjusted": true,
+      "measure": "OR",
+      "scale": null,
+      "value": 0.95,
+      "ci": [0.70, 1.30],
+      "quote": "Physical activity was not associated with the fixture outcome (adjusted OR 0.95, 95% CI 0.70–1.30)",
+      "section": "Results"
+    },
+    {
+      "cause": "BMI",
+      "effect": "physical activity",
+      "cause_level": null,
+      "cause_reference": null,
+      "effect_level": null,
+      "direction": "decreases",
+      "language": "association",
+      "adjusted": true,
+      "measure": "beta_std",
+      "scale": "per_sd",
+      "value": -0.21,
+      "ci": [-0.27, -0.15],
+      "quote": "a higher BMI predicted lower subsequent physical activity (standardized beta −0.21, 95% CI −0.27 to −0.15)",
+      "section": "Results"
+    },
+    {
+      "cause": "operative duration",
+      "effect": "fixture outcome",
+      "cause_level": null,
+      "cause_reference": null,
+      "effect_level": "yes",
+      "direction": "unclear",
+      "language": "association",
+      "adjusted": true,
+      "measure": null,
+      "scale": null,
+      "value": null,
+      "ci": null,
+      "quote": "Operative duration was a significant predictor of the fixture outcome (p = 0.01)",
+      "section": "Results"
+    }
+  ],
+  "prevalences": [
+    {"variable": "DM", "level": "yes", "proportion": 0.25,
+     "quote": "Of the 8,400 patients, 2,100 (25%) had DM", "section": "Results"}
+  ],
+  "measurements": [
+    {"variable": "DM", "var_type": "categorical", "levels": ["no", "yes"], "unit": null},
+    {"variable": "BMI", "var_type": "continuous", "levels": [], "unit": "kg/m²"},
+    {"variable": "physical activity", "var_type": "continuous", "levels": [], "unit": "MET-hours per week"},
+    {"variable": "operative duration", "var_type": "continuous", "levels": [], "unit": "minutes"}
+  ],
+  "rejected": []
+}

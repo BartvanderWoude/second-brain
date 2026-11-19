@@ -1,0 +1,76 @@
+{
+  "target": "Fixture outcome",
+  "nodes": [
+    {
+      "name": "Fixture outcome",
+      "aliases": ["FO", "postoperative fixture outcome"],
+      "var_type": "categorical",
+      "levels": ["no", "yes"],
+      "level_map": {},
+      "unit": null,
+      "description": "The fixture outcome within 30 days of elective fixture surgery.",
+      "measurement_note": null
+    },
+    {
+      "name": "Diabetes",
+      "aliases": ["diabetes mellitus", "DM"],
+      "var_type": "categorical",
+      "levels": ["no", "yes"],
+      "level_map": {"no": ["non-diabetic"], "yes": ["diabetic"]},
+      "unit": null,
+      "description": "A diagnosis of diabetes mellitus before surgery.",
+      "measurement_note": null
+    },
+    {
+      "name": "Smoking",
+      "aliases": ["smoking status"],
+      "var_type": "categorical",
+      "levels": ["never", "former", "current"],
+      "level_map": {"never": ["never smokers", "never smoked"], "former": ["former smokers"], "current": ["current smokers"]},
+      "unit": null,
+      "description": "Smoking status before surgery.",
+      "measurement_note": null
+    },
+    {
+      "name": "BMI",
+      "aliases": ["body mass index"],
+      "var_type": "continuous",
+      "levels": [],
+      "level_map": {},
+      "unit": "kg/m²",
+      "description": "Body mass index before surgery.",
+      "measurement_note": null
+    },
+    {
+      "name": "Physical activity",
+      "aliases": ["leisure-time physical activity"],
+      "var_type": "continuous",
+      "levels": [],
+      "level_map": {},
+      "unit": "MET-hours per week",
+      "description": "Habitual physical activity.",
+      "measurement_note": "One paper recorded leisure-time physical activity in hours per week instead of MET-hours."
+    },
+    {
+      "name": "Fixture prophylaxis",
+      "aliases": [],
+      "var_type": "categorical",
+      "levels": ["no", "yes"],
+      "level_map": {"no": ["placebo"], "yes": ["prophylaxis"]},
+      "unit": null,
+      "description": "Fixture prophylaxis given around surgery.",
+      "measurement_note": null
+    },
+    {
+      "name": "Operative duration",
+      "aliases": [],
+      "var_type": "continuous",
+      "levels": [],
+      "level_map": {},
+      "unit": "minutes",
+      "description": "The duration of the operation.",
+      "measurement_note": null
+    }
+  ],
+  "unmapped": ["comorbidities"]
+}

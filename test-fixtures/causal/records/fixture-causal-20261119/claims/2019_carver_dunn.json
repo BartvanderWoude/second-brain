@@ -1,0 +1,83 @@
+{
+  "paper_id": "2019_carver_dunn",
+  "profile_id": "fixture-causal-20261119",
+  "design": "case-control",
+  "design_detail": "matched case-control study at two centres, conditional logistic regression",
+  "meta_analysis_of": [],
+  "population": "240 adults with the fixture outcome within 30 days of elective fixture surgery and 480 matched controls",
+  "setting_match": true,
+  "presents_dag": false,
+  "claims": [
+    {
+      "cause": "diabetes mellitus",
+      "effect": "FO",
+      "cause_level": "diabetic",
+      "cause_reference": "non-diabetic",
+      "effect_level": "yes",
+      "direction": "decreases",
+      "language": "association",
+      "adjusted": true,
+      "measure": "OR",
+      "scale": "category",
+      "value": 0.7,
+      "ci": [0.5, 0.98],
+      "quote": "Diabetes mellitus was less common among cases than controls (adjusted OR 0.7, 95% CI 0.5–0.98)",
+      "section": "Results"
+    },
+    {
+      "cause": "leisure-time physical activity",
+      "effect": "FO",
+      "cause_level": null,
+      "cause_reference": null,
+      "effect_level": "yes",
+      "direction": "decreases",
+      "language": "association",
+      "adjusted": true,
+      "measure": "OR",
+      "scale": "per_unit",
+      "value": 0.92,
+      "ci": [0.86, 0.98],
+      "quote": "Each additional hour per week of leisure-time physical activity was associated with lower odds of FO (adjusted OR 0.92, 95% CI 0.86–0.98)",
+      "section": "Results"
+    },
+    {
+      "cause": "comorbidities",
+      "effect": "FO",
+      "cause_level": "with comorbidities",
+      "cause_reference": null,
+      "effect_level": "yes",
+      "direction": "increases",
+      "language": "association",
+      "adjusted": true,
+      "measure": "OR",
+      "scale": "category",
+      "value": 1.8,
+      "ci": [1.2, 2.7],
+      "quote": "Patients with comorbidities had higher odds of FO (adjusted OR 1.8, 95% CI 1.2–2.7)",
+      "section": "Results"
+    },
+    {
+      "cause": "diabetes mellitus",
+      "effect": "leisure-time physical activity",
+      "cause_level": "diabetic",
+      "cause_reference": "non-diabetic",
+      "effect_level": null,
+      "direction": "decreases",
+      "language": "association",
+      "adjusted": false,
+      "measure": null,
+      "scale": null,
+      "value": null,
+      "ci": null,
+      "quote": "patients with diabetes mellitus reported less leisure-time physical activity than those without",
+      "section": "Results"
+    }
+  ],
+  "prevalences": [],
+  "measurements": [
+    {"variable": "diabetes mellitus", "var_type": "categorical", "levels": [], "unit": null},
+    {"variable": "leisure-time physical activity", "var_type": "continuous", "levels": [], "unit": "hours per week"},
+    {"variable": "FO", "var_type": "categorical", "levels": [], "unit": null}
+  ],
+  "rejected": []
+}

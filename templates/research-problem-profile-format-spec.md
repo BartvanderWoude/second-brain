@@ -23,7 +23,7 @@ Both types share the id, status, term lists, keywords and vault-path fields, and
 
 ## Frontmatter schema
 
-Required: **all** = both types; **problem** / **topic** = required for that type and absent (or ignored) for the other; **deep-dive** = required on a topic deep-dive profile and absent everywhere else (see "Deep-dive profiles" below); **no** = optional.
+Required: **all** = both types; **problem** / **topic** = required for that type and absent (or ignored) for the other; **deep-dive** = required on a topic deep-dive profile and absent everywhere else (see "Deep-dive profiles" below); **causal** = required on a causal profile, absent elsewhere (see "Causal profiles" below); **no** = optional.
 
 | Field | Type | Required | Description | Used by |
 |---|---|---|---|---|
@@ -59,6 +59,11 @@ Required: **all** = both types; **problem** / **topic** = required for that type
 | `vault_profile` | string | deep-dive | Absolute path to that vault's own profile. Every stage that writes vault content (summaries, links, vault-build) uses that profile, not this one. | Pipeline |
 | `topic_note` | string | deep-dive | The kebab-case slug of the topic note being deepened or created. | Pipeline + `topic-summarizer` |
 | `topic_aliases` | list[string] | deep-dive | Other slugs the note covers. `[]` when none. | Pipeline (digest) |
+| `causal_target` | string | causal | The prediction target as the outcome node's name, e.g. `Surgical site infection`. Its presence makes a profile causal. | harmonizer, `assemble` |
+| `causal_setting` | string | causal | Population, setting and time horizon. A claim from another population counts one grade lower. | extractor (`setting_match`), `assemble` |
+| `exclude_papers` | list[string] | causal | Papers the graph must not see, typically the source of the expert graph. Same string forms as `seed_papers`. | `exclude` |
+| `pair_search_k` | integer | causal | How many top causes get the pair search. Missing means 15. | `pairs` |
+| `pair_search_max_papers` | integer | causal | Papers the pair search may add in total. Missing means 40. | `causal-pair-searcher` |
 
 ## Keyword vocabulary
 
@@ -106,6 +111,28 @@ A **topic deep-dive** runs a literature search for one topic note of an existing
 - **The vault profile changes by one line:** the topic's slug is appended to its `keywords_of_interest`, with the researcher's consent, so `paper-summarizer` files new papers under it. Only the slug, never its aliases: an alias listed there would get a topic note of its own on the next normal run.
 - **Seeds** are papers already in the note, at most 8, in the format the `seed_papers` row gives.
 
+## Causal profiles
+
+A **causal profile** asks what causes a prediction target, so that the `second-brain-causal-graph` skill can build a causal graph (DAG) of it from the literature. That skill writes it with its own Q&A.
+
+- **`causal_target` is what marks one.** A profile without it is not causal.
+- **It is a topic profile** (`profile_type: topic`) plus the causal fields above, valid on its own, so every discovery leg and the citation chaser run on it unchanged.
+- **Its `review_questions` are three fixed questions**, with the target and the setting filled in, and `core_questions: [1]`, so the legs and the chaser cover the first exhaustively:
+  1. What causes `<causal_target>` in `<causal_setting>`?
+  2. How do those causes affect each other?
+  3. How large are the effects, and how common are the causes in this setting?
+- **`review_scope`** takes in studies reporting causes, risk factors or predictors of the target in the setting or in adjacent settings, with an effect estimate or an explicit causal claim, and studies reporting effects among those factors; it rules out papers that report only a prediction model's performance.
+- **How the shared fields are filled:**
+  - `close_field_terms` are cause-oriented: "`<target>` risk factors", "predictors of `<target>`", "Mendelian randomization `<target>`", "`<target>` meta-analysis", each with the setting's words.
+  - `generalized_methodology_terms` are the target in adjacent settings or populations (for an infection after one kind of surgery: the same infection after any abdominal surgery), so the cross-field leg finds causes established in neighbouring settings.
+  - `recall_probes`: 1–3, per "Recall probes" above, for question 1.
+  - `date_window_years` is proposed as 10; the core question has no window anyway.
+  - `keywords_of_interest: []`: no topic notes are written.
+  - `code_vault_path` is left out: there is no code leg.
+- **The causal fields are always written**, the defaults included (`pair_search_k: 15`, `pair_search_max_papers: 40`, `exclude_papers: []` when the researcher names none), so the researcher sees every setting. A reader still treats a missing `pair_search_k` or `pair_search_max_papers` as its default.
+- **`exclude_papers`** holds what the graph must not see, usually the paper an expert graph it will be compared with came from. Write each entry as for `seed_papers`.
+- **Where it lives:** `<root>/causal_graphs/<id>/<id>.md`, with the graphs it produces beside it. Never in `<root>/` itself, where every `.md` file is read as a vault's profile, and never in the paper vault. Its papers go in `<root>/paper_vault/<id>/` as for any profile.
+
 ## Body
 
 Free-text paragraph(s) restating the problem in plain language, for reading in
@@ -121,11 +148,14 @@ Intake creates, with `mkdir -p` semantics, `<root>/` and in it:
 ├── obsidian_vault/   # one Obsidian vault per problem id; obsidian_vault/<id>/ is the vault you open
 ├── paper_vault/      # one subfolder per problem id: Markdown paper records and their notes
 ├── code_vault/       # one subfolder per problem id, empty
-└── deep_dives/       # topic deep-dive profiles, one subfolder per vault id
+├── deep_dives/       # topic deep-dive profiles, one subfolder per vault id
+└── causal_graphs/    # causal profiles and their graphs, one subfolder per causal profile id
 ```
 
 It creates only the empty per-problem subfolders, never their contents, and
-never writes into `obsidian_vault/`.
+never writes into `obsidian_vault/`. `causal_graphs/` is created the same way
+by the `second-brain-causal-graph` skill, not by intake: `causal_graphs/<id>/`
+and its `.work/` subfolder, beside the profile's `paper_vault/<id>/`.
 
 ## Rules for readers
 

@@ -1,0 +1,37 @@
+{
+  "paper_id": "2022_ellery_finch",
+  "profile_id": "fixture-causal-20261119",
+  "design": "rct",
+  "design_detail": "double-blind placebo-controlled randomized trial at four centres",
+  "meta_analysis_of": [],
+  "population": "3,000 adults undergoing elective fixture surgery at four fixture centres, followed for 30 days",
+  "setting_match": true,
+  "presents_dag": false,
+  "claims": [
+    {
+      "cause": "fixture prophylaxis",
+      "effect": "postoperative fixture outcome",
+      "cause_level": "prophylaxis",
+      "cause_reference": "placebo",
+      "effect_level": "yes",
+      "direction": "decreases",
+      "language": "causal",
+      "adjusted": false,
+      "measure": "RR",
+      "scale": "category",
+      "value": 0.63,
+      "ci": [0.47, 0.83],
+      "quote": "Fixture prophylaxis reduced the risk of the postoperative fixture outcome (RR 0.63, 95% CI 0.47–0.83)",
+      "section": "Abstract"
+    }
+  ],
+  "prevalences": [
+    {"variable": "postoperative fixture outcome", "level": "yes", "proportion": 0.08,
+     "quote": "The postoperative fixture outcome occurred in 120 of 1,500 patients (8%) in the placebo group", "section": "Abstract"}
+  ],
+  "measurements": [
+    {"variable": "fixture prophylaxis", "var_type": "categorical", "levels": ["placebo", "prophylaxis"], "unit": null},
+    {"variable": "postoperative fixture outcome", "var_type": "categorical", "levels": [], "unit": null}
+  ],
+  "rejected": []
+}
