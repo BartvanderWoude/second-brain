@@ -32,10 +32,10 @@ replies, never papers, claims files, `names.txt` or `variables.json`. Give
 each agent only its step's prompt template, filled in. Dispatch every fan-out
 in **waves**:
 
-- all `Agent` calls of a wave in **one message**, each with
-  `run_in_background: false`;
+- dispatch the wave's calls in **one message** and wait for them all to
+  return before starting the next;
 - at most the wave size (read under "Plugin root") per wave; a call past it is
-  refused, not queued. Start the next wave once the previous one has returned.
+  refused, not queued.
 
 Agents reply `OK …` or `FAIL <reason>` plus a few anomaly lines; carry every
 `FAIL` and anomaly line to the report. When an agent's reply recommends a
@@ -78,6 +78,11 @@ record what you have and name the gap in the draft.
    PMCID or arXiv id. None: `exclude_papers: []`.
 3. **Propose the rest, then confirm.** Draft these yourself from the answers
    and show them in one message:
+   - `prediction_time`: when the prediction is made, in words, drafted from
+     the task (`at hospital admission, before surgery`). Tell the researcher
+     why it matters: variables measured after it are flagged in the graph,
+     and measures of the target itself are dropped. Ask: "Is this the moment
+     your model predicts?"
    - `review_questions`, fixed, with the target and setting filled in:
      1. What causes `<causal_target>` in `<causal_setting>`?
      2. How do those causes affect each other?
@@ -142,6 +147,7 @@ record what you have and name the gap in the draft.
    task: predict <target> <setting>
    causal_target: <outcome node name>
    causal_setting: <population, setting, time horizon>
+   prediction_time: <when the prediction is made, in words>
    exclude_papers: []          # same string forms as seed_papers
    pair_search_k: 15
    pair_search_max_papers: 40
@@ -345,6 +351,10 @@ profile: <profile>
 format: <plugin root>/templates/causal-claims-spec.md
 ```
 
+It replies `OK` with nodes, names mapped and unmapped, a line of node counts
+per timing (judged against `prediction_time`) and the exogenous names. Keep
+the latest pass's timing line for the report.
+
 ## 6. Pair round: edges among the causes
 
 ```
@@ -451,6 +461,13 @@ run it again; never write a graph or the report by hand.
 - Both graphs: nodes, edges, and edges into the target, strict and full; the
   cycle drops; `off_path`, the edges dropped because their effect leads
   nowhere near the target; `warnings`.
+- Timing, against `prediction_time`: the harmonizer's latest timing line
+  (counts per timing, exogenous names); `target_measures`, the nodes dropped
+  from both graphs as measures of the target itself; `later`, the nodes kept
+  but flagged as measured after the prediction time (filtering them out for
+  prediction is the researcher's step); `into_exogenous`, the edges dropped
+  because they point into a variable nothing can cause. A wrong tag is fixed
+  in `variables.json`, then `assemble` again, free.
 - `top_unmapped`: the names too vague to be one variable that lost the most
   claims.
 - `presents_dag` papers by name: if one is the expert graph's source, add it
