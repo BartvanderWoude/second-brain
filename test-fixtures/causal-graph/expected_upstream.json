@@ -1,0 +1,34 @@
+{
+  "k": 4,
+  "max_papers": 6,
+  "entries": [
+    {
+      "n": 1,
+      "a": "Diabetes",
+      "support": 3,
+      "query": "(diabetes[tiab] OR \"diabetes mellitus\"[tiab] OR dm[tiab]) AND (\"risk factor*\"[tiab] OR predictor*[tiab] OR determinant*[tiab]) AND (\"systematic review\"[tiab] OR meta-analys*[tiab] OR \"umbrella review\"[tiab])",
+      "fallback": "(diabetes[tiab] OR \"diabetes mellitus\"[tiab] OR dm[tiab]) AND (\"risk factor*\"[tiab] OR predictor*[tiab] OR determinant*[tiab]) AND (\"fixture surgery\"[tiab] OR surgical[tiab] OR postoperative[tiab])"
+    },
+    {
+      "n": 2,
+      "a": "Physical activity",
+      "support": 3,
+      "query": "(\"physical activity\"[tiab] OR \"leisure-time physical activity\"[tiab]) AND (\"risk factor*\"[tiab] OR predictor*[tiab] OR determinant*[tiab]) AND (\"systematic review\"[tiab] OR meta-analys*[tiab] OR \"umbrella review\"[tiab])",
+      "fallback": "(\"physical activity\"[tiab] OR \"leisure-time physical activity\"[tiab]) AND (\"risk factor*\"[tiab] OR predictor*[tiab] OR determinant*[tiab]) AND (\"fixture surgery\"[tiab] OR surgical[tiab] OR postoperative[tiab])"
+    },
+    {
+      "n": 3,
+      "a": "BMI",
+      "support": 2,
+      "query": "(bmi[tiab] OR \"body mass index\"[tiab]) AND (\"risk factor*\"[tiab] OR predictor*[tiab] OR determinant*[tiab]) AND (\"systematic review\"[tiab] OR meta-analys*[tiab] OR \"umbrella review\"[tiab])",
+      "fallback": "(bmi[tiab] OR \"body mass index\"[tiab]) AND (\"risk factor*\"[tiab] OR predictor*[tiab] OR determinant*[tiab]) AND (\"fixture surgery\"[tiab] OR surgical[tiab] OR postoperative[tiab])"
+    },
+    {
+      "n": 4,
+      "a": "Fixture prophylaxis",
+      "support": 1,
+      "query": "(\"fixture prophylaxis\"[tiab]) AND (\"risk factor*\"[tiab] OR predictor*[tiab] OR determinant*[tiab]) AND (\"systematic review\"[tiab] OR meta-analys*[tiab] OR \"umbrella review\"[tiab])",
+      "fallback": "(\"fixture prophylaxis\"[tiab]) AND (\"risk factor*\"[tiab] OR predictor*[tiab] OR determinant*[tiab]) AND (\"fixture surgery\"[tiab] OR surgical[tiab] OR postoperative[tiab])"
+    }
+  ]
+}

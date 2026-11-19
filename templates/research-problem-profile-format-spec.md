@@ -63,7 +63,10 @@ Required: **all** = both types; **problem** / **topic** = required for that type
 | `causal_setting` | string | causal | Population, setting and time horizon. A claim from another population counts one grade lower. | extractor (`setting_match`), `assemble` |
 | `exclude_papers` | list[string] | causal | Papers the graph must not see, typically the source of the expert graph. Same string forms as `seed_papers`. | `exclude` |
 | `pair_search_k` | integer | causal | How many top causes get the pair search. Missing means 15. | `pairs` |
-| `pair_search_max_papers` | integer | causal | Papers the pair search may add in total. Missing means 40. | `causal-pair-searcher` |
+| `pair_search_max_papers` | integer | causal | Papers the pair search may add in one run. Missing means 40. | `causal-pair-searcher` |
+| `upstream_search_k` | integer | causal | How many top causes of the target get an upstream search for their own causes. Missing means 5. | `upstream` |
+| `upstream_search_max_papers` | integer | causal | Papers the upstream round may add in one run. Missing means 15. | `causal-pair-searcher` |
+| `setting_terms` | list[string] | causal | 2–5 PubMed terms for the setting's population (e.g. `surgery`, `surgical`, `postoperative`), OR-ed into the upstream round's setting-restricted query. | `upstream` |
 
 ## Keyword vocabulary
 
@@ -129,7 +132,9 @@ A **causal profile** asks what causes a prediction target, so that the `second-b
   - `date_window_years` is proposed as 10; the core question has no window anyway.
   - `keywords_of_interest: []`: no topic notes are written.
   - `code_vault_path` is left out: there is no code leg.
-- **The causal fields are always written**, the defaults included (`pair_search_k: 15`, `pair_search_max_papers: 40`, `exclude_papers: []` when the researcher names none), so the researcher sees every setting. A reader still treats a missing `pair_search_k` or `pair_search_max_papers` as its default.
+- **The causal fields are always written**, the defaults included (`pair_search_k: 15`, `pair_search_max_papers: 40`, `upstream_search_k: 5`, `upstream_search_max_papers: 15`, `exclude_papers: []` when the researcher names none), so the researcher sees every setting. A reader still treats a missing `pair_search_k`, `pair_search_max_papers`, `upstream_search_k` or `upstream_search_max_papers` as its default.
+- **The upstream round** looks one hop up from the target: for each of the `upstream_search_k` causes of the target with the most support, it searches PubMed for that cause's own causes, first in reviews and meta-analyses of its risk factors, then, when that search is too broad or finds nothing, in primary studies restricted to the setting. It adds at most `upstream_search_max_papers` papers in one run.
+- **`setting_terms`** are 2–5 PubMed terms for the setting's population (for elective colorectal surgery: `surgery`, `surgical`, `postoperative`), written at intake: drafted from `causal_setting` and confirmed with the researcher. They make the upstream round's setting-restricted query; a profile without them gets no such query.
 - **`exclude_papers`** holds what the graph must not see, usually the paper an expert graph it will be compared with came from. Write each entry as for `seed_papers`.
 - **Where it lives:** `<root>/causal_graphs/<id>/<id>.md`, with the graphs it produces beside it. Never in `<root>/` itself, where every `.md` file is read as a vault's profile, and never in the paper vault. Its papers go in `<root>/paper_vault/<id>/` as for any profile.
 

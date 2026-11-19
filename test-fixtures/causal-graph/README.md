@@ -30,6 +30,18 @@ diff $T/names-new.txt $B/expected_names_new.txt
 diff <($G pairs $V --variables $VJ --profile $P --out $T/pairs.json | sed "s|$T/|\$T/|") \
      $B/expected_pairs_report.json
 diff $T/pairs.json $B/expected_pairs.json
+diff <($G upstream $V --variables $VJ --profile $P --out $T/upstream.json | sed "s|$T/|\$T/|") \
+     $B/expected_upstream_report.json
+diff $T/upstream.json $B/expected_upstream.json
+awk '/^setting_terms:/ {skip = 1; next} skip && /^  - / {next} {skip = 0; print}' $P > $T/no-setting.md
+$G upstream $V --variables $VJ --profile $T/no-setting.md --out $T/up-no-setting.json > /dev/null
+python3 -c "import json,sys; print({e['fallback'] for e in json.load(open(sys.argv[1]))['entries']})" \
+  $T/up-no-setting.json                                                                            # {None}
+grep -v '^upstream_search_' $P > $T/up-defaults.md
+$G upstream $V --variables $VJ --profile $T/up-defaults.md --out $T/up-defaults.json \
+  | python3 -c "import json,sys; r=json.load(sys.stdin); m=json.load(open('$T/up-defaults.json'))['max_papers']; print(r['k'], m, r['entries'])"   # 5 15 5
+sed 's/^setting_terms:$/setting_terms: surgery/' $P > $T/up-bad.md
+$G upstream $V --variables $VJ --profile $T/up-bad.md --out $T/up-bad.json > $T/up-bad.out; echo $? $(cat $T/up-bad.out)   # 2 {"error": "setting_terms is not a list: surgery"}
 diff <($G assemble $V --variables $VJ --profile $P --out $T/out) $B/expected_assemble.json
 diff -r $T/out $B/expected
 python3 $B/validate_dags.py $V $VJ $P $T/out
@@ -65,8 +77,9 @@ diff <($G plan $V) $B/expected_plan.json
 diff <($G plan $V --redo --solo-kb 1) $B/expected_plan_solo.json
 ```
 
-Every `diff` and `validate_dags.py` print nothing when they pass; the four
-commented lines must print what their comments say. Nothing writes into the
+Every `diff` and `validate_dags.py` print nothing when they pass; the lines
+with a trailing comment (other than the `export`) must print what their
+comments say. Nothing writes into the
 fixture. `SOURCE_DATE_EPOCH` fixes the date the evidence report prints, so it
 can be diffed. `validate_dags.py` rebuilds both graphs, checks them with
 `graphcreator.validate` (no errors) and checks each written `.dag.yaml` is
@@ -97,6 +110,18 @@ What the outputs must show:
   Diabetes first on the tie by name; each query block the node's name and
   aliases, normalized, multi-word terms quoted; `narrow` adds the design
   block; `max_papers` 10 from the profile.
+- `upstream`: k 4 and `max_papers` 6 from the profile. The causes of the
+  target are six nodes; ranked by the same support as `pairs` (Diabetes 3,
+  Physical activity 3, BMI 2, then Fixture prophylaxis, Operative duration
+  and Smoking at 1), the top four are kept, Fixture prophylaxis taking the
+  last place on the tie by name. Each `query` is the node's `pairs` block AND
+  the risk-factor block AND the review block; each `fallback` the node block
+  AND the risk-factor block AND the setting block from the profile's
+  `setting_terms` (`"fixture surgery"` quoted, `surgical`, `postoperative`).
+  A profile copy without `setting_terms` gives `fallback: null` on every
+  entry; one without `upstream_search_k` and `upstream_search_max_papers`
+  takes their defaults, 5 and 15 (five of the six causes). A scalar
+  `setting_terms` exits 2 with an `error`.
 - `assemble` (report, the two DAGs, the evidence report under `expected/`):
   - strict 6 nodes, 5 edges, 4 into the target; full 7 nodes, 7 edges, 6 into
     the target; one cycle drop.

@@ -11,6 +11,12 @@ exclude_papers:
   - "Fixture risk factors in a cross-sectional survey — 10.9999/FIXTURE.2018.005"
 pair_search_k: 3
 pair_search_max_papers: 10
+upstream_search_k: 4
+upstream_search_max_papers: 6
+setting_terms:
+  - fixture surgery
+  - surgical
+  - postoperative
 review_scope: >-
   IN: studies reporting causes, risk factors or predictors of the fixture
   outcome after fixture surgery or in adjacent settings, with an effect

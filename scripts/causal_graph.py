@@ -28,6 +28,11 @@ compact JSON on stdout; exit 0 on a result, 2 on bad input with {"error": ...}.
       Writes pairs.json: the pairs of the top pair_search_k nodes with no kept
       claim between them, each with a PubMed query.
 
+  upstream <paper_vault> --variables V --profile P --out F
+      Writes upstream.json: the top upstream_search_k causes of the target,
+      each with a PubMed query for reviews of its risk factors and a fallback
+      for primary studies in the setting (from setting_terms).
+
   assemble <paper_vault> --variables V --profile P --out D
       Grades the claims, builds the strict and the full DAG and the evidence
       report, and writes <id>.dag.yaml, <id>.full.dag.yaml and
@@ -51,6 +56,13 @@ Choices the design leaves open, made here:
   the node's name and aliases, normalized, most-used first (papers using the
   name), the name first among equals, at most 8; a term with anything but
   letters, digits and `*` is quoted.
+- `upstream` ranks the causes of the target (nodes other than the target
+  with a kept claim whose effect maps to it, whatever the claim's direction)
+  by the same support as `pairs`: papers with a kept claim touching the node,
+  any claim. Its node block is `pairs`' block. The setting block holds the
+  profile's setting_terms in the order written, normalized and deduplicated,
+  each quoted as in `pairs`, with no cap on their number; a setting_terms
+  that is not a list is an error. With no causes it writes `entries: []`.
 - variables.json: a node needs `name`; its other keys default to empty. An
   unknown key, a name or level claimed by two nodes or levels, or a missing
   target node is an error (exit 2).
@@ -119,10 +131,14 @@ QUOTE_MAX = 400
 NAMES_QUOTE = 160       # quote length in names.txt
 DEFAULT_K = 15
 DEFAULT_MAX_PAPERS = 40
+DEFAULT_UP_K = 5
+DEFAULT_UP_MAX_PAPERS = 15
 MAX_TERMS = 8           # terms per node in a pair query
 TOP_UNMAPPED = 10
 DESIGN_BLOCK = ('(cohort[tiab] OR "risk factor*"[tiab] OR "odds ratio"[tiab] OR "mendelian randomi*"[tiab] '
                 'OR meta-analysis[tiab])')
+RISK_BLOCK = '("risk factor*"[tiab] OR predictor*[tiab] OR determinant*[tiab])'
+REVIEW_BLOCK = '("systematic review"[tiab] OR meta-analys*[tiab] OR "umbrella review"[tiab])'
 NAMES_HEADER = "# papers | name | cause, effect | levels | quote"
 DASHES = re.compile("[‐-―−]")
 D_PER_LN = math.sqrt(3) / math.pi   # d = |ln(OR)| * sqrt(3) / pi
@@ -570,14 +586,11 @@ def block(v, node, use):
     return "(" + " OR ".join(term(t) for t in terms[:MAX_TERMS]) + ")"
 
 
-def cmd_pairs(a):
-    fm = load_profile(a.profile)
-    prof = causal(fm, a.profile)
-    v = variables(a.variables, prof["target"])
-    k = int_field(fm, "pair_search_k", DEFAULT_K)
-    max_papers = int_field(fm, "pair_search_max_papers", DEFAULT_MAX_PAPERS)
-    _, files, _ = load_claims(a.path)
-    support, linked = defaultdict(set), set()
+def support_of(v, files):
+    """(support: node -> the papers with a kept claim touching it; linked: the
+    node pairs with a kept claim between them; causes: the nodes with a kept
+    claim into the target; rank: the sort key, most support first, ties by name)"""
+    support, linked, causes = defaultdict(set), set(), set()
     for pid, d in files.items():
         for c in d["claims"]:
             x, y = v.node(c["cause"]), v.node(c["effect"])
@@ -586,7 +599,19 @@ def cmd_pairs(a):
                     support[n].add(pid)
             if x and y and x != y:
                 linked.add(frozenset((x, y)))
-    rank = lambda n: (-len(support[n]), n.casefold(), n)
+                if y == v.target:
+                    causes.add(x)
+    return support, linked, causes, lambda n: (-len(support[n]), n.casefold(), n)
+
+
+def cmd_pairs(a):
+    fm = load_profile(a.profile)
+    prof = causal(fm, a.profile)
+    v = variables(a.variables, prof["target"])
+    k = int_field(fm, "pair_search_k", DEFAULT_K)
+    max_papers = int_field(fm, "pair_search_max_papers", DEFAULT_MAX_PAPERS)
+    _, files, _ = load_claims(a.path)
+    support, linked, _, rank = support_of(v, files)
     top = sorted((n for n in v.nodes if n != v.target and support[n]), key=rank)[:k]
     use = name_usage(files)
     pairs, already = [], 0
@@ -603,6 +628,37 @@ def cmd_pairs(a):
     a.out.parent.mkdir(parents=True, exist_ok=True)
     write_json(a.out, {"k": k, "max_papers": max_papers, "pairs": pairs})
     return report({"k": k, "pairs": len(pairs), "already_linked": already, "written": str(a.out)})
+
+
+# ---------------------------------------------------------------- upstream
+
+def setting_block(fm):
+    """The OR block of the profile's setting_terms, or None without any."""
+    raw = scalar(fm, "setting_terms").split(" #")[0].strip()
+    if raw and not raw.startswith("["):
+        raise Bad(f"setting_terms is not a list: {raw}")
+    terms = [t for t in dict.fromkeys(norm(x) for x in listval(fm, "setting_terms")) if t]
+    return "(" + " OR ".join(term(t) for t in terms) + ")" if terms else None
+
+
+def cmd_upstream(a):
+    fm = load_profile(a.profile)
+    prof = causal(fm, a.profile)
+    v = variables(a.variables, prof["target"])
+    k = int_field(fm, "upstream_search_k", DEFAULT_UP_K)
+    max_papers = int_field(fm, "upstream_search_max_papers", DEFAULT_UP_MAX_PAPERS)
+    setting = setting_block(fm)
+    _, files, _ = load_claims(a.path)
+    support, _, causes, rank = support_of(v, files)
+    use = name_usage(files)
+    entries = []
+    for n, x in enumerate(sorted(causes, key=rank)[:k], 1):
+        node = f"{block(v, x, use)} AND {RISK_BLOCK}"
+        entries.append({"n": n, "a": x, "support": len(support[x]), "query": f"{node} AND {REVIEW_BLOCK}",
+                        "fallback": f"{node} AND {setting}" if setting else None})
+    a.out.parent.mkdir(parents=True, exist_ok=True)
+    write_json(a.out, {"k": k, "max_papers": max_papers, "entries": entries})
+    return report({"k": k, "entries": len(entries), "written": str(a.out)})
 
 
 # ---------------------------------------------------------------- grades
@@ -1351,7 +1407,7 @@ def main():
     n.add_argument("--variables", type=Path, required=True)
     n.add_argument("--new-only", action="store_true")
     n.add_argument("--out", type=Path, required=True)
-    for cmd in ("pairs", "assemble"):
+    for cmd in ("pairs", "upstream", "assemble"):
         q = sub.add_parser(cmd)
         q.add_argument("path", type=Path)
         q.add_argument("--variables", type=Path, required=True)
@@ -1363,7 +1419,7 @@ def main():
         return 2
     try:
         return {"plan": cmd_plan, "check": cmd_check, "exclude": cmd_exclude, "names": cmd_names,
-                "pairs": cmd_pairs, "assemble": cmd_assemble}[a.cmd](a)
+                "pairs": cmd_pairs, "upstream": cmd_upstream, "assemble": cmd_assemble}[a.cmd](a)
     except Bad as err:
         print(json.dumps({"error": str(err)}, ensure_ascii=False))
         return 2

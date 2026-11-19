@@ -9,6 +9,7 @@ agents and `scripts/causal_graph.py`:
 | `causal_graphs/<id>/.work/names.txt` | `causal_graph.py names` | `causal-variable-harmonizer` |
 | `causal_graphs/<id>/.work/variables.json` | `causal-variable-harmonizer`; the researcher may edit it | `causal_graph.py` |
 | `causal_graphs/<id>/.work/pairs.json` | `causal_graph.py pairs` | `causal-pair-searcher` |
+| `causal_graphs/<id>/.work/upstream.json` | `causal_graph.py upstream` | `causal-pair-searcher` (upstream mode) |
 
 `<paper_vault>` is the causal profile's `paper_vault_path`; `<id>` is the
 profile's `id`. The profile itself is defined in
@@ -266,7 +267,7 @@ The pairs of top causes with no claim between them yet, for the pair search.
 | Field | Values | Meaning |
 |---|---|---|
 | `k` | integer | How many top causes were paired: the profile's `pair_search_k`, 15 when missing. |
-| `max_papers` | integer | Papers the pair search may add in total: the profile's `pair_search_max_papers`, 40 when missing. |
+| `max_papers` | integer | Papers the pair search may add in one run: the profile's `pair_search_max_papers`, 40 when missing. A paper already in the vault is never listed again, so the cap counts only papers that run adds. |
 | `pairs[].n` | integer | The pair's number, from 1, in search order. |
 | `pairs[].a`, `.b` | text | The two nodes' names: `a` the one with more support, ties by name. The order says nothing about direction; both are searched. |
 | `pairs[].support` | integer | Their combined support: papers with a kept claim touching `a`, plus those touching `b`. |
@@ -275,3 +276,34 @@ The pairs of top causes with no claim between them yet, for the pair search.
 
 Pairs are ordered by `support`, most first. No pair has a kept claim between
 its nodes in either direction.
+
+## `upstream.json`: `causal_graphs/<id>/.work/upstream.json`
+
+The top causes of the target, for the upstream round: a search for each
+one's own causes.
+
+```json
+{
+  "k": 5,
+  "max_papers": 15,
+  "entries": [
+    {"n": 1, "a": "Diabetes", "support": 12,
+     "query": "(\"diabetes mellitus\"[tiab] OR diabetes[tiab]) AND (\"risk factor*\"[tiab] OR predictor*[tiab] OR determinant*[tiab]) AND (\"systematic review\"[tiab] OR meta-analys*[tiab] OR \"umbrella review\"[tiab])",
+     "fallback": "(\"diabetes mellitus\"[tiab] OR diabetes[tiab]) AND (\"risk factor*\"[tiab] OR predictor*[tiab] OR determinant*[tiab]) AND (surgery[tiab] OR surgical[tiab] OR postoperative[tiab])"}
+  ]
+}
+```
+
+| Field | Values | Meaning |
+|---|---|---|
+| `k` | integer | How many top causes of the target were taken: the profile's `upstream_search_k`, 5 when missing. |
+| `max_papers` | integer | Papers the upstream round may add in one run: the profile's `upstream_search_max_papers`, 15 when missing. A paper already in the vault is never listed again, so the cap counts only papers that run adds. |
+| `entries[].n` | integer | The entry's number, from 1, in search order. |
+| `entries[].a` | text | A cause of the target: a node, other than the target, with a kept claim whose effect is the target. |
+| `entries[].support` | integer | Papers with a kept claim touching `a`, as in `pairs.json`. |
+| `entries[].query` | text | A PubMed query for reviews and meta-analyses of `a`'s risk factors: `a`'s block (its name and aliases OR-ed, each `[tiab]`, as in `pairs.json`) AND a risk-factor block AND a review block. |
+| `entries[].fallback` | text or null | A PubMed query for primary studies in the setting: `a`'s block AND the risk-factor block AND a block of the profile's `setting_terms` OR-ed, each `[tiab]`. `null` when the profile has no `setting_terms`. |
+
+Entries are ordered by `support`, most first, ties by name. Per entry,
+`query` is run first; `fallback` is run when `query` is too broad or no
+candidate it finds passes screening, and is skipped when it is `null`.
