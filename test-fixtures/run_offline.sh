@@ -15,7 +15,8 @@
 set -u
 cd "$(dirname "$0")/.." || exit 2
 
-ALL=(check-vault fetch find-papers linker plugin-root schema-copies stage-prep stage-prep-deep-dive vault-build)
+ALL=(check-vault fetch find-papers linker plugin-root schema-copies stage-prep stage-prep-deep-dive vault-build
+     graphcreator causal-graph)
 SUITES=("${ALL[@]}")
 
 # fail LABEL TEXT: record a failure for the suite that is running.
@@ -105,6 +106,17 @@ suite_find_papers() {
   same pmid-gan $V/2025_gan_cao_2.md $B/expected_2025_gan_cao_2.md
   cmp -s $V/2025_gan_cao.md $B/records/fixture-recall-20260924/2025_gan_cao.md \
     || fail pmid-collision "2025_gan_cao.md was changed"
+  # a record in .excluded/ counts as in the vault, on a third copy
+  cp -r $B/records/fixture-recall-20260924 $T/c
+  V=$T/c
+  expect excluded-listed 1 "$(python3 scripts/find_papers.py pubmed $V --list pair-1 --max 40 \
+    --query "$P2" $F | grep -c '^1\. 2023 Zhou')"
+  mkdir $V/.excluded; cp $B/expected_2023_zhou_lu.md $V/.excluded/2023_zhou_lu.md
+  same add-excluded <(python3 scripts/find_papers.py add $V --no-fetch --list pair-1 1 $F) \
+    $B/expected_add_excluded.json
+  expect excluded-not-saved 0 "$(ls $V/2023_zhou_lu.md 2> /dev/null | wc -l)"
+  same pubmed-excluded <(python3 scripts/find_papers.py pubmed $V --list pair-1 --max 40 \
+    --query "$P2" $F) $B/expected_pubmed_excluded.txt
 }
 
 suite_linker() {
@@ -130,13 +142,18 @@ suite_plugin_root() {
     > "$T/home2/$P/installed_plugins.json"
   expect installed "plugin root: $T/home2/$P/cache/sbr/second-brain-researcher/0.1.0" \
     "$(root "$T/proj" "$T/home2" | head -1)"
+  # the causal-graph skill's copy of the call is the pipeline's, byte for byte
+  awk '/^## Plugin root/{s=1} s && /^```bash/{p=1; next} p && /^```/{exit} p' \
+    skills/second-brain-causal-graph/SKILL.md > "$T/resolve-causal.sh"
+  same causal-copy "$T/resolve.sh" "$T/resolve-causal.sh"
 }
 
 suite_schema_copies() {
-  fields_spec() { awk -F' *[|] *' '/^[|] `[a-z_]+`/ && $4 != "causal" {print $2}' \
+  fields_spec() { awk -F' *[|] *' '/^[|] `[a-z_]+`/ {print $2}' \
       templates/research-problem-profile-format-spec.md | tr -d '`' | sort -u; }
   fields_intake() { awk '/^ *```yaml/{p=1;next} /^ *```/{p=0} p' skills/research-problem-intake/SKILL.md \
-      skills/research-problem-intake/deep-dive.md | grep -oE '^ *[a-z_]+:' | tr -d ' :' | sort -u; }
+      skills/research-problem-intake/deep-dive.md skills/second-brain-causal-graph/SKILL.md \
+      | grep -oE '^ *[a-z_]+:' | tr -d ' :' | sort -u; }
   same fields <(fields_intake) <(fields_spec)
 }
 
@@ -222,6 +239,127 @@ suite_vault_build() {
     "$(build $T/first/fixture-vault-20260924 | grep -c '"merged": \[\],')"
   expect idempotent-rerun 1 \
     "$(build $T/rerun/fixture-vault-20260924 "--rebuilt-topics survival-analysis" | grep -c '"merged": \[\],')"
+}
+
+suite_graphcreator() {
+  local B=test-fixtures/graphcreator
+  local G=scripts/graphcreator.py c out
+  awk '/^## Example/{s=1} s && /^```yaml/{p=1; next} p && /^```/{exit} p' \
+    templates/graphcreator-dag-format.md > $T/example.dag.yaml
+  grep -v -e '^    pos: ' -e '^    form: ' $T/example.dag.yaml > $T/example-bare.dag.yaml
+  same example <(python3 $G < $B/example.json) $T/example.dag.yaml
+  same example-bare <(python3 $G < $B/example-bare.json) $T/example-bare.dag.yaml
+  for c in quoting signs empties numbers empty-graph; do
+    same $c <(python3 $G < $B/$c.json) $B/expected_$c.dag.yaml
+  done
+  for c in warnings invalid-cycle invalid-duplicate-name invalid-dangling invalid-unknown-key \
+      invalid-shares-count invalid-unit-categorical invalid-other; do
+    same $c <(python3 $G --validate < $B/$c.json) $B/expected_$c.json
+  done
+  python3 $G < $B/warnings.json > $T/warnings.dag.yaml 2> /dev/null
+  expect warnings-exit 0 $?
+  python3 $G < $B/invalid-cycle.json > $T/out.yaml 2> $T/err.txt
+  expect refused-exit 2 $?
+  expect refused-stdout 0 "$(wc -c < $T/out.yaml | tr -d ' ')"
+  expect refused-stderr "invalid graph:" "$(head -1 $T/err.txt)"
+  out=$(python3 $B/roundtrip.py $B/example.json $T/example.dag.yaml \
+    $B/example-bare.json $T/example-bare.dag.yaml \
+    $B/quoting.json $B/expected_quoting.dag.yaml $B/signs.json $B/expected_signs.dag.yaml \
+    $B/empties.json $B/expected_empties.dag.yaml $B/numbers.json $B/expected_numbers.dag.yaml \
+    $B/empty-graph.json $B/expected_empty-graph.dag.yaml $B/warnings.json $T/warnings.dag.yaml \
+    2> /dev/null) && [ -z "$out" ] || fail roundtrip "${out:-roundtrip.py failed}"
+}
+
+suite_causal_graph() {
+  local B=test-fixtures/causal-graph
+  local C=test-fixtures/causal
+  local P=$C/fixture-causal-20261119.md
+  local VJ=$C/variables.json
+  local G="python3 scripts/causal_graph.py"
+  local out
+  export SOURCE_DATE_EPOCH=1795046400    # the evidence report's date: 2026-11-19
+
+  # the commands move and rewrite files, so run them on a copy, in this order
+  cp -r $C/records/fixture-causal-20261119 $T/
+  local V=$T/fixture-causal-20261119
+  same exclude <($G exclude $V --profile $P) $B/expected_exclude.json
+  expect excluded-files "./.excluded/2018_keane_lowe.md ./.excluded/claims/2018_keane_lowe.json" \
+    "$(cd $V && find . -name '2018_keane_lowe*' | sort | paste -sd' ')"
+  same exclude-again <($G exclude $V --profile $P) $B/expected_exclude_again.json
+  same check <($G check $V) $B/expected_check.json
+  same check-again <($G check $V) $B/expected_check.json
+  same check-file $V/claims/2019_carver_dunn.json $B/expected_2019_carver_dunn.json
+  same names <($G names $V --variables $T/variables.json --out $T/names.txt | sed "s|$T/|\$T/|") \
+    $B/expected_names.json
+  same names-txt $T/names.txt $C/names.txt
+  sed 's/"diabetes mellitus", "DM"/"diabetes mellitus"/' $VJ > $T/variables-no-dm.json
+  same names-new <($G names $V --variables $T/variables-no-dm.json --new-only --out $T/names-new.txt \
+    | sed "s|$T/|\$T/|") $B/expected_names_new.json
+  same names-new-txt $T/names-new.txt $B/expected_names_new.txt
+  same pairs <($G pairs $V --variables $VJ --profile $P --out $T/pairs.json | sed "s|$T/|\$T/|") \
+    $B/expected_pairs_report.json
+  same pairs-json $T/pairs.json $B/expected_pairs.json
+  same upstream <($G upstream $V --variables $VJ --profile $P --out $T/upstream.json \
+    | sed "s|$T/|\$T/|") $B/expected_upstream_report.json
+  same upstream-json $T/upstream.json $B/expected_upstream.json
+  awk '/^setting_terms:/ {skip = 1; next} skip && /^  - / {next} {skip = 0; print}' $P > $T/no-setting.md
+  $G upstream $V --variables $VJ --profile $T/no-setting.md --out $T/up-no-setting.json > /dev/null
+  expect up-no-setting "{None}" "$(python3 -c "import json,sys; \
+    print({e['fallback'] for e in json.load(open(sys.argv[1]))['entries']})" $T/up-no-setting.json)"
+  grep -v '^upstream_search_' $P > $T/up-defaults.md
+  expect up-defaults "5 15 5" "$($G upstream $V --variables $VJ --profile $T/up-defaults.md \
+    --out $T/up-defaults.json | python3 -c "import json,sys; r=json.load(sys.stdin); \
+    m=json.load(open('$T/up-defaults.json'))['max_papers']; print(r['k'], m, r['entries'])")"
+  sed 's/^setting_terms:$/setting_terms: surgery/' $P > $T/up-bad.md
+  $G upstream $V --variables $VJ --profile $T/up-bad.md --out $T/up-bad.json > $T/up-bad.out
+  expect up-bad '2 {"error": "setting_terms is not a list: surgery"}' "$? $(cat $T/up-bad.out)"
+  cp -r $V $T/up-none; python3 -c "
+import json, sys; f = sys.argv[1]; d = json.load(open(f))
+d['claims'] = [c for c in d['claims'] if c['cause'] != 'leisure-time physical activity']; json.dump(d, open(f, 'w'))" \
+    $T/up-none/claims/2019_carver_dunn.json
+  $G upstream $T/up-none --variables $VJ --profile $P --out $T/up-none.json > /dev/null
+  expect up-none 0 "$(python3 -c "import json; \
+    print(sum(e['a'] == 'Physical activity' for e in json.load(open('$T/up-none.json'))['entries']))")"
+  same assemble <($G assemble $V --variables $VJ --profile $P --out $T/out) $B/expected_assemble.json
+  same assemble-files -r $T/out $B/expected
+  out=$(python3 $B/validate_dags.py $V $VJ $P $T/out 2>&1) && [ -z "$out" ] \
+    || fail validate-dags "${out:-validate_dags.py failed}"
+
+  # an edge out of a cause into a variable with no path into the target is in neither graph
+  cp -r $V $T/side; python3 -c "
+import json, sys
+f, vj, out = sys.argv[1:]
+d = json.load(open(f)); c = dict(d['claims'][0])
+c.update(cause='diabetes', effect='retinopathy', cause_level=None, cause_reference=None, effect_level=None)
+d['claims'].append(c); json.dump(d, open(f, 'w'))
+v = json.load(open(vj)); v['nodes'].append({'name': 'Retinopathy', 'aliases': ['retinopathy']})
+json.dump(v, open(out, 'w'))" $T/side/claims/2020_ashford_bell.json $VJ $T/variables-side.json
+  expect off-path "strict:Retinopathy full:Retinopathy" \
+    "$($G assemble $T/side --variables $T/variables-side.json --profile $P --out $T/side-out \
+      | python3 -c "import json,sys; \
+        print(' '.join(d['graph']+':'+d['to'] for d in json.load(sys.stdin)['off_path']))")"
+  expect off-path-dags 0 "$(cat $T/side-out/*.dag.yaml | grep -c 'Retinopathy')"
+
+  # refused: a profile whose causal_target is not variables.json's target
+  sed 's/^causal_target: .*/causal_target: Other outcome/' $P > $T/other-target.md
+  same bad-target <($G assemble $V --variables $VJ --profile $T/other-target.md --out $T/bad) \
+    $B/expected_bad_target.json
+  $G assemble $V --variables $VJ --profile $T/other-target.md --out $T/bad > /dev/null
+  expect bad-target-exit 2 $?
+  expect bad-target-files 0 "$(ls $T/bad 2> /dev/null | wc -l)"
+
+  # no claims at all: the target alone, said in the report's first line
+  mkdir $T/empty
+  same empty <($G assemble $T/empty --variables $VJ --profile $P --out $T/empty-out) \
+    $B/expected_empty.json
+  expect empty-first-line 1 "$(head -1 $T/empty-out/fixture-causal-20261119.evidence.md \
+    | grep -c '^\*\*No claim into the target')"
+
+  # plan, last: it needs a record without claims
+  same plan-none <($G plan $V) $B/expected_plan_none.json
+  rm $V/claims/2022_ellery_finch.json
+  same plan <($G plan $V) $B/expected_plan.json
+  same plan-solo <($G plan $V --redo --solo-kb 1) $B/expected_plan_solo.json
 }
 
 [ $# -gt 0 ] && SUITES=("$@")

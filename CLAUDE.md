@@ -1,7 +1,8 @@
 # second-brain-researcher
 
 A Claude Code plugin that turns a research problem or review topic into a
-linked Obsidian vault: `skills/` orchestrate, `agents/` do the judgment work,
+linked Obsidian vault, or a prediction target into a literature-derived causal
+graph: `skills/` orchestrate, `agents/` do the judgment work,
 `scripts/` (stdlib Python) do everything deterministic, `templates/` hold the
 formats, `test-fixtures/` hold the offline tests.
 
@@ -23,8 +24,8 @@ sees goes in `README.md`.
 
 ## PROJECT_CONTEXT.md: search it, never read it whole
 
-At 24 KB `PROJECT_CONTEXT.md` is meant to be searched, not read: reading it
-whole adds ~6k tokens to the context, paid again on every later turn. Never
+At ~33 KB `PROJECT_CONTEXT.md` is meant to be searched, not read: reading it
+whole adds ~8k tokens to the context, paid again on every later turn. Never
 `Read` it without `offset`/`limit`, never `cat` it, and never `@`-import it
 here.
 
@@ -45,10 +46,20 @@ The spec has 7 stages. 1–5 are built. Stage 6 (cross-linking) is built only
 in reduced form: topic notes from shared keywords, `## Related topics`, and
 `link_papers.py`'s paper-to-paper edges. Stage 7 (experiment plan) is not
 built, and neither are repo cloning, running, or the Docker sandbox.
-**Designed, not built:** a `second-brain-causal-graph` skill that builds a
-causal DAG of a prediction target from the literature;
-[CAUSAL_GRAPH_DESIGN.md](CAUSAL_GRAPH_DESIGN.md) is the brief, with its
-phases and waves.
+
+Beside the pipeline, the `second-brain-causal-graph` skill builds a causal DAG
+of a prediction target from the literature, in the researcher's GraphCreator
+format, to be compared with an expert-built graph outside the plugin. It
+reuses discovery (the arXiv, biomedical and cross-field legs, the chaser, the
+merge, the checkpoint), then runs claim extraction, variable harmonization, a
+pair round (edges among the top causes) and an upstream round (causes of the
+top causes, one hop up), and assembles the target's ancestors
+deterministically into a strict DAG (edges graded probable or better), a full
+DAG and an evidence report. Every arrow traces to a verbatim quote that
+`causal_graph.py check` has found in its paper. No summaries, topic notes, vault or code leg; the
+records stay in a standard paper vault. The design record, with every rule of
+grading, sign, strength, shares and cycles and the decisions behind them, is
+[CAUSAL_GRAPH_DESIGN.md](CAUSAL_GRAPH_DESIGN.md).
 
 | Stage | Piece | Job |
 |---|---|---|
@@ -68,6 +79,12 @@ phases and waves.
 | 5 | `scripts/link_papers.py` | citation links and SPECTER2 similarity from Semantic Scholar |
 | 5 | `scripts/check_vault.py` | `records` before the vault, `vault` links after |
 | 5 | `scripts/build_vault.py` | profile, papers, topics, repos → the Obsidian vault, with BibTeX from arXiv's own metadata |
+| causal | skill `second-brain-causal-graph` | self-contained: its own Q&A (a causal profile: a topic profile plus the causal fields), its own copy of the plugin-root call, discovery without the code leg, the checkpoint, extraction, harmonization, the pair and upstream rounds (each stops once, only on manual downloads or a hit cap), assembly, report |
+| causal | `causal-claim-extractor` (sonnet) | one long paper, or up to 8 short ones → `claims/<id>.json` per `causal-claims-spec.md`: every cause–effect pair the paper itself reports, each with a verbatim quote; prevalences; every variable's measurement; the paper's design and `setting_match` |
+| causal | `causal-variable-harmonizer` (opus) | `names.txt` → `variables.json`: raw names merged into nodes, the target's synonyms mapped to the target, types and levels; a later pass keeps every existing node and mapping |
+| causal | `causal-pair-searcher` (sonnet) | PubMed via `find_papers.py`, two modes: `pairs:` (an effect between two top causes no paper links yet) and `upstream:` (what affects a top cause: reviews first, then the setting; the top 50 by relevance when still too broad). At most 5 papers per item, a total cap per run |
+| causal | `scripts/causal_graph.py` | `plan`, `check` (spec and quote check), `exclude`, `names`, `pairs`, `upstream`, `assemble` (grades, signs, strength, shares, cycle drops, ancestors only → both DAGs and `<id>.evidence.md`) |
+| causal | `scripts/graphcreator.py` | validates a graph and writes `graphcreator/0.1` YAML; no reader |
 | dev | `scripts/token_report.py` | a session's real token spend; never called by the pipeline |
 
 Topics: the picker offers keywords on ≥2 papers, near-duplicate slugs merged;
@@ -83,12 +100,21 @@ id, the identity header every saved record carries);
 in `templates/` because there is no `docs/`); `paper-page-template.md`,
 `topic-note-template.md`, `repo-note-template.md` (note formats);
 `graphcreator-dag-format.md` (the researcher's `graphcreator/0.1` DAG format,
-kept verbatim; the causal-graph design's output).
+kept verbatim; the causal graph's output); `causal-claims-spec.md` (claims
+files, `names.txt`, `variables.json`, `pairs.json`, `upstream.json`, the
+quote check, and the rules the extractor and harmonizer follow).
 
 A run writes into the researcher's own project, never into this repo, under
 `<project>/second-brain/`: `paper_vault/<id>/` (records, `summaries/`,
-`topics/`, `repos/`), `code_vault/<id>/` (stays empty), `obsidian_vault/<id>/`
-and `deep_dives/<vault id>/` (deep-dive profiles). Each problem is
+`topics/`, `repos/`; for a causal run `claims/` instead, and `.excluded/`
+beside `.merged/`), `code_vault/<id>/` (stays empty), `obsidian_vault/<id>/`,
+`deep_dives/<vault id>/` (deep-dive profiles) and `causal_graphs/<id>/` (the
+causal profile `<id>.md`, the two DAGs `<id>.dag.yaml` and
+`<id>.full.dag.yaml`, `<id>.evidence.md`, and `.work/` with `names.txt`,
+`variables.json`, `pairs.json`, `upstream.json`). A causal profile lives
+there, never in `<root>/*.md`, where the deep-dive would read it as a vault's
+profile. The researcher may edit `variables.json` and re-run `assemble`, which
+costs no tokens. Each problem is
 its own vault, opened at `obsidian_vault/<id>/`. Every wikilink is written from
 that folder (`[[papers/<id>|Title]]`, `[[topics/<slug>]]`,
 `[[repos/<owner>-<name>]]`, `[[<id>]]`) and `check_vault.py vault` checks
@@ -112,9 +138,10 @@ open the vault at the end, and never installs Obsidian.
   decision, and the README says so.
 - **One copy of each schema.** The `templates/` files are the only
   definitions; consumers cite them, never restate them. A drifting copy breaks
-  a handoff silently. The one exception is intake's YAML skeletons of the
-  profile (reading the whole spec in the main conversation costs more); the
-  `schema-copies` suite fails when their fields drift from the spec's.
+  a handoff silently. The one exception is the YAML skeletons of the profile
+  in intake and in the causal-graph skill (reading the whole spec in the main
+  conversation costs more); the `schema-copies` suite fails when their fields
+  drift from the spec's.
 - **Every agent's `description:` warns against being reimplemented** from the
   description alone or routed around after a blocking report. It is the only
   text an orchestrating session sees before dispatch.
@@ -123,8 +150,14 @@ open the vault at the end, and never installs Obsidian.
   agent with an enforced `tools:` allowlist, or a script when no model is
   needed.
 - **Model tiers are pinned per agent, never `inherit`.** `sonnet` for per-item
-  and mechanical work, `opus` only for `topic-summarizer`, so synthesis quality
-  does not depend on the main session's model.
+  and mechanical work, `opus` only for `topic-summarizer` and
+  `causal-variable-harmonizer` (its merges decide the graph's node set), so
+  synthesis quality does not depend on the main session's model.
+- **Grounding: no edge without a quote.** Every arrow of a causal graph
+  traces to a verbatim quote that `causal_graph.py check` finds in its paper;
+  the model's own knowledge never adds an edge or fills a claim. The
+  comparison with an expert graph stays outside the plugin, and
+  `exclude_papers` keeps that graph's source out of the run.
 - **The main conversation reads compact script reports**, never papers,
   summaries or notes: every turn there re-reads the whole conversation.
 - **Prompts carry instructions, not history.** Agents, skills and templates
@@ -205,8 +238,10 @@ open the vault at the end, and never installs Obsidian.
   has `templates/` and `scripts/` never counts. They stop when none resolves,
   and pass every template and script to an agent as an absolute path in a
   labelled prompt (`profile:`, `identity spec:`, `format:`, `fetcher:`,
-  `find_papers:`). The `plugin-root` suite runs that call on fake layouts,
-  and on a real install, from a folder outside the repo with
+  `find_papers:`). The causal-graph skill is self-contained and keeps a copy
+  of the call under `## Plugin root`. The `plugin-root` suite runs that call
+  on fake layouts and fails when the copy differs from it by a byte; on a
+  real install, from a folder outside the repo with
   `CLAUDE_PLUGIN_ROOT` unset, it returns
   `~/.claude/plugins/cache/second-brain-researcher/second-brain-researcher/<version>`.
 - **Keys come from the environment only**, never plugin config:
@@ -305,13 +340,15 @@ working and every suite before calling a change done.
 |---|---|---|
 | `check_vault.py` | `check-vault` | `test-fixtures/check-vault/` |
 | `fetch_fulltext.py` (offline rungs) | `fetch` | `test-fixtures/fetch/` |
-| `find_papers.py` | `find-papers` | `test-fixtures/find-papers/` |
+| `find_papers.py`, including `.excluded/` counted as in the vault | `find-papers` | `test-fixtures/find-papers/` (§ Excluded records) |
 | `link_papers.py` | `linker` | `test-fixtures/linker/` |
-| the pipeline skill's plugin-root Bash call | `plugin-root` | `test-fixtures/plugin-root/` |
-| intake's profile skeletons vs the profile spec | `schema-copies` | `test-fixtures/schema-copies/` |
+| the pipeline skill's plugin-root Bash call, and the causal-graph skill's copy of it | `plugin-root` | `test-fixtures/plugin-root/` |
+| the profile skeletons of intake and the causal-graph skill vs the profile spec | `schema-copies` | `test-fixtures/schema-copies/` |
 | `stage_prep.py` merge, summaries, keywords, digest | `stage-prep` | `test-fixtures/stage-prep/` |
 | `stage_prep.py topic`, `digest --since` | `stage-prep-deep-dive` | `test-fixtures/stage-prep/` (§ Topic deep-dive) |
 | `build_vault.py` | `vault-build` | `test-fixtures/vault-build/` |
+| `graphcreator.py` | `graphcreator` | `test-fixtures/graphcreator/` |
+| `causal_graph.py`, all seven commands | `causal-graph` | `test-fixtures/causal-graph/`, on a copy of the shared causal fixture `test-fixtures/causal/` |
 
 New script behavior gets a new fixture case (a record that exercises it, the
 expected output, one line in the README's "what each tests" list), not a live
@@ -338,12 +375,19 @@ use a scratch copy of 3–5 records from a real vault instead.
 | `second-brain-citation-chaser` | that profile, pointing at a scratch copy of `test-fixtures/find-papers/records/fixture-recall-20260924/` | its reply's rounds and stop reason; `merge --dry-run` |
 | `second-brain-crossfield-searcher` | as for the arXiv leg, with a methodology term added (the sample profile has none). Without `ASTA_API_KEY` in Claude Code's environment it stops at its key check, which tests only pre-flight | as above, or its skip reply |
 | `second-brain-code-finder` | as for the arXiv leg, on a scratch copy of a vault with saved papers (the arXiv leg's T2 output will do) | `repos/*.md` fields and headings against `templates/repo-note-template.md`; `check_vault.py records`; `code_vault` empty |
+| `causal-claim-extractor` | a scratch copy of `test-fixtures/causal/records/fixture-causal-20261119/` with its `claims/` deleted; a 3-paper `papers:` list; profile a copy of `test-fixtures/causal/fixture-causal-20261119.md` with `paper_vault_path:` pointing at the scratch copy | the three claims files load as JSON with every spec field; `causal_graph.py check <dir>`: nothing `invalid`, `claims_rejected` 0 (every quote verbatim) |
+| `causal-variable-harmonizer` | a scratch copy of `test-fixtures/causal/names.txt`, `variables exists: false`, the profile copy above pointing at a scratch copy of the fixture records (claims included); then pass 2 with two extra names appended and `variables exists: true` | `variables.json` loads; the target node exists with `FO` and `postoperative fixture outcome` among its aliases; pass 2 kept every pass-1 node name |
+| `causal-pair-searcher`, pairs mode | a scratch `pairs.json` with one real pair (e.g. diabetes / obesity) and a small `max_papers`; the profile copy pointing at a scratch paper vault | its reply's per-pair counts; `stage_prep.py merge <dir> --dry-run`: `no_header` empty |
+| `causal-pair-searcher`, upstream mode | a scratch `upstream.json` with one real cause (`query` and `fallback` built as `causal_graph.py upstream` builds them) and `max_papers` 2; as above | its reply's per-entry counts, and `top 50 of N` when it ended too broad; as above |
 
 Give the agent the pipeline's own prompt template for that step
-(`skills/second-brain-pipeline/SKILL.md`), filled in with the scratch paths.
+(`skills/second-brain-pipeline/SKILL.md`; for the causal agents,
+`skills/second-brain-causal-graph/SKILL.md`), filled in with the scratch paths.
 Discovery agents get one extra line at the end of the prompt, and only there:
 `TEST RUN: at most 2 queries and 3 saved papers in total; the chaser runs 1
-round from at most 2 seeds and runs only the first recall probe.`
+round from at most 2 seeds and runs only the first recall probe.` The pair
+searcher gets `TEST RUN: at most 1 pair and 2 saved papers` (upstream mode:
+`at most 1 entry and 2 saved papers`).
 
 **T3, a mini pipeline (ask first).** Run the skill, but start at the stage that
 changed, never at stage 1, on a scratch vault seeded from fixture records:
@@ -356,8 +400,19 @@ changed, never at stage 1, on a scratch vault seeded from fixture records:
   line, merge, and stop at the checkpoint.
 - a deep-dive: a scratch copy of the deep-dive fixture's records and vault, one
   leg capped, one topic note.
+- a causal graph: in a fresh session with this repo as the working directory,
+  the causal-graph skill on a scratch causal profile with a narrow target,
+  its root a scratch folder (never a real `second-brain/`), agents dispatched
+  as `general-purpose` per "Dispatching a plugin agent in this repo". One
+  discovery leg with the `TEST RUN` line, at most 5 papers; extraction;
+  harmonizer pass 1; a pair round capped at 1 pair and 2 papers and an
+  upstream round capped at 1 cause and 2 papers (through the profile:
+  `pair_search_k: 2`, `pair_search_max_papers: 2`, `upstream_search_k: 1`,
+  `upstream_search_max_papers: 2`), each with its extraction and harmonizer
+  pass; `assemble`. Check that both DAGs and the evidence report exist.
 
-At most 5 papers, 1 topic, 1 discovery leg.
+At most 5 papers, 1 topic, 1 discovery leg (for a causal graph, plus the two
+capped rounds).
 
 **T4, the full pipeline.** Only on the user's request for a real run.
 
@@ -368,14 +423,20 @@ At most 5 papers, 1 topic, 1 discovery leg.
 | `scripts/*.py` | T1 (+ T1b for network code) |
 | `templates/*` | T1, plus the T2 of each agent that reads the template |
 | `agents/<name>.md` | T2 of that agent |
+| `agents/causal-pair-searcher.md` | T2 of each mode the change touches |
+| `scripts/causal_graph.py`, `scripts/graphcreator.py` | T1 (`causal-graph`, `graphcreator`); no network code |
+| `templates/causal-claims-spec.md` | T1 (`causal-graph`), plus the T2 of the extractor and the harmonizer, and of the pair searcher when `pairs.json` or `upstream.json` changed |
+| `templates/graphcreator-dag-format.md` | the researcher's format, changed only when theirs changes: T1 (`graphcreator`, `causal-graph`) |
 | a skill's `SKILL.md` or `deep-dive.md` | T1 for the scripts it calls; T3 only if an agent handoff changed |
+| `skills/second-brain-causal-graph/SKILL.md` | T1 (`plugin-root`, `schema-copies`, `causal-graph`); the causal T3 only if an agent handoff changed; Q&A changes inline on a test target |
 | `research-problem-intake` | run its Q&A inline on a test problem; it dispatches no agents |
 
 ### Dispatching a plugin agent in this repo
 
 The plugin's agents are not registered as agent types in a dev session. Dispatch
 a `general-purpose` agent with `model` set to the one its definition names
-(`sonnet`; `opus` for `topic-summarizer`) and a prompt that starts
+(`sonnet`; `opus` for `topic-summarizer` and `causal-variable-harmonizer`)
+and a prompt that starts
 `Follow agents/<name>.md in this repo as your instructions, using only the tools
 it lists.`, then the filled-in template. One dispatch at a time, in the
 foreground. In the main conversation read only compact output: the agent's
@@ -413,3 +474,10 @@ Measured at T2 (2026-09-25, the cleanup session), weighted tokens:
 `TEST RUN` cap ~250k each; the chaser capped ~120k (its paper cap was reached
 in round 0, so no chase round ran); the cross-field leg stopped at its key
 check ~50k.
+
+Measured at T2 for the causal graph (2026-11-19, synthetic fixture papers and
+live PubMed), weighted tokens: `causal-claim-extractor` on 3 short papers
+~170k; `causal-variable-harmonizer` ~80k per pass; `causal-pair-searcher` on
+one 25-hit pair ~90k, and in upstream mode ~110–130k per test (one or two
+entries, up to 3 papers). A full causal run is estimated at 11–16M for ~80
+papers (CAUSAL_GRAPH_DESIGN.md, "Cost"); measure it on the first real run.

@@ -120,9 +120,9 @@ diff <(python3 scripts/find_papers.py pubmed $V --list pair-1 --max 40 --query "
      $B/expected_pubmed_excluded.txt
 ```
 
-Not yet in `run_offline.sh`'s `find-papers` suite: the causal-graph
-integration adds it there. The diffs print nothing when they pass; the two
-commented lines must print what their comments say.
+`bash test-fixtures/run_offline.sh find-papers` runs this block too, on a
+third copy, after the two above. The diffs print nothing when they pass; the
+two commented lines must print what their comments say.
 
 - Zhou's nomogram paper is not in the vault, so `pubmed` with q2 lists it as
   candidate 1.

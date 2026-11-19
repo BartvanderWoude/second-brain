@@ -2,7 +2,7 @@
 
 The pipeline skill resolves the plugin's own folder with one Bash call, under
 "Before stage 3" in `skills/second-brain-pipeline/SKILL.md`; the topic
-deep-dive skill runs the same call. It cannot be a script in the plugin, since
+deep-dive skill runs the same call, and the causal-graph skill a copy of it. It cannot be a script in the plugin, since
 finding the plugin's scripts is its job. This check extracts that block from
 the skill and runs it against throwaway layouts, with `HOME` pointed at each.
 From the repo root:
@@ -23,6 +23,9 @@ root "$T/proj" "$T/home2"                                # plugin root: …/mark
 echo "{\"plugins\": {\"second-brain-researcher@sbr\": [{\"installPath\": \"$T/home2/$P/cache/sbr/second-brain-researcher/0.1.0\"}]}}" \
   > "$T/home2/$P/installed_plugins.json"
 root "$T/proj" "$T/home2"                                # plugin root: …/cache/sbr/second-brain-researcher/0.1.0
+awk '/^## Plugin root/{s=1} s && /^```bash/{p=1; next} p && /^```/{exit} p' \
+  skills/second-brain-causal-graph/SKILL.md > "$T/resolve-causal.sh"
+diff "$T/resolve.sh" "$T/resolve-causal.sh"              # nothing
 ```
 
 `bash test-fixtures/run_offline.sh plugin-root` runs the commands above,
@@ -38,4 +41,7 @@ What each tests:
 - without an install record, a marketplace clone of this plugin is used;
 - the installed copy (`installPath` in `installed_plugins.json`) is preferred
   to the marketplace clone, which can be a different version than the agents
-  that are running.
+  that are running;
+- the `second-brain-causal-graph` skill keeps its own copy of the call, under
+  `## Plugin root`; it must be the pipeline's block byte for byte, so the
+  layouts above cover it too.

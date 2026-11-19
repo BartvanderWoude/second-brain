@@ -25,6 +25,9 @@ miss, and to keep what it finds in one place for the next project.
 Later, a **topic deep-dive** gives one topic note of an existing vault its own
 literature search and deepens the note with what it finds.
 
+Separately, a **causal graph** run turns an outcome you predict into a graph of
+what the literature says causes it (see [Causal graph](#causal-graph)).
+
 Not built yet: running the code it finds, and proposing an experiment plan.
 
 A full run uses a lot of your Claude usage: a 42-paper review used about 21
@@ -128,7 +131,8 @@ into the survival-analysis note"*, or use
 
 It creates a `second-brain/` folder in your project, holding
 `paper_vault/` (the papers it found), `obsidian_vault/` (the vaults),
-`deep_dives/` (topic deep-dive profiles) and `code_vault/` (empty for now).
+`deep_dives/` (topic deep-dive profiles), `causal_graphs/` (causal graphs)
+and `code_vault/` (empty for now).
 
 ## The vault
 
@@ -154,6 +158,56 @@ The notes link to each other:
 
 You can edit any note. When the pipeline runs again, it updates only its own
 sections and keeps your changes.
+
+## Causal graph
+
+A causal graph run builds a causal graph (a DAG) of what the literature says
+causes an outcome you want to predict: the direct causes, how those causes
+affect each other, and what causes them in turn. It is written in the
+GraphCreator format, so you can open it in GraphCreator or compare it with a
+graph drawn by experts. It writes no summaries, topic notes or Obsidian vault.
+
+Start it by saying what you want to predict and in what setting, for example
+*"I want a causal graph of surgical site infection after colorectal surgery"*,
+or with `/second-brain-researcher:second-brain-causal-graph`.
+
+Claude asks a few questions and writes a short profile for you to confirm:
+
+- the **outcome** (the target) and the **setting**: the population, where, and
+  over what time;
+- **papers the graph must not see** (`exclude_papers`), for example the paper
+  an expert graph you want to compare with came from. Give a title, DOI or
+  PMID; "none" is fine. They are set aside, also when a later search finds
+  them again;
+- a few search words for your **population** (`setting_terms`, such as
+  `surgery`, `surgical`, `postoperative`), used when it looks for the causes of
+  the causes.
+
+Then it searches as for a review (without the code search) and stops at the
+same checkpoint. After your go-ahead it reads every paper and notes each cause
+and effect it reports. Every arrow in the graph cites a sentence quoted from a
+paper, and every quote is checked against the paper's text: a quote that is
+not there is thrown out. Nothing is added from Claude's own knowledge. Two more
+searches follow: one for studies linking the top causes to each other, and one
+**upstream round** for what causes the top causes (five by default), reviews
+first. Each
+stops only if it hit its limit or found papers you need to download yourself.
+
+The results are in `second-brain/causal_graphs/<id>/`:
+
+| File | What it holds |
+|---|---|
+| `<id>.dag.yaml` | the strict graph: only arrows with good evidence (at least a cohort study with adjusted estimates in your setting, or stronger) |
+| `<id>.full.dag.yaml` | the full graph: every arrow the papers support |
+| `<id>.evidence.md` | the evidence for each arrow (the papers, their design, the numbers and the quotes), and what was left out and why |
+
+How the papers' variable names were merged into the graph's nodes is in
+`.work/variables.json`. You can edit it and ask Claude to assemble the graph
+again, which costs nothing.
+
+Comparing the graph with an expert graph is your own step: the plugin does not
+do it. A run on about 80 papers is estimated at 11 to 16 million tokens; that
+has not been measured on a real run yet.
 
 ## Working on the plugin
 
