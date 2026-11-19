@@ -1,6 +1,6 @@
 # Causal graph design
 
-**Status:** design agreed 2026-11-19; wave 1 of 3 done (phases 1–2). This document is the
+**Status:** design agreed 2026-11-19, extended the same day (causes of causes); waves 1–2 of 4 done (phases 1–7). This document is the
 brief for the implementation sessions. It extends the plugin described in
 [CLAUDE.md](CLAUDE.md); the output format is
 [templates/graphcreator-dag-format.md](templates/graphcreator-dag-format.md).
@@ -37,11 +37,17 @@ causal_graph.py names ─► causal-variable-harmonizer (pass 1)
 causal_graph.py pairs ─► causal-pair-searcher ─► merge ─► exclude
   (stop once only if manual downloads or the cap was hit)
 plan ─► extractor (new papers) ─► check ─► names --new-only ─► harmonizer (pass 2)
+causal_graph.py upstream ─► causal-pair-searcher (upstream mode) ─► merge ─► exclude
+  (stop once only if manual downloads or the cap was hit)
+plan ─► extractor (new papers) ─► check ─► names --new-only ─► harmonizer (pass 3)
 causal_graph.py assemble ─► <id>.dag.yaml, <id>.full.dag.yaml, <id>.evidence.md
 ```
 
-- **Graph scope:** the target, its direct causes, and the edges among those
-  causes, so confounders and mediators show. Not causes of causes.
+- **Graph scope:** the target's **ancestors**: its direct causes, the edges
+  among them (confounders and mediators), and the causes of those causes. A
+  variable that only receives an edge from a cause and leads nowhere near the
+  target is dropped. Causes of causes come from what the papers report and
+  from a deliberate **upstream round** for the top causes (one hop up).
 - **Nodes** come from the literature; there is no researcher variable list.
 - **No vault:** no paper summaries, topic notes or Obsidian build, and no code
   leg. The records stay in a standard paper vault, so a normal
@@ -148,7 +154,10 @@ treats a missing `pair_search_k` or `pair_search_max_papers` as its default:
 | `causal_setting` | string | causal | Population, setting and time horizon. A claim from another population counts one grade lower. | extractor (`setting_match`), `assemble` |
 | `exclude_papers` | list[string] | causal | Papers the graph must not see, typically the source of the expert graph. Same string forms as `seed_papers`. | `exclude` |
 | `pair_search_k` | integer | causal | How many top causes get the pair search. Missing means 15. | `pairs` |
-| `pair_search_max_papers` | integer | causal | Papers the pair search may add in total. Missing means 40. | `causal-pair-searcher` |
+| `pair_search_max_papers` | integer | causal | Papers the pair search may add in one run. Missing means 40. | `causal-pair-searcher` |
+| `upstream_search_k` | integer | causal | How many top causes of the target get an upstream search for their own causes. Missing means 5. | `upstream` |
+| `upstream_search_max_papers` | integer | causal | Papers the upstream round may add in one run. Missing means 15. | `causal-pair-searcher` |
+| `setting_terms` | list[string] | causal | 2–5 PubMed terms for the setting's population (e.g. `surgery`, `surgical`, `postoperative`), OR-ed into the upstream round's setting-restricted query. | `upstream` |
 
 How the Q&A fills the shared fields on a causal profile:
 
@@ -281,6 +290,29 @@ Written by `causal_graph.py pairs`, read by `causal-pair-searcher`:
 }
 ```
 
+### `upstream.json`: `causal_graphs/<id>/.work/upstream.json`
+
+Written by `causal_graph.py upstream`, read by `causal-pair-searcher` in
+upstream mode:
+
+```json
+{
+  "k": 5,
+  "max_papers": 15,
+  "entries": [
+    {"n": 1, "a": "Diabetes", "support": 12,
+     "query": "(\"diabetes mellitus\"[tiab] OR diabetes[tiab]) AND (\"risk factor*\"[tiab] OR predictor*[tiab] OR determinant*[tiab]) AND (\"systematic review\"[tiab] OR meta-analys*[tiab] OR \"umbrella review\"[tiab])",
+     "fallback": "(\"diabetes mellitus\"[tiab] OR diabetes[tiab]) AND (\"risk factor*\"[tiab] OR predictor*[tiab] OR determinant*[tiab]) AND (surgery[tiab] OR surgical[tiab] OR postoperative[tiab])"}
+  ]
+}
+```
+
+`a` is a cause of the target (a node with a kept claim into it), ranked by
+support as in `pairs`; `query` looks for reviews and meta-analyses of its risk
+factors; `fallback` for primary studies in the setting, from `setting_terms`
+(an entry without `setting_terms` has `fallback: null`). Defined, like the
+other files, in `templates/causal-claims-spec.md`.
+
 ### `scripts/causal_graph.py`
 
 Stdlib only, like every script. Imports `papers`, `read_until`, `BATCH`,
@@ -295,6 +327,7 @@ stdout. Every report is compact JSON (the main conversation reads it).
 | `exclude <paper_vault> --profile P` | Moves every record matching an `exclude_papers` entry (DOI, PMID, PMCID, arXiv id, or exact title via `seed_ident` and `same`) to `.excluded/`, with its claims file. | `{"excluded": [{"id", "matched"}], "not_found": [entries]}` |
 | `names <paper_vault> --variables V [--new-only] --out F` | Writes every raw variable name in the kept claims, prevalences and measurements, one line each in the `names.txt` format of `templates/causal-claims-spec.md` (paper count, as cause / as effect, the raw level names, one quote cut to 160 characters), sorted by paper count, then name. `--new-only`: only names `V` does not map yet. `V` may not exist on pass 1. | `{"names", "written": F}` |
 | `pairs <paper_vault> --variables V --profile P --out F` | Ranks the non-target nodes by the number of papers with a kept claim touching them; takes the top `pair_search_k`; writes every pair with no claim in either direction to `F`, ordered by combined support; within a pair `a` is the better-supported node, ties by name. | `{"k", "pairs", "already_linked", "written": F}` |
+| `upstream <paper_vault> --variables V --profile P --out F` | Ranks the causes of the target (nodes with a kept claim into it) by support, takes the top `upstream_search_k`, and writes one entry each to `F` with its two queries (see "`upstream.json`"). Query terms as in `pairs`. | `{"k", "entries", "written": F}` |
 | `assemble <paper_vault> --variables V --profile P --out D` | Builds both graphs and the evidence report (see "Graph assembly") and writes `<id>.dag.yaml`, `<id>.full.dag.yaml`, `<id>.evidence.md` into `D`. | `{"nodes": [strict, full], "edges": [strict, full], "target_edges": [strict, full], "cycle_drops", "unmapped_claims", "top_unmapped": [[name, n]], "presents_dag": [ids], "excluded": n, "warnings": [...]}` |
 
 ### `scripts/graphcreator.py`
@@ -371,7 +404,15 @@ target to the `causal_target` node; names too vague to be one variable go to
 mapping, and only adds aliases or nodes for the new names. Reply:
 `OK <nodes> nodes, <mapped> names mapped, <unmapped> unmapped`.
 
-**`causal-pair-searcher`** (sonnet; tools `Read, Bash, Glob`). Prompt:
+**`causal-pair-searcher`** (sonnet; tools `Read, Bash, Glob`). It has two
+modes, chosen by the prompt's first label: `pairs:` (below) or `upstream:`.
+In upstream mode it reads `upstream.json`; per entry, list `up-<n>`: run
+`query` (reviews and meta-analyses); when it is too broad or no candidate
+passes, run `fallback` (skipped when null; too broad again: report and skip).
+A paper passes if it reports an effect of some variable on the entry's cause,
+in humans; prefer reviews and meta-analyses, then setting-matched papers; at
+most 5 per entry and `max_papers` in total. The reply has the same shape, per
+entry. Pairs-mode prompt:
 
 ```
 pairs: <causal_graphs/<id>>/.work/pairs.json
@@ -434,7 +475,12 @@ literature review (`second-brain-pipeline`).
    `pair_search_max_papers` and re-run the round. Otherwise continue. Then
    `plan` (only the new records lack claims), extractor, `check`,
    `names --new-only`, harmonizer with `variables exists: true`.
-8. **Assemble** and report: node and edge counts for both graphs, edges into
+8. **Upstream round.** `upstream`, then `causal-pair-searcher` with
+   `upstream:` instead of `pairs:`, then `merge`, `exclude`; the same single
+   stop rule as the pair round (its own cap, `upstream_search_max_papers`);
+   then `plan`, extractor, `check`, `names --new-only`, harmonizer pass 3
+   (`variables exists: true`). Skipped when `upstream` writes no entries.
+9. **Assemble** and report: node and edge counts for both graphs, edges into
    the target, cycle drops, the unmapped names that lost the most claims,
    `presents_dag` papers (suggest adding them to `exclude_papers` and
    re-assembling if they are the expert graph's source), quote-check
@@ -530,6 +576,12 @@ others; `var_type`, `levels`, `unit`, `description` from `variables.json`.
 enters a graph only through an edge in that graph; the target is always
 written.
 
+**Ancestors only.** After cycles are broken, each graph keeps an edge only
+when its effect is the target or has a path into the target in that graph.
+So causes, their causes, and edges among them stay; an edge into a variable
+that leads nowhere near the target goes, and is reported as `off_path` (in
+`assemble`'s report, per graph) and in the evidence report.
+
 ### Edge fields
 
 `evidence`: one entry per supporting paper (a paper with an existence
@@ -561,7 +613,8 @@ Generated by `assemble`, for people:
    claim: paper id, PMID/DOI, design, setting match, the effect with its CI,
    and the quote.
 4. **Dropped:** edges below the strict threshold (listed in the strict
-   section's terms), cycle drops with the reason.
+   section's terms), cycle drops with the reason, and edges leading nowhere
+   near the target.
 5. **Not used:** unmapped names with their claim counts; quote-check
    rejections per paper; excluded papers; papers with `presents_dag: true`.
 
@@ -639,7 +692,13 @@ The discovery agents, the citation chaser, `stage_prep.py`,
 |---|---|---|---|
 | Entry point | Own flow reusing the discovery stages | Layer on an existing review vault; both | A review's searches are not aimed at causes |
 | Wiring | One self-contained skill (user's choice) | Thin skill handing over to intake and pipeline branches, like the deep-dive | One file to read; copies guarded by two suites |
-| Graph scope | Target, direct causes, edges among causes | Direct causes only; two hops | Expert DAGs have inner edges; two hops multiplies cost |
+| Graph scope | The target's ancestors: direct causes, edges among them, causes of causes (user's choice, after wave 2; first agreed as "target, direct causes, edges among causes") | Direct causes only; keep every variable with any edge | The researcher wants how causes affect each other and what affects the causes |
+| Causes of causes | A deliberate upstream round (user's choice) | Only what the papers report incidentally | Variables that affect the causes are part of the question |
+| Upstream narrowing | Reviews and meta-analyses of each cause's risk factors first, then primary studies in the setting | Reviews only; setting-restricted only | Best evidence per paper; a fallback when no review exists |
+| Upstream size | Top 5 causes, at most 15 papers per run (user's choice) | Top 10 and 30; every cause and 60 | Cost (~+1M weighted) |
+| Upstream agent | The pair searcher with an upstream mode | A new agent | Same tools and screening; one agent to maintain |
+| Upstream stop | As the pair round: once, only on cap or manual downloads | Always stop before it | Consistent with the pair round |
+| Setting terms | New `setting_terms` profile field, written at intake | Derive from `causal_setting` | A script cannot build a PubMed block from free text |
 | Node set | Discovered from the literature | Researcher's variable list; either | A given list would hand over part of the answer |
 | Evaluation | Outside the plugin (user's choice) | A dev script in `scripts/`; a final step of the skill | Keeps the plugin general and the ground truth away from generation |
 | Vault | None, graph only | Light vault of variable notes; full vault | Cost; records stay reusable by a normal run |
@@ -667,6 +726,7 @@ The discovery agents, the citation chaser, `stage_prep.py`,
 | Doc location | `CAUSAL_GRAPH_DESIGN.md` at the root | In the skill folder; `docs/` | No running model reads it as instructions |
 | Optional causal fields | Required `causal`, always written with defaults | Required `no` | Found in wave 1: the doc said both; `no` would break the schema-copies check |
 | Gaps settled in wave 1 | `names.txt` line format in the claims spec, with raw levels; strength bands include their lower bound; `evidence` lists supporting papers only; pair `a` is the better-supported node | — | Raised by the phase 1 agent; the doc left them open |
+| Settled in wave 2 | A tie among the top-grade signed claims is a conflict (otherwise a contrary claim could never reach the edge's grade); only a paper's own findings are claims, not the work it cites; every variable in a claim gets a `measurements` entry, yes/no variables as `categorical ["no", "yes"]`; the harmonizer types a node from its raw levels when no measurement covers it; a pair or upstream cap counts papers added in that run (`find_papers.py` never lists a saved paper again); a null result passes the pair searcher's screening; the T2 tests of phases 3–5 ran from the orchestrating session after landing, one at a time | — | Raised by the wave-2 agents and the T2 tests |
 | Defaults set in the design, not discussed | A `none` claim can be a conflict; per-unit estimates give no strength; window 10; 5 papers per pair; cycle tie-break by grade, papers, name; strength below d 0.1 omitted | — | Change in this doc if they prove wrong |
 
 ## Implementation phases
@@ -690,7 +750,10 @@ estimate first, T2 needs no approval, T3 needs the researcher's yes.
 | 5 | Pair searcher | 1 | 2 | `agents/causal-pair-searcher.md` |
 | 6 | Graph script | 1, 2 | 2 | `scripts/causal_graph.py`, `test-fixtures/causal-graph/`, `scripts/find_papers.py`, `test-fixtures/find-papers/` |
 | 7 | The skill | 1 | 2 | `skills/second-brain-causal-graph/SKILL.md` |
-| 8 | Integration | 2–7 | 3 | `test-fixtures/run_offline.sh`, `test-fixtures/plugin-root/README.md`, `test-fixtures/schema-copies/README.md`, `CLAUDE.md`, `README.md`, `PROJECT_CONTEXT.md`, `.claude-plugin/plugin.json`, `CAUSAL_GRAPH_DESIGN.md` |
+| 9 | Upstream script and contracts | 6 | 3 | `scripts/causal_graph.py`, `test-fixtures/causal-graph/`, `templates/causal-claims-spec.md`, `templates/research-problem-profile-format-spec.md`, `test-fixtures/causal/fixture-causal-20261119.md` |
+| 10 | Pair searcher upstream mode | 5 | 3 | `agents/causal-pair-searcher.md` |
+| 11 | Skill upstream round | 7 | 3 | `skills/second-brain-causal-graph/SKILL.md` |
+| 8 | Integration | 2–7, 9–11 | 4 | `test-fixtures/run_offline.sh`, `test-fixtures/plugin-root/README.md`, `test-fixtures/schema-copies/README.md`, `CLAUDE.md`, `README.md`, `PROJECT_CONTEXT.md`, `.claude-plugin/plugin.json`, `CAUSAL_GRAPH_DESIGN.md` |
 
 ### Wave 1: contracts and the writer [x]
 
@@ -755,13 +818,13 @@ Phases: 1, 2. Parallel: yes. Integration check after the wave:
   `python3 -m py_compile scripts/graphcreator.py`.
 - **Out of scope:** reading YAML; `run_offline.sh` (phase 8).
 
-### Wave 2: agents, the graph script and the skill [ ]
+### Wave 2: agents, the graph script and the skill [x]
 
 Phases: 3, 4, 5, 6, 7. Parallel: yes. Integration check after the wave:
 `bash test-fixtures/run_offline.sh`, plus the README block of
 `test-fixtures/causal-graph/`.
 
-#### Phase 3: Claim extractor [ ]
+#### Phase 3: Claim extractor [x] (75933c8)
 
 - **Goal:** `agents/causal-claim-extractor.md` writes valid claims files.
 - **Depends on:** 1.
@@ -780,7 +843,7 @@ Phases: 3, 4, 5, 6, 7. Parallel: yes. Integration check after the wave:
   and each quote is found by `grep -F` in its paper.
 - **Out of scope:** the quote check script; harmonization.
 
-#### Phase 4: Variable harmonizer [ ]
+#### Phase 4: Variable harmonizer [x] (9d3ea42)
 
 - **Goal:** `agents/causal-variable-harmonizer.md` writes a valid
   `variables.json` from `names.txt`.
@@ -796,7 +859,7 @@ Phases: 3, 4, 5, 6, 7. Parallel: yes. Integration check after the wave:
   fixture's target synonyms as aliases; pass 2 kept every pass-1 node name.
 - **Out of scope:** writing `names.txt` (phase 6).
 
-#### Phase 5: Pair searcher [ ]
+#### Phase 5: Pair searcher [x] (cecd80a)
 
 - **Goal:** `agents/causal-pair-searcher.md` searches pairs and saves papers
   through `find_papers.py`.
@@ -814,7 +877,7 @@ Phases: 3, 4, 5, 6, 7. Parallel: yes. Integration check after the wave:
   with `no_header` empty; the reply has the per-pair counts.
 - **Out of scope:** writing `pairs.json`.
 
-#### Phase 6: Graph script [ ]
+#### Phase 6: Graph script [x] (a973543)
 
 - **Goal:** `scripts/causal_graph.py` with all six commands, and
   `find_papers.py` treating `.excluded/` as known.
@@ -842,7 +905,7 @@ Phases: 3, 4, 5, 6, 7. Parallel: yes. Integration check after the wave:
   passes; `py_compile`.
 - **Out of scope:** `run_offline.sh` entries (phase 8).
 
-#### Phase 7: The skill [ ]
+#### Phase 7: The skill [x] (595f0d1)
 
 - **Goal:** `skills/second-brain-causal-graph/SKILL.md` runs the whole flow.
 - **Depends on:** 1 (it codes against this doc's commands and agent prompts).
@@ -862,7 +925,75 @@ Phases: 3, 4, 5, 6, 7. Parallel: yes. Integration check after the wave:
   extracted blocks).
 - **Out of scope:** CLAUDE.md, README.
 
-### Wave 3: integration [ ]
+After landing, two fixes went in as their own commits: `117fcf5` (ancestors
+only, see "Node fields") and `24830df` (measurements for every variable;
+types from raw levels), both found in review and the T2 tests.
+
+### Wave 3: causes of causes [ ]
+
+Phases: 9, 10, 11. Parallel: yes. Integration check after the wave:
+`bash test-fixtures/run_offline.sh`, the `causal-graph` README block, and the
+T2 test of phase 10 (run from the orchestrating session after landing).
+
+#### Phase 9: Upstream script and contracts [ ]
+
+- **Goal:** `causal_graph.py upstream` writes `upstream.json`, and the
+  contracts define it and the three new profile fields.
+- **Depends on:** 6.
+- **Owns files:** `scripts/causal_graph.py`, `test-fixtures/causal-graph/`,
+  `templates/causal-claims-spec.md`,
+  `templates/research-problem-profile-format-spec.md`,
+  `test-fixtures/causal/fixture-causal-20261119.md`.
+- **Contracts used:** "`upstream.json`", the `upstream` row of the commands
+  table, the three new profile rows.
+- **Work:** the `upstream` subcommand (ranking as `pairs` does, over causes
+  of the target only; query terms built by the same helper; the review block
+  and risk-factor block shown under "`upstream.json`"; the setting block
+  from `setting_terms`, `fallback: null` without them; `--out` and the
+  report); `upstream.json` in the claims spec (example, field table, that a
+  cap counts papers added in one run); the three rows (Required `causal`) and
+  the upstream round in the profile spec's "Causal profiles"; the three
+  fields in the fixture profile.
+- **Tests:** in the `causal-graph` README block: `upstream` on the fixture
+  matches an expected `upstream.json` and report; a profile copy without
+  `setting_terms` gives `fallback: null`.
+- **Done when:** the README block passes; `run_offline.sh` passes.
+- **Out of scope:** the agent and the skill.
+
+#### Phase 10: Pair searcher upstream mode [ ]
+
+- **Goal:** `causal-pair-searcher` runs `upstream.json` entries as described
+  under "Agents".
+- **Depends on:** 5 (and codes against phase 9's `upstream.json` as this doc
+  defines it).
+- **Owns files:** `agents/causal-pair-searcher.md`.
+- **Work:** the `upstream:` input, the per-entry loop with `query` then
+  `fallback`, the screening rule and preferences, list names `up-<n>`, the
+  caps, the reply; the description mentions both modes and stays under ~80
+  words.
+- **Tests:** T2 from the orchestrating session after landing (~100k, stated
+  first): one real cause, `max_papers` 2, the `TEST RUN` line.
+- **Done when:** offline checks as in phase 5; then the T2 test's saved
+  records pass `stage_prep.py merge --dry-run` with `no_header` empty.
+- **Out of scope:** pairs mode, unchanged.
+
+#### Phase 11: Skill upstream round [ ]
+
+- **Goal:** the skill runs step 8 of "The run, step by step" and asks for the
+  new fields.
+- **Depends on:** 7.
+- **Owns files:** `skills/second-brain-causal-graph/SKILL.md`.
+- **Work:** the Q&A writes `upstream_search_k` (5), `upstream_search_max_papers`
+  (15) and `setting_terms` (drafted from the setting, confirmed with the
+  researcher) into the skeleton; the upstream round after harmonizer pass 2,
+  with its stop rule and pass 3; the report names the upstream round's
+  additions.
+- **Tests:** offline: names match this doc; the skeleton's fields are in the
+  spec.
+- **Done when:** grep checks pass; `run_offline.sh` passes.
+- **Out of scope:** CLAUDE.md, README (phase 8).
+
+### Wave 4: integration [ ]
 
 Phases: 8. Parallel: single phase. Integration check after the wave:
 `bash test-fixtures/run_offline.sh`, and the T3 run.
@@ -871,7 +1002,7 @@ Phases: 8. Parallel: single phase. Integration check after the wave:
 
 - **Goal:** the feature is wired into the suites and documented, and has run
   once end to end at small scale.
-- **Depends on:** 2–7.
+- **Depends on:** 2–7, 9–11.
 - **Owns files:** `test-fixtures/run_offline.sh`,
   `test-fixtures/plugin-root/README.md`,
   `test-fixtures/schema-copies/README.md`, `CLAUDE.md`, `README.md`,
@@ -887,7 +1018,8 @@ Phases: 8. Parallel: single phase. Integration check after the wave:
 - **Tests:** every suite; then T3, with the researcher's yes and an estimate
   first: a scratch causal profile with a narrow target, one discovery leg with
   the `TEST RUN` line, at most 5 papers, through extraction, one harmonizer
-  pass, a pair round capped at 1 pair and 2 papers, and `assemble`.
+  pass, a pair round capped at 1 pair and 2 papers, an upstream round capped
+  at 1 cause and 2 papers, and `assemble`.
 - **Done when:** `run_offline.sh` passes; the T3 run produces both DAGs and
   the report; its measured cost is recorded in PROJECT_CONTEXT.md.
 - **Out of scope:** a full-scale run (only on the researcher's request).
@@ -901,8 +1033,9 @@ Phases: 8. Parallel: single phase. Integration check after the wave:
   hold.
 - **`find-papers`** (phase 6): one case, `.excluded/` counts as known.
 - **`plugin-root`**, **`schema-copies`** (phase 8): the skill's copies match.
-- **T2** per agent (phases 3–5), on fixtures, synthetic: they test format,
-  paths and handoffs, not extraction quality.
+- **`causal-graph`** (phase 9): `upstream` and its `fallback: null` case.
+- **T2** per agent (phases 3–5, 10), on fixtures or a single live pair or
+  cause: they test format, paths and handoffs, not extraction quality.
 - **T3** (phase 8): the mini run above.
 
 ## Cost
@@ -912,16 +1045,19 @@ A rough estimate for an 80-paper run, from the plugin's measurements
 ~0.4M, biomedical ~1.0M, chaser ~1.4M, cross-field more than its 45k skip);
 extraction ~70k per long paper, less for batched short ones, ~4–6M; the pair
 round ~1M plus up to 40 papers' extraction (~2–3M); two harmonizer calls on a
-names list, small; the orchestrating conversation on top. Roughly 10–15M in
+names list, small; the upstream round ~0.3M plus up to 15 papers'
+extraction (~1M); the orchestrating conversation on top. Roughly 11–16M in
 all, against ~21M for the 42-paper review with summaries and topic notes.
-Measure it on the first real run.
+Measure it on the first real run. Measured at T2 (2026-11-19, synthetic
+fixture papers and one live pair): extractor on 3 short papers ~0.17M,
+harmonizer ~0.08M per pass, pair searcher on one 25-hit pair ~0.09M.
 
 ## Open issues
 
 - **Transitive edges** are kept as reported: if A→M→Y and A→Y are all
   claimed, all three stay. Pruning by mediation needs claims about adjusted
   mediators, which the extractor does not record.
-- **Causes of causes** (two hops) are out of scope.
+- **Causes of causes** go one hop up, for the top causes only; deeper is out of scope.
 - **`form`**, **`latent`** and the other roles are never written.
 - **A vault for causal runs** (variable notes, a diagram) was declined for
   now; the records allow a normal pipeline run later.
