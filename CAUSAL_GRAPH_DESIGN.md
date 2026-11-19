@@ -1,6 +1,6 @@
 # Causal graph design
 
-**Status:** design agreed 2026-11-19, extended the same day (causes of causes); waves 1–2 of 4 done (phases 1–7). This document is the
+**Status:** design agreed 2026-11-19, extended the same day (causes of causes); waves 1–3 of 4 done (phases 1–7, 9–11). This document is the
 brief for the implementation sessions. It extends the plugin described in
 [CLAUDE.md](CLAUDE.md); the output format is
 [templates/graphcreator-dag-format.md](templates/graphcreator-dag-format.md).
@@ -301,16 +301,20 @@ upstream mode:
   "max_papers": 15,
   "entries": [
     {"n": 1, "a": "Diabetes", "support": 12,
-     "query": "(\"diabetes mellitus\"[tiab] OR diabetes[tiab]) AND (\"risk factor*\"[tiab] OR predictor*[tiab] OR determinant*[tiab]) AND (\"systematic review\"[tiab] OR meta-analys*[tiab] OR \"umbrella review\"[tiab])",
-     "fallback": "(\"diabetes mellitus\"[tiab] OR diabetes[tiab]) AND (\"risk factor*\"[tiab] OR predictor*[tiab] OR determinant*[tiab]) AND (surgery[tiab] OR surgical[tiab] OR postoperative[tiab])"}
+     "query": "(\"diabetes mellitus\"[ti] OR diabetes[ti]) AND (\"risk factor*\"[ti] OR determinant*[ti] OR etiolog*[ti] OR aetiolog*[ti] OR predictor*[ti] OR \"factors associated with\"[ti]) AND (\"systematic review\"[tiab] OR meta-analys*[tiab] OR \"umbrella review\"[tiab])",
+     "fallback": "(\"diabetes mellitus\"[ti] OR diabetes[ti]) AND (\"risk factor*\"[ti] OR determinant*[ti] OR etiolog*[ti] OR aetiolog*[ti] OR predictor*[ti] OR \"factors associated with\"[ti]) AND (surgery[tiab] OR surgical[tiab] OR postoperative[tiab])"}
   ]
 }
 ```
 
-`a` is a cause of the target (a node with a kept claim into it), ranked by
-support as in `pairs`; `query` looks for reviews and meta-analyses of its risk
-factors; `fallback` for primary studies in the setting, from `setting_terms`
-(an entry without `setting_terms` has `fallback: null`). Defined, like the
+`a` is a cause of the target (a node with a kept claim into it that shows an
+effect), ranked by support as in `pairs`; `query` looks for reviews and
+meta-analyses of its risk factors, with the cause and the risk words in the
+title (`[ti]`), so papers on the cause as a risk factor for something else
+mostly fall out; `fallback` for primary studies in the setting, from
+`setting_terms` (an entry without `setting_terms` has `fallback: null`). When
+an entry still ends too broad, the searcher takes the top 50 by PubMed
+relevance and reports it as `top 50 of N`. Defined, like the
 other files, in `templates/causal-claims-spec.md`.
 
 ### `scripts/causal_graph.py`
@@ -408,7 +412,9 @@ mapping, and only adds aliases or nodes for the new names. Reply:
 modes, chosen by the prompt's first label: `pairs:` (below) or `upstream:`.
 In upstream mode it reads `upstream.json`; per entry, list `up-<n>`: run
 `query` (reviews and meta-analyses); when it is too broad or no candidate
-passes, run `fallback` (skipped when null; too broad again: report and skip).
+passes, run `fallback` (skipped when null); when the entry still ends too
+broad, rerun the review `query` (or, if only `fallback` was too broad, the
+`fallback`) with `--top 50` and report `top 50 of N`.
 A paper passes if it reports an effect of some variable on the entry's cause,
 in humans; prefer reviews and meta-analyses, then setting-matched papers; at
 most 5 per entry and `max_papers` in total. The reply has the same shape, per
@@ -695,6 +701,8 @@ The discovery agents, the citation chaser, `stage_prep.py`,
 | Graph scope | The target's ancestors: direct causes, edges among them, causes of causes (user's choice, after wave 2; first agreed as "target, direct causes, edges among causes") | Direct causes only; keep every variable with any edge | The researcher wants how causes affect each other and what affects the causes |
 | Causes of causes | A deliberate upstream round (user's choice) | Only what the papers report incidentally | Variables that affect the causes are part of the question |
 | Upstream narrowing | Reviews and meta-analyses of each cause's risk factors first, then primary studies in the setting | Reviews only; setting-restricted only | Best evidence per paper; a fallback when no review exists |
+| Upstream queries (after the wave-3 T2) | Cause and risk words in the title; the top 50 by relevance, reported as such, when still too broad (user's choice) | Title words only, too-broad causes skipped; MeSH `/etiology` subheadings | With `[tiab]` the review query for preoperative anemia found only reviews of anemia as a cause of outcomes, and every common cause (frailty, diabetes) was too broad; in the title, frailty gave 126 on-topic hits, and diabetes' top 50 held an exposure-wide umbrella review of its risk factors |
+| Causes for the upstream round | Only nodes whose claims into the target show an effect | Any claim into the target | A node with only `none` claims is not a cause |
 | Upstream size | Top 5 causes, at most 15 papers per run (user's choice) | Top 10 and 30; every cause and 60 | Cost (~+1M weighted) |
 | Upstream agent | The pair searcher with an upstream mode | A new agent | Same tools and screening; one agent to maintain |
 | Upstream stop | As the pair round: once, only on cap or manual downloads | Always stop before it | Consistent with the pair round |
@@ -929,13 +937,13 @@ After landing, two fixes went in as their own commits: `117fcf5` (ancestors
 only, see "Node fields") and `24830df` (measurements for every variable;
 types from raw levels), both found in review and the T2 tests.
 
-### Wave 3: causes of causes [ ]
+### Wave 3: causes of causes [x]
 
 Phases: 9, 10, 11. Parallel: yes. Integration check after the wave:
 `bash test-fixtures/run_offline.sh`, the `causal-graph` README block, and the
 T2 test of phase 10 (run from the orchestrating session after landing).
 
-#### Phase 9: Upstream script and contracts [ ]
+#### Phase 9: Upstream script and contracts [x] (e619200)
 
 - **Goal:** `causal_graph.py upstream` writes `upstream.json`, and the
   contracts define it and the three new profile fields.
@@ -960,7 +968,7 @@ T2 test of phase 10 (run from the orchestrating session after landing).
 - **Done when:** the README block passes; `run_offline.sh` passes.
 - **Out of scope:** the agent and the skill.
 
-#### Phase 10: Pair searcher upstream mode [ ]
+#### Phase 10: Pair searcher upstream mode [x] (2f639fd)
 
 - **Goal:** `causal-pair-searcher` runs `upstream.json` entries as described
   under "Agents".
@@ -977,7 +985,7 @@ T2 test of phase 10 (run from the orchestrating session after landing).
   records pass `stage_prep.py merge --dry-run` with `no_header` empty.
 - **Out of scope:** pairs mode, unchanged.
 
-#### Phase 11: Skill upstream round [ ]
+#### Phase 11: Skill upstream round [x] (6cc6d92)
 
 - **Goal:** the skill runs step 8 of "The run, step by step" and asks for the
   new fields.
@@ -992,6 +1000,10 @@ T2 test of phase 10 (run from the orchestrating session after landing).
   spec.
 - **Done when:** grep checks pass; `run_offline.sh` passes.
 - **Out of scope:** CLAUDE.md, README (phase 8).
+
+After landing: `e09199c` (a cause needs a claim into the target that shows
+an effect) and `6f20cfa` (upstream queries in the title; top 50 when still
+too broad), the second after the T2 test of phase 10.
 
 ### Wave 4: integration [ ]
 
@@ -1050,7 +1062,8 @@ extraction (~1M); the orchestrating conversation on top. Roughly 11–16M in
 all, against ~21M for the 42-paper review with summaries and topic notes.
 Measure it on the first real run. Measured at T2 (2026-11-19, synthetic
 fixture papers and one live pair): extractor on 3 short papers ~0.17M,
-harmonizer ~0.08M per pass, pair searcher on one 25-hit pair ~0.09M.
+harmonizer ~0.08M per pass, pair searcher on one 25-hit pair ~0.09M, upstream
+mode ~0.11–0.13M per test (one or two entries, up to 3 papers).
 
 ## Open issues
 
