@@ -340,6 +340,40 @@ json.dump(v, open(out, 'w'))" $T/side/claims/2020_ashford_bell.json $VJ $T/varia
         print(' '.join(d['graph']+':'+d['to'] for d in json.load(sys.stdin)['off_path']))")"
   expect off-path-dags 0 "$(cat $T/side-out/*.dag.yaml | grep -c 'Retinopathy')"
 
+  # timing: a copy of variables.json with tags changed, "node:key:json value" each
+  tag() { python3 -c "
+import json, sys
+v = json.load(open(sys.argv[1]))
+for arg in sys.argv[3:]:
+    name, key, val = arg.split(':', 2)
+    [n for n in v['nodes'] if n['name'] == name][0][key] = json.loads(val)
+json.dump(v, open(sys.argv[2], 'w'))" "$@"; }
+  tag $VJ $T/variables-timing.json 'Operative duration:timing:"target_measure"' 'BMI:timing:"later"' \
+    'Physical activity:exogenous:true'
+  expect timing "['Operative duration'] ['BMI'] ['BMI>Physical activity'] 0 [5, 6]" \
+    "$($G assemble $V --variables $T/variables-timing.json --profile $P --out $T/timing-out | python3 -c "
+import json,sys; r=json.load(sys.stdin)
+print(r['target_measures'], r['later'], [d['from']+'>'+d['to'] for d in r['into_exogenous']], len(r['cycle_drops']), r['edges'])")"
+  expect timing-measure-dags 0 "$(cat $T/timing-out/*.dag.yaml | grep -c 'Operative duration')"
+  expect timing-later-dags 2 "$(cat $T/timing-out/*.dag.yaml \
+    | grep -cF 'Body mass index before surgery. Measured after the prediction time.')"
+  expect timing-evidence 4 "$(grep -cE '^- (Timing: later, measured after the prediction time|Timing: baseline; exogenous|Operative duration: a measure of the target, not a cause; its edges left out of both graphs: Operative duration → Fixture outcome|BMI → Physical activity: suggested \(1\); nothing in the graph causes Physical activity)' \
+    $T/timing-out/fixture-causal-20261119.evidence.md)"
+  tag $VJ $T/variables-tags.json 'Diabetes:exogenous:true' 'Physical activity:exogenous:true' \
+    'BMI:timing:"target_measure"'
+  $G pairs $V --variables $T/variables-tags.json --profile $P --out $T/pairs-tags.json > /dev/null
+  expect pairs-tags "Diabetes-Fixture prophylaxis, Physical activity-Fixture prophylaxis" \
+    "$(python3 -c "import json; \
+    print(', '.join(p['a']+'-'+p['b'] for p in json.load(open('$T/pairs-tags.json'))['pairs']))")"
+  $G upstream $V --variables $T/variables-tags.json --profile $P --out $T/up-tags.json > /dev/null
+  expect up-tags "1 Fixture prophylaxis, 2 Operative duration, 3 Smoking" \
+    "$(python3 -c "import json; \
+    print(', '.join(str(e['n'])+' '+e['a'] for e in json.load(open('$T/up-tags.json'))['entries']))")"
+  tag $VJ $T/variables-bad-timing.json 'BMI:timing:"preoperative"'
+  $G assemble $V --variables $T/variables-bad-timing.json --profile $P --out $T/bad-timing > $T/bad-timing.out
+  expect bad-timing "2 {\"error\": \"variables file variables-bad-timing.json: node 'BMI': timing 'preoperative' is not one of baseline, later, target_measure, unknown\"}" \
+    "$? $(cat $T/bad-timing.out)"
+
   # refused: a profile whose causal_target is not variables.json's target
   sed 's/^causal_target: .*/causal_target: Other outcome/' $P > $T/other-target.md
   same bad-target <($G assemble $V --variables $VJ --profile $T/other-target.md --out $T/bad) \
