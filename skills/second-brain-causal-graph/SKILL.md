@@ -4,19 +4,21 @@ description: >
   Builds a causal graph (GraphCreator DAG) of what the literature says causes a
   prediction target: a short Q&A, discovery (arXiv, PubMed, cross-field,
   citation chasing), a checkpoint, then claim extraction with verbatim quotes,
-  variable harmonization, a search for edges among the causes, and graph
-  assembly. Use when a researcher wants the causes of an outcome they predict
-  as a graph. Not for a literature review (second-brain-pipeline).
+  variable harmonization, searches for edges among the causes and for causes of
+  causes, and graph assembly. Use when a researcher wants the causes of an
+  outcome they predict as a graph. Not for a literature review
+  (second-brain-pipeline).
 ---
 
 # Causal graph
 
 Builds the most likely causal graph of a prediction target from what the
-literature reports: the target, its direct causes, and the edges among those
-causes. Every arrow traces back to a sentence quoted from a paper; the model's
-own background knowledge never adds an edge. The output is two GraphCreator
-DAGs (strict and full) and an evidence report. Comparing them with an
-expert-built graph happens outside the plugin.
+literature reports: the target's ancestors, meaning its direct causes, the
+edges among them, and the causes of those causes. A variable that leads
+nowhere near the target is left out. Every arrow traces back to a sentence
+quoted from a paper; the model's own background knowledge never adds an edge.
+The output is two GraphCreator DAGs (strict and full) and an evidence report.
+Comparing them with an expert-built graph happens outside the plugin.
 
 Act as the calling agent: this skill runs the Q&A, dispatches agents and runs
 scripts in order, and holds the checkpoint. It does no searching, extraction
@@ -107,10 +109,17 @@ record what you have and name the gap in the draft.
      families with a stem of 4+ characters. Aim for tens of hits, not
      thousands. Ask: "Would the papers you'd expect to name the causes match
      these?"
+   - `setting_terms`: 2–5 single PubMed words or phrases for the setting's
+     population, drafted from `causal_setting` (colorectal surgery →
+     `surgery`, `surgical`, `postoperative`). They restrict the search for
+     causes of causes to the setting when no review covers a cause. Ask:
+     "Do these words pick out your population?"
    - The defaults, which the researcher may change: `pair_search_k` 15 (how
      many top causes get the search for edges among them),
      `pair_search_max_papers` 40 (papers that search may add in total),
-     `date_window_years` 10 (the core question has no window anyway).
+     `upstream_search_k` 5 (how many top causes get a search for their own
+     causes), `upstream_search_max_papers` 15 (papers that search may add in
+     total), `date_window_years` 10 (the core question has no window anyway).
 
    `seed_papers` stays `[]` unless the researcher names papers they know
    report causes. `keywords_of_interest` is `[]` (no topic notes are written)
@@ -136,6 +145,9 @@ record what you have and name the gap in the draft.
    exclude_papers: []          # same string forms as seed_papers
    pair_search_k: 15
    pair_search_max_papers: 40
+   upstream_search_k: 5
+   upstream_search_max_papers: 15
+   setting_terms: []           # 2–5 PubMed terms for the setting's population
    review_scope: >-
      IN: <causes, risk factors or predictors of the target in this or adjacent
      settings, with an effect estimate or a causal claim; effects among those
@@ -341,8 +353,8 @@ python3 <plugin root>/scripts/causal_graph.py pairs <paper_vault_path> \
   --out <causal_graphs/<id>>/.work/pairs.json
 ```
 
-If it reports no `pairs`, skip to step 7. Otherwise dispatch
-`causal-pair-searcher`:
+If it reports no `pairs`, skip to step 7 (the upstream round). Otherwise
+dispatch `causal-pair-searcher`:
 
 ```
 pairs: <causal_graphs/<id>>/.work/pairs.json
@@ -383,7 +395,40 @@ If it reports `names` 0, skip pass 2. Otherwise dispatch
 `variables exists: true`: it keeps every existing node and mapping and only
 adds aliases or nodes for the new names.
 
-## 7. Assemble
+## 7. Upstream round: causes of the causes
+
+```
+python3 <plugin root>/scripts/causal_graph.py upstream <paper_vault_path> \
+  --variables <causal_graphs/<id>>/.work/variables.json --profile <profile> \
+  --out <causal_graphs/<id>>/.work/upstream.json
+```
+
+It takes the top `upstream_search_k` causes of the target. If it reports
+`entries` 0, skip to step 8. Otherwise dispatch `causal-pair-searcher` in
+upstream mode:
+
+```
+upstream: <causal_graphs/<id>>/.work/upstream.json
+profile: <profile>
+find_papers: <plugin root>/scripts/find_papers.py
+```
+
+It replies `OK` with hits, screened and added per entry, the entries that fell
+back to the setting-restricted query, the too-broad entries, whether it hit
+the `max_papers` cap, and a **needs-manual-download** list. Then `merge` and
+`exclude` with the step 6 calls.
+
+**Stop once, and only** if the searcher reported needs-manual-download papers
+or hit its cap, exactly as in step 6, offering to raise
+`upstream_search_max_papers` and re-run this round (`upstream`, the searcher,
+`merge`, `exclude`). At most one stop in this round, whatever happened in
+step 6.
+
+Then as at the end of step 6: `plan`, the extractor in waves, `check`
+(relaying as in step 4), `names --new-only`, and, unless it reports `names` 0,
+harmonizer pass 3 with the step 5 prompt and `variables exists: true`.
+
+## 8. Assemble
 
 ```
 python3 <plugin root>/scripts/causal_graph.py assemble <paper_vault_path> \
@@ -404,7 +449,8 @@ run it again; never write a graph or the report by hand.
 - The profile id; papers in the vault, excluded, and extracted; claims kept
   and rejected by the quote check, with the papers that lost the most.
 - Both graphs: nodes, edges, and edges into the target, strict and full; the
-  cycle drops; `warnings`.
+  cycle drops; `off_path`, the edges dropped because their effect leads
+  nowhere near the target; `warnings`.
 - `top_unmapped`: the names too vague to be one variable that lost the most
   claims.
 - `presents_dag` papers by name: if one is the expert graph's source, add it
@@ -412,6 +458,9 @@ run it again; never write a graph or the report by hand.
   free).
 - The pair round in one line: pairs searched, papers added, too-broad pairs,
   whether the cap was hit.
+- The upstream round in one line: causes searched, how many fell back to the
+  setting-restricted query, papers added, too-broad entries, whether the cap
+  was hit; or that it was skipped (no causes of the target yet).
 - Anything that failed at any step, plainly, with every agent's `FAIL` line.
 - The three output paths. The researcher may edit
   `<causal_graphs/<id>>/.work/variables.json` (merge or split nodes, fix
