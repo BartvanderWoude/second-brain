@@ -1,0 +1,29 @@
+{
+  "errors": [
+    "schema is missing",
+    "nodes[0]: name is missing or empty",
+    "nodes[1]: name is missing or empty",
+    "node 'Weight': levels on a continuous node",
+    "node 'Untyped': levels on an untyped node",
+    "node 'Untyped': unit on an untyped node",
+    "node 'Noshares': shares without levels",
+    "node 'Negative': a negative share",
+    "node 'Words': role 'confounder' is not one of exposure, outcome, latent, adjusted, selected, other",
+    "node 'Words': var_type 'binary' is not one of categorical, ordinal, continuous, discrete",
+    "node 'Words': form 'curvy' is not one of linear, smooth, threshold",
+    "node 'Words': pos is not two numbers",
+    "node 'Y': description is not text",
+    "edge 'Y' -> 'Y': points from a node to itself",
+    "edge 'Weight' -> 'Y': sign 'up' is not one of positive, negative",
+    "edge 'Weight' -> 'Y': strength 'huge' is not one of small, medium, large",
+    "edge 'Weight' -> 'Y': appears twice",
+    "edge 'Weight' -> 'Y': sign 'down' for 'light' is not one of positive, negative",
+    "edges[3]: from is missing or empty",
+    "edges[3]: evidence is not a list of text"
+  ],
+  "warnings": [
+    "node 'Untyped': no type",
+    "node 'Noshares': fewer than two levels",
+    "node 'Words': a form on a node without causes"
+  ]
+}

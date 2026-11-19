@@ -1,0 +1,17 @@
+schema: graphcreator/0.1
+nodes:
+  - name: A
+    var_type: continuous
+  - name: B
+    role: exposure
+    var_type: continuous
+  - name: C
+    var_type: categorical
+    levels: ["no", "yes"]
+edges:
+  - from: A
+    to: B
+  - from: B
+    to: C
+    evidence:
+      - "PMID:1"

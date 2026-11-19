@@ -1,0 +1,64 @@
+schema: graphcreator/0.1
+name: "2024-01-31"
+nodes:
+  - name: Age
+    var_type: continuous
+    description: Age at surgery, in years; a:b and 1:30 pm stay plain
+    unit: years
+  - name: "no"
+    var_type: categorical
+    levels: ["Yes", "NULL", "~", "n", "Off"]
+    description: "TRUE"
+  - name: "1_000"
+    var_type: ordinal
+    levels: ["0o17", "1:30", ".inf", ".nan", "1e3", "3.5"]
+    description: "0x1F"
+  - name: "a: b"
+    var_type: categorical
+    levels: ["low, mid", "[x]", "a:b", kg/m², plain words]
+    description: "ends with colon:"
+  - name: "2024-01-31"
+    var_type: continuous
+    description: " leading space"
+    unit: "%"
+  - name: "3.5"
+    var_type: discrete
+    description: "trailing space "
+    unit: kg/m²
+  - name: "#tag"
+    var_type: continuous
+    description: say "hi" here
+  - name: "\"dq\" and back\\slash"
+    var_type: continuous
+    description: "line\nbreak\tand tab"
+  - name: "-x"
+    var_type: continuous
+    description: "="
+  - name: "<<"
+    var_type: continuous
+    description: "has # inside"
+  - name: "y"
+    var_type: continuous
+    description: "2024-01-31 10:00:00"
+  - name: BMI (kg/m²)
+    var_type: continuous
+    description: "`tick"
+  - name: "0x1F"
+    var_type: continuous
+    description: "@handle"
+edges:
+  - from: Age
+    to: "1_000"
+    sign: positive
+    evidence:
+      - "PMID:123"
+      - "doi:10.1000/xyz"
+      - "vault:2019_smith_jones"
+    note: "probable: 2 cohort, 1 case-control"
+  - from: "a: b"
+    to: "no"
+    strength: small
+    note: "Off"
+  - from: "no"
+    to: "3.5"
+    sign: {"Yes": negative, "NULL": positive, "~": positive}

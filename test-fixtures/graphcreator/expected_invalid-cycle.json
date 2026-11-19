@@ -1,0 +1,6 @@
+{
+  "errors": [
+    "the edges form a directed cycle: A -> B -> C -> A"
+  ],
+  "warnings": []
+}

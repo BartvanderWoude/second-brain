@@ -1,0 +1,8 @@
+{
+  "errors": [
+    "top level: unknown key 'version'",
+    "node 'A': unknown key 'aliases'",
+    "edge 'A' -> 'Y': unknown key 'weight'"
+  ],
+  "warnings": []
+}

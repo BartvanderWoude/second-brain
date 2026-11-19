@@ -1,0 +1,27 @@
+{
+  "schema": "graphcreator/0.1",
+  "name": "Sign shapes",
+  "nodes": [
+    {"name": "Smoking", "var_type": "categorical", "levels": ["never", "former", "current"]},
+    {"name": "Diabetes", "var_type": "categorical", "levels": ["no", "yes"]},
+    {"name": "Sex", "var_type": "categorical", "levels": ["female", "male"]},
+    {"name": "Age", "var_type": "continuous", "unit": "years"},
+    {"name": "Severity", "var_type": "ordinal", "levels": ["mild", "moderate", "severe"]},
+    {"name": "Wound class", "var_type": "categorical",
+     "levels": ["clean", "clean-contaminated", "contaminated"]},
+    {"name": "Outcome", "role": "outcome", "var_type": "categorical", "levels": ["no", "yes"]}
+  ],
+  "edges": [
+    {"from": "Smoking", "to": "Outcome",
+     "sign": {"current": "positive", "never": "negative", "former": "positive"}, "strength": "medium"},
+    {"from": "Diabetes", "to": "Outcome", "sign": "positive"},
+    {"from": "Sex", "to": "Outcome", "sign": {"male": "positive", "female": "negative"}},
+    {"from": "Diabetes", "to": "Severity", "sign": {"yes": "positive", "no": "negative"}},
+    {"from": "Age", "to": "Severity", "sign": "positive"},
+    {"from": "Age", "to": "Wound class", "sign": {"contaminated": "positive", "clean": "negative"}},
+    {"from": "Severity", "to": "Outcome", "sign": "positive", "strength": "large"},
+    {"from": "Wound class", "to": "Outcome",
+     "sign": {"contaminated": "positive", "clean-contaminated": "positive", "clean": "negative"}},
+    {"from": "Smoking", "to": "Wound class", "strength": "small"}
+  ]
+}

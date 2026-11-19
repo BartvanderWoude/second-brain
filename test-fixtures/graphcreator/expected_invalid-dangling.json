@@ -1,0 +1,7 @@
+{
+  "errors": [
+    "edge 'A' -> 'Ghost': to 'Ghost' is not a node",
+    "edge 'Nobody' -> 'Y': from 'Nobody' is not a node"
+  ],
+  "warnings": []
+}

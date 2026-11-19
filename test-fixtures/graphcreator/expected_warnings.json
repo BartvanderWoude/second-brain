@@ -1,0 +1,16 @@
+{
+  "errors": [],
+  "warnings": [
+    "node 'Untyped': no type",
+    "node 'One level': fewer than two levels",
+    "node 'Twice': level 'low' twice",
+    "node 'Off sum': shares add up to 0.9, not 1",
+    "node 'Lonely': a form on a node without causes",
+    "edge 'Three' -> 'Measure': one word where a sign map over the levels of 'Three' is expected",
+    "edge 'Measure' -> 'Nominal': one word where a sign map over the levels of 'Nominal' is expected",
+    "edge 'Three' -> 'Nominal': a sign between two nominal nodes",
+    "edge 'Untyped' -> 'Measure': a sign map where one word is expected",
+    "edge 'Off sum' -> 'Measure': sign names 'maybe', not a level of 'Off sum'",
+    "edge 'Off sum' -> 'Nominal': sign names 's', not a level of 'Nominal'"
+  ]
+}

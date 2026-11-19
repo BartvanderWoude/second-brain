@@ -1,0 +1,14 @@
+{
+  "schema": "graphcreator/0.1",
+  "name": "Numbers",
+  "locked": true,
+  "nodes": [
+    {"name": "Thirds", "var_type": "categorical", "levels": ["a", "b", "c"],
+     "shares": [0.33333, 0.33333, 0.33334], "pos": [10.4, 20.6]},
+    {"name": "Whole", "var_type": "categorical", "levels": ["no", "yes"], "shares": [1.0, 0.0]},
+    {"name": "Nearly whole", "var_type": "categorical", "levels": ["no", "yes"],
+     "shares": [0.9996, 0.0004], "pos": [-5, 0]},
+    {"name": "Ints", "var_type": "ordinal", "levels": ["low", "high"], "shares": [0, 1]}
+  ],
+  "edges": []
+}

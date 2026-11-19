@@ -1,0 +1,21 @@
+{
+  "schema": "graphcreator/0.1",
+  "name": "Surgical site infection",
+  "nodes": [
+    {"name": "Diabetes", "var_type": "categorical", "levels": ["no", "yes"],
+     "shares": [0.88, 0.12], "pos": [0, 0]},
+    {"name": "Wound class", "var_type": "categorical",
+     "levels": ["clean", "clean-contaminated", "contaminated"],
+     "shares": [0.6, 0.3, 0.1], "form": "threshold", "pos": [0, 160]},
+    {"name": "SSI", "role": "outcome", "var_type": "categorical", "levels": ["no", "yes"],
+     "shares": [0.92, 0.08], "form": "linear", "pos": [300, 80]}
+  ],
+  "edges": [
+    {"from": "Diabetes", "to": "SSI", "sign": "positive", "strength": "medium"},
+    {"from": "Diabetes", "to": "Wound class",
+     "sign": {"clean": "negative", "contaminated": "positive"}, "strength": "small"},
+    {"from": "Wound class", "to": "SSI",
+     "sign": {"clean": "negative", "clean-contaminated": "positive", "contaminated": "positive"},
+     "strength": "large"}
+  ]
+}

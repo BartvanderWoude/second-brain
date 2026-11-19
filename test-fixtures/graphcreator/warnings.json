@@ -1,0 +1,24 @@
+{
+  "schema": "graphcreator/0.1",
+  "name": "Warnings only",
+  "nodes": [
+    {"name": "Untyped"},
+    {"name": "One level", "var_type": "categorical", "levels": ["only"]},
+    {"name": "Twice", "var_type": "ordinal", "levels": ["low", "low", "high"]},
+    {"name": "Off sum", "var_type": "categorical", "levels": ["no", "yes"], "shares": [0.5, 0.4]},
+    {"name": "Close sum", "var_type": "categorical", "levels": ["no", "yes"], "shares": [0.5, 0.501]},
+    {"name": "Lonely", "var_type": "continuous", "form": "linear"},
+    {"name": "Three", "var_type": "categorical", "levels": ["x", "y", "z"]},
+    {"name": "Nominal", "var_type": "categorical", "levels": ["p", "q", "r"]},
+    {"name": "Measure", "var_type": "continuous", "form": "smooth"}
+  ],
+  "edges": [
+    {"from": "Three", "to": "Measure", "sign": "positive"},
+    {"from": "Measure", "to": "Nominal", "sign": "negative"},
+    {"from": "Three", "to": "Nominal", "sign": {"p": "positive"}},
+    {"from": "Untyped", "to": "Measure", "sign": {"a": "positive"}},
+    {"from": "Off sum", "to": "Measure", "sign": {"maybe": "positive", "yes": "positive"}},
+    {"from": "Off sum", "to": "Nominal", "sign": {"p": "positive", "s": "negative"}},
+    {"from": "Twice", "to": "Measure", "sign": "positive"}
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "name": "No schema",
+  "nodes": [
+    {"name": "", "var_type": "continuous"},
+    {"name": "  ", "var_type": "continuous"},
+    {"name": "Weight", "var_type": "continuous", "levels": ["light", "heavy"]},
+    {"name": "Untyped", "levels": ["a", "b"], "unit": "kg"},
+    {"name": "Noshares", "var_type": "categorical", "shares": [0.5, 0.5]},
+    {"name": "Negative", "var_type": "categorical", "levels": ["no", "yes"], "shares": [1.1, -0.1]},
+    {"name": "Words", "role": "confounder", "var_type": "binary", "form": "curvy", "pos": [1]},
+    {"name": "Y", "var_type": "continuous", "description": 5}
+  ],
+  "edges": [
+    {"from": "Y", "to": "Y"},
+    {"from": "Weight", "to": "Y", "sign": "up", "strength": "huge"},
+    {"from": "Weight", "to": "Y", "sign": {"light": "down"}},
+    {"to": "Y", "evidence": "PMID:1"}
+  ]
+}

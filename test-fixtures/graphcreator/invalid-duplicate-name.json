@@ -1,0 +1,9 @@
+{
+  "schema": "graphcreator/0.1",
+  "nodes": [
+    {"name": "Age", "var_type": "continuous"},
+    {"name": "age", "var_type": "continuous"},
+    {"name": " Age ", "var_type": "continuous"}
+  ],
+  "edges": []
+}

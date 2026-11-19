@@ -1,0 +1,15 @@
+{
+  "schema": "graphcreator/0.1",
+  "name": "  ",
+  "locked": false,
+  "nodes": [
+    {"name": "A", "role": "other", "var_type": "continuous", "levels": [], "shares": null,
+     "description": "", "unit": "", "form": null, "pos": null},
+    {"name": "B", "role": "exposure", "var_type": "continuous", "unit": null, "description": "   "},
+    {"name": "C", "role": null, "var_type": "categorical", "levels": ["no", "yes"]}
+  ],
+  "edges": [
+    {"from": "A", "to": "B", "sign": {}, "strength": null, "evidence": [], "note": ""},
+    {"from": "B", "to": "C", "sign": null, "evidence": ["PMID:1"], "note": " "}
+  ]
+}

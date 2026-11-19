@@ -1,0 +1,7 @@
+{
+  "schema": "graphcreator/0.1",
+  "nodes": [
+    {"name": "Diabetes", "var_type": "categorical", "levels": ["no", "yes"], "unit": "mg/dL"}
+  ],
+  "edges": []
+}

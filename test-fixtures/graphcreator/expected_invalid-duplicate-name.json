@@ -1,0 +1,6 @@
+{
+  "errors": [
+    "nodes[2]: duplicate name 'Age'"
+  ],
+  "warnings": []
+}

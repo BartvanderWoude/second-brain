@@ -1,0 +1,11 @@
+{
+  "schema": "graphcreator/0.1",
+  "version": 2,
+  "nodes": [
+    {"name": "A", "var_type": "continuous", "aliases": ["a"]},
+    {"name": "Y", "var_type": "continuous"}
+  ],
+  "edges": [
+    {"from": "A", "to": "Y", "weight": 0.4}
+  ]
+}
